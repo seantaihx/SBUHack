@@ -147,6 +147,126 @@ Attempt-level provider failures are fields on a successful `GET /runs/{run_id}` 
 
 No other routes (run list, cancellation, auth, provider configuration, or quality scoring) are defined or assumed.
 
+## Proposed benchmark API (not yet agreed or implemented)
+
+The current OpenAPI v1 contract contains no benchmark endpoints. The frontend attachment requested paths under `/api/benchmarks`, while the existing API client and shared spec use `/api/v1`. To preserve the existing versioning convention, this frontend proposal uses `/api/v1/benchmarks/...` (client suffixes shown below). **Sean must confirm or revise the prefix, schemas, statuses, pagination, and auth behavior before backend implementation.** These are not live routes today.
+
+| Method and proposed route | Request | Response | UI consumer |
+|---|---|---|---|
+| `GET /api/v1/benchmarks/datasets` | None | `BenchmarkDatasetsResponse` | Dataset selector and supported model choices. |
+| `GET /api/v1/benchmarks/runs?limit=20&cursor=...` | Optional `limit` (1–100, default 20) and opaque cursor | `BenchmarkRunsResponse` | Previous-run list and pagination. |
+| `POST /api/v1/benchmarks/runs` | `StartBenchmarkRequest` below | `202 StartBenchmarkResponse`, plus `Location: /api/v1/benchmarks/runs/{run_id}` | Run button; disables duplicate submission while request is pending. |
+| `GET /api/v1/benchmarks/runs/{run_id}` | None | `BenchmarkRun` snapshot | Progress poll, reopening selected history item. |
+| `GET /api/v1/benchmarks/runs/{run_id}/cases?limit=50&cursor=...` | Optional `limit` (1–100, default 50) and opaque cursor | `BenchmarkCasesResponse` | Individual outcomes with pagination. |
+
+### Dataset catalog
+
+Proposed `BenchmarkDatasetsResponse`:
+
+```json
+{
+  "datasets": [{
+    "dataset_id": "starter-v1",
+    "name": "EcoAgent Starter",
+    "version": "1.0.0",
+    "description": "Objective-check synthetic workload.",
+    "case_count": 5,
+    "categories": ["classification", "arithmetic"],
+    "supported_models": ["openai/gpt-oss-20b", "openai/gpt-oss-120b"],
+    "provenance": "synthetic"
+  }]
+}
+```
+
+`supported_models` comes from backend configuration. `eco-auto` is a frontend policy identifier and must not be interpreted as a Groq model. Proposed provenance values are `curated` and `synthetic`; confirm allowed values with the backend owner.
+
+### Start request and acknowledgement
+
+The attachment's request is retained, with JSON field names typed as follows:
+
+```json
+{
+  "dataset_id": "starter-v1",
+  "baseline": { "model_id": "openai/gpt-oss-120b", "optimization_enabled": false },
+  "candidate": { "model_id": "eco-auto", "optimization_enabled": true },
+  "max_cases": 5
+}
+```
+
+Proposed validation: `dataset_id` must exist; each model must be supported by the selected dataset except the agreed `eco-auto` policy ID; baseline must keep optimization disabled; `max_cases` must be 1 through `min(dataset.case_count, backend_limit)`. The backend must enforce workload and budget limits. The browser sends this request only to EcoAgent; Groq credentials and provider requests stay on the backend.
+
+```json
+{ "run_id": "bench_001", "status": "queued" }
+```
+
+### Run snapshot and metrics
+
+`GET /benchmarks/runs/{run_id}` returns the same `BenchmarkRun` shape while queued/running and after terminal state; metrics may be null until available. Proposed statuses: `queued`, `running`, `completed`, `partial`, `failed`, `cancelled`. The attachment names queued/running/completed/failed and makes cancellation conditional; partial is included to represent mixed case outcomes. Confirm status set and cancellation semantics with Sean.
+
+```json
+{
+  "run_id": "bench_001",
+  "status": "completed",
+  "dataset_id": "starter-v1",
+  "progress": { "completed": 5, "total": 5 },
+  "baseline": { "model_id": "openai/gpt-oss-120b", "optimization_enabled": false },
+  "candidate": { "model_id": "eco-auto", "optimization_enabled": true },
+  "max_cases": 5,
+  "measurement_source": "observed",
+  "evaluation_method": "exact_match_or_deterministic_check",
+  "baseline_metrics": {
+    "total_cases": 5, "passed_cases": 4, "pass_rate": 0.8, "failed_cases": 1,
+    "total_cost_usd": 0.015, "mean_latency_ms": 1250,
+    "input_tokens": 3000, "output_tokens": 900, "total_requests": 5, "error_count": 0
+  },
+  "candidate_metrics": {
+    "total_cases": 5, "passed_cases": 4, "pass_rate": 0.8, "failed_cases": 1,
+    "total_cost_usd": 0.008, "mean_latency_ms": 820,
+    "input_tokens": 2900, "output_tokens": 850, "total_requests": 5, "error_count": 0
+  },
+  "created_at": "2026-10-24T12:00:00Z",
+  "started_at": "2026-10-24T12:00:01Z",
+  "finished_at": "2026-10-24T12:00:15Z",
+  "error": null
+}
+```
+
+This sample is **illustrative fixture data only**, not performance evidence. `measurement_source` is proposed as `simulated` or `observed`; observed means provider usage and client timing were returned, not independently audited billing or power measurements. Metric definitions/units: costs in USD estimates, latency in milliseconds (proposed arithmetic mean), token counts as integer totals, pass rate as a fraction 0–1, request and error counts as integers. Every metric field is nullable; UI shows null as **Unavailable**. Confirm metric inclusion and denominators with Sean. No routing/duplicate-call/cache/tool-block counts are included until backend support is agreed.
+
+### Individual case results
+
+`GET /benchmarks/runs/{run_id}/cases` returns a cursor page:
+
+```json
+{
+  "items": [{
+    "case_id": "classify-support-001",
+    "category": "classification",
+    "status": "passed",
+    "evaluation_method": "exact_match",
+    "expected": "billing",
+    "baseline": {
+      "model_id": "openai/gpt-oss-120b", "routing_reason": "fixed_baseline", "output": "billing", "latency_ms": 1120,
+      "input_tokens": 55, "output_tokens": 2, "cost_usd": 0.001, "error": null
+    },
+    "candidate": {
+      "model_id": "openai/gpt-oss-20b", "routing_reason": "simple_task_small", "output": "billing", "latency_ms": 510,
+      "input_tokens": 55, "output_tokens": 2, "cost_usd": 0.0004, "error": null
+    },
+    "evaluation_details": "Exact label match."
+  }],
+  "next_cursor": null
+}
+```
+
+Proposed case states are `passed`, `failed`, `skipped`, and `error`. Each side and each metric may be null; failed provider errors must be sanitized. Each side includes a nullable `routing_reason` so an `eco-auto` decision can be inspected per case. Outputs are rendered as plain text. The UI must not run an LLM judge or infer quality beyond the backend's declared objective evaluator.
+
+### Benchmark errors and open coordination points
+
+Proposal: use the existing `{ "error": { "code", "message", "details" } }` envelope for `404 DATASET_NOT_FOUND`/`RUN_NOT_FOUND`, `409 RUN_ALREADY_ACTIVE`, `422 VALIDATION_ERROR`/`UNSUPPORTED_MODEL`, `429 RATE_LIMITED`, `503 PROVIDER_UNAVAILABLE`, `504 PROVIDER_TIMEOUT`, and sanitized `500 INTERNAL_ERROR`. Keep prior results visible on polling errors, allow a user-driven retry, never automatically repeat `POST`, and never fall back from API mode to fixtures. Status and exact codes need Sean's agreement. Auth is not defined; proposal assumes no frontend-managed auth in the local hackathon environment and same-origin backend deployment. Confirm whether the API is private, requires auth, or uses a different session mechanism before customer use.
+
+Coordination checklist: versioned or unversioned route prefix; schemas above; model catalog and `eco-auto` semantics; status/cancel semantics; error envelope/codes; `limit` and opaque cursor pagination; authentication; dataset JSON format and evaluator rules; cost/latency definitions and nullability; provenance; backend-enforced per-run and budget limits. No benchmark route has been added to the shared OpenAPI spec yet.
+
 ## Proposed endpoint or schema changes
 
 **None.** If implementation reveals a mismatch, coordinate it with Sean first and update OpenAPI, examples, docs, and client together. Do not add frontend-only aliases or response fallbacks that hide a contract mismatch.

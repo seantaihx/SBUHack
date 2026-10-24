@@ -15,3 +15,5 @@ Baseline-versus-optimized routing checks should confirm the backend's selected r
 ## Deliberately out of the v1 fixture set
 
 Agent loop/duplicate-operation detection and a Permission Firewall (allow, deny, require approval) are not defined by the shared v1 API or current product scope. `proposed-out-of-scope.json` captures candidate cases for discussion only. These cases are not executable against v1, do not imply implemented product functionality, and need product/API agreement before implementation.
+
+`proposed-agent-firewall-v1.json` expands those proposed discussion cases to include repeated operations, legitimate repeats, allow/deny/approval, and unknown operations. All expected decisions are marked pending policy agreement and the data is not an executable starter dataset.

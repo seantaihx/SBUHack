@@ -1,0 +1,7 @@
+# Local secrets for backend and tools; Vite frontend overrides are ignored too.
+.env
+.env.*
+!.env.example
+api.env
+api.env.*
+!api.env.example
