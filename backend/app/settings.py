@@ -9,6 +9,11 @@ import re
 from dotenv import dotenv_values
 
 ROOT = Path(__file__).resolve().parents[2]
+MODEL_MAX_COMPLETION_TOKENS = {
+    'openai/gpt-oss-20b': 65536,
+    'openai/gpt-oss-120b': 65536,
+    'qwen/qwen3.8-27b': 16384,
+}
 
 
 @dataclass(frozen=True)
@@ -24,7 +29,7 @@ class Settings:
     base_url: str = 'https://api.groq.com/openai/v1'
     api_key: str = field(default='', repr=False)
     request_timeout_seconds: float = 30
-    max_completion_tokens: int = 2048
+    max_completion_tokens: int = 16384
     max_requests_per_run: int = 20
     max_requests_per_minute: int = 60
     max_run_cost_usd: float = 0.50
@@ -36,8 +41,8 @@ class Settings:
         object.__setattr__(self, 'database_path', path if path.is_absolute() else ROOT / path)
         if self.benchmark_mode not in ('simulated', 'groq'):
             raise ValueError('BENCHMARK_INFERENCE_MODE must be simulated or groq.')
-        if type(self.max_completion_tokens) is not int or not 1 <= self.max_completion_tokens <= 16384:
-            raise ValueError('INFERENCE_MAX_COMPLETION_TOKENS must be an integer from 1 to 16384.')
+        if type(self.max_completion_tokens) is not int or not 1 <= self.max_completion_tokens <= 65536:
+            raise ValueError('INFERENCE_MAX_COMPLETION_TOKENS must be an integer from 1 to 65536.')
         limits = (self.benchmark_max_cases, self.max_requests_per_run, self.max_requests_per_minute,
                   self.max_run_cost_usd, self.max_daily_cost_usd, self.benchmark_runs_per_minute,
                   self.request_timeout_seconds)
@@ -67,6 +72,10 @@ class Settings:
             return 'Live inference requires supported model pricing for spending controls.'
         return None
 
+    def completion_limit_for(self, model_id):
+        """Return the configured cap bounded by known Groq model output limits."""
+        return min(self.max_completion_tokens, MODEL_MAX_COMPLETION_TOKENS.get(model_id, self.max_completion_tokens))
+
     @classmethod
     def from_env(cls):
         values = {**dotenv_values(ROOT / '.env'), **os.environ}
@@ -80,7 +89,7 @@ class Settings:
                        base_url=value('INFERENCE_BASE_URL', cls.base_url) or cls.base_url,
                        live_enabled=value('LIVE_ENABLED', 'false').lower() == 'true',
                        benchmark_mode=value('BENCHMARK_INFERENCE_MODE', 'simulated'),
-                       max_completion_tokens=int(value('INFERENCE_MAX_COMPLETION_TOKENS', 2048)),
+                       max_completion_tokens=int(value('INFERENCE_MAX_COMPLETION_TOKENS', 16384)),
                        benchmark_max_cases=int(value('BENCHMARK_MAX_CASES', 10)),
                        benchmark_extra_model_ids=tuple(part.strip() for part in value('BENCHMARK_EXTRA_MODEL_IDS', 'qwen/qwen3.8-27b').split(',') if part.strip()),
                        benchmark_runs_per_minute=int(value('BENCHMARK_RUNS_PER_MINUTE', 10)),

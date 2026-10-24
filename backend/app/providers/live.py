@@ -22,7 +22,7 @@ class LiveProvider:
             raise ProviderError('PROVIDER_UNAVAILABLE')
         # Full advertised context + output ceiling is a conservative reservation,
         # NOT an estimate of missing usage. Unknown/failed usage retains it.
-        completion_limit = self.settings.max_completion_tokens
+        completion_limit = self.settings.completion_limit_for(model_id)
         ceiling = cost(model_id, 131072, completion_limit)
         reservation = self.store.reserve_inference(run_id, ceiling, self.settings)
         headers = {'Authorization': 'Bearer ' + self.settings.api_key} if self.settings.api_key else {}

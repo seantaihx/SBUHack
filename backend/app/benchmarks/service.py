@@ -69,11 +69,12 @@ class BenchmarkService:
         limit = min(self.settings.benchmark_max_cases, self.settings.max_requests_per_run // 2)
         if self.settings.benchmark_mode != 'groq':
             return limit
-        completion_limit = self.settings.max_completion_tokens
-        baseline_ceiling = cost(request.baseline.model_id, 131072, completion_limit)
+        baseline_ceiling = cost(request.baseline.model_id, 131072,
+                                self.settings.completion_limit_for(request.baseline.model_id))
         candidate_models = ((self.settings.small_model_id, self.settings.large_model_id)
                             if request.candidate.model_id == 'eco-auto' else (request.candidate.model_id,))
-        candidate_ceiling = max(cost(model, 131072, completion_limit) for model in candidate_models)
+        candidate_ceiling = max(cost(model, 131072, self.settings.completion_limit_for(model))
+                                for model in candidate_models)
         pair_ceiling = baseline_ceiling + candidate_ceiling
         if pair_ceiling <= 0:
             return 0

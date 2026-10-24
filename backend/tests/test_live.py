@@ -41,7 +41,7 @@ def test_groq_wire_and_cost(tmp_path):
         'model': 'openai/gpt-oss-20b', 'messages': [
             {'role': 'system', 'content': "Follow the user's task. Be concise. Return only the requested answer."},
             {'role': 'user', 'content': 'synthetic prompt'}], 'temperature': 0,
-        'max_completion_tokens': 2048, 'stream': False}
+        'max_completion_tokens': 16384, 'stream': False}
     from backend.app.pricing import cost
     assert cost('openai/gpt-oss-20b', 100, 20) == pytest.approx(0.0000135)
     assert cost('openai/gpt-oss-120b', 100, 20) == pytest.approx(0.000027)
@@ -135,21 +135,29 @@ def test_extended_completion_limit_is_sent_and_reserved(tmp_path):
         return httpx.Response(200, json=success({}))
     provider, store, settings = setup_provider(
         tmp_path, handler,
-        max_completion_tokens=4096,
+        max_completion_tokens=32768,
     )
     asyncio.run(provider.infer('synthetic long answer request', 'openai/gpt-oss-20b', 'extended-run'))
-    assert json.loads(calls[0].content)['max_completion_tokens'] == 4096
+    assert json.loads(calls[0].content)['max_completion_tokens'] == 32768
     assert 'max_tokens' not in json.loads(calls[0].content)
     with store._connect() as db:
         reserved = db.execute('SELECT cost_usd FROM inference_reservations').fetchone()[0]
-    assert reserved == pytest.approx(cost('openai/gpt-oss-20b', 131072, 4096))
+    assert reserved == pytest.approx(cost('openai/gpt-oss-20b', 131072, 32768))
 
 
-@pytest.mark.parametrize('limit', [0, -1, 16385, True])
+@pytest.mark.parametrize('limit', [0, -1, 65537, True])
 def test_completion_limit_must_fit_supported_range(tmp_path, limit):
     from backend.app.settings import Settings
     with pytest.raises(ValueError, match='INFERENCE_MAX_COMPLETION_TOKENS'):
         Settings(database_path=tmp_path / 'invalid-limit.sqlite3', max_completion_tokens=limit)
+
+
+def test_completion_limit_is_bounded_by_selected_groq_model(tmp_path):
+    from backend.app.settings import Settings
+    settings = Settings(database_path=tmp_path / 'model-cap.sqlite3', max_completion_tokens=65536)
+    assert settings.completion_limit_for('openai/gpt-oss-20b') == 65536
+    assert settings.completion_limit_for('openai/gpt-oss-120b') == 65536
+    assert settings.completion_limit_for('qwen/qwen3.8-27b') == 16384
 
 
 def test_live_api_does_not_fallback_and_keeps_null_usage(tmp_path):

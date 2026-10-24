@@ -121,3 +121,13 @@ Changed: `backend/app/settings.py`, `backend/app/providers/live.py`, `backend/ap
 Verification: **145 backend tests passed**, **45 frontend tests passed**, frontend typecheck and production build passed. Live tests used HTTPX MockTransport only; no key was read and no provider request was sent. The maximum-token parameter is covered by wire and reservation tests. The existing build output remains ready; no browser screenshot was taken for this backend setting change.
 
 To raise the cap for a local Live run, set `INFERENCE_MAX_COMPLETION_TOKENS=4096` in the backend's private root `.env`, confirm that value is below the selected model's provider limit, and restart the backend. Do not put it in a `VITE_*` variable. The default 2048 should already prevent the common 256-token cutoff.
+
+## Milestone 5 — raise default to current model output ceilings (October 24, 2026)
+
+The user reported that responses still reached the 2048-token cap. The default is now **16,384** with configurable range 1–65,536. Known Groq model caps are applied before requests and reservations: GPT-OSS 20B/120B at 65,536 and Qwen 3.8 27B at 16,384. Benchmark budget calculations use the same per-model effective cap. The warning now recommends shorter requests or a model with more output capacity instead of suggesting a setting increase that may exceed the selected model's ceiling.
+
+The effective setting in the current shell is 16,384, with no environment override. The backend process already listening on port 8000 was started before this update and must be restarted to load the new default. I left that user process running. No provider request was sent.
+
+Verification after this change: **146 backend tests passed**, **45 frontend tests passed**, typecheck and production build passed. Added tests verify provider-specific limits, wire payload, reservation amount, and cost-based benchmark case caps.
+
+Hard provider/context limits still exist, so an unusually long response can still return `finish_reason=length`. The UI keeps such output marked incomplete; no unsafe automatic continuation is added.
