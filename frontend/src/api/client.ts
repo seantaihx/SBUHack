@@ -1,4 +1,4 @@
-import type { Capabilities, CreateRun, Run, SampleTasks } from './types';
+import type { BenchmarkCasesResponse, BenchmarkDatasetsResponse, BenchmarkRun, BenchmarkRunsResponse, Capabilities, CreateRun, Run, SampleTasks, StartBenchmarkRequest, StartBenchmarkResponse } from './types';
 
 const mockMode = import.meta.env.VITE_USE_FRONTEND_MOCK === 'true';
 const apiBaseUrl = (import.meta.env.VITE_API_BASE_URL || '/api/v1').replace(/\/+$/, '');
@@ -36,4 +36,92 @@ export const api = {
     return fixture<Run>(status);
   },
   advanceMock: (id: string) => sessionStorage.setItem(`ecoagent-mock-${id}`, 'run-completed'),
+};
+
+const mockBenchmarks = new Map<string, { run: BenchmarkRun; polls: number }>();
+const mockJson = async <T,>(name: string): Promise<T> => {
+  const response = await fetch(`/mock/${name}.json`);
+  if (!response.ok) throw new Error(`Benchmark mock ${name} could not be loaded.`);
+  return response.json() as Promise<T>;
+};
+
+async function startMockBenchmark(payload: StartBenchmarkRequest): Promise<StartBenchmarkResponse> {
+  const fixture = await mockJson<BenchmarkRun>('benchmark-run');
+  const runId = `mock-${Date.now()}`;
+  const run: BenchmarkRun = {
+    ...fixture, run_id: runId, status: 'queued', dataset_id: payload.dataset_id,
+    baseline: payload.baseline, candidate: payload.candidate, max_cases: payload.max_cases,
+    progress: { completed: 0, total: payload.max_cases }, baseline_metrics: null, candidate_metrics: null,
+    started_at: null, finished_at: null,
+  };
+  mockBenchmarks.set(runId, { run, polls: 0 });
+  return { run_id: runId, status: 'queued' };
+}
+
+async function getMockBenchmark(runId: string): Promise<BenchmarkRun> {
+  const local = mockBenchmarks.get(runId);
+  if (local) {
+    local.polls += 1;
+    const fixture = await mockJson<BenchmarkRun>('benchmark-run');
+    if (local.polls === 1) {
+      local.run = {
+        ...local.run, status: 'running',
+        progress: { completed: Math.max(1, Math.floor(local.run.max_cases / 2)), total: local.run.max_cases },
+        started_at: fixture.started_at,
+      };
+    } else {
+      const scale = local.run.max_cases / 5;
+      const scaledMetrics = (metrics: NonNullable<BenchmarkRun['baseline_metrics']>) => {
+        const passed = Math.min(local.run.max_cases, Math.round((metrics.passed_cases ?? 0) * scale));
+        return {
+          ...metrics, total_cases: local.run.max_cases, passed_cases: passed,
+          pass_rate: local.run.max_cases ? passed / local.run.max_cases : null,
+          failed_cases: local.run.max_cases - passed,
+          total_cost_usd: metrics.total_cost_usd === null ? null : metrics.total_cost_usd * scale,
+          input_tokens: metrics.input_tokens === null ? null : Math.round(metrics.input_tokens * scale),
+          output_tokens: metrics.output_tokens === null ? null : Math.round(metrics.output_tokens * scale),
+          total_requests: local.run.max_cases,
+        };
+      };
+      local.run = {
+        ...fixture, run_id: runId, dataset_id: local.run.dataset_id,
+        baseline: local.run.baseline, candidate: local.run.candidate, max_cases: local.run.max_cases,
+        progress: { completed: local.run.max_cases, total: local.run.max_cases },
+        baseline_metrics: fixture.baseline_metrics ? scaledMetrics(fixture.baseline_metrics) : null,
+        candidate_metrics: fixture.candidate_metrics ? scaledMetrics(fixture.candidate_metrics) : null,
+      };
+    }
+    return local.run;
+  }
+  const fixture = await mockJson<BenchmarkRun>('benchmark-run');
+  return { ...fixture, run_id: runId };
+}
+
+async function listMockBenchmarks(): Promise<BenchmarkRunsResponse> {
+  const fixture = await mockJson<BenchmarkRunsResponse>('benchmark-runs');
+  const localRuns = Array.from(mockBenchmarks.values()).map(({ run }) => run);
+  return { ...fixture, items: [...localRuns, ...fixture.items].slice(0, 20) };
+}
+
+async function getMockBenchmarkCases(runId: string): Promise<BenchmarkCasesResponse> {
+  const fixture = await mockJson<BenchmarkCasesResponse>('benchmark-cases');
+  const localRun = mockBenchmarks.get(runId)?.run;
+  return localRun ? { ...fixture, items: fixture.items.slice(0, localRun.max_cases) } : fixture;
+}
+
+export const benchmarkApi = {
+  listDatasets: () => mockMode ? mockJson<BenchmarkDatasetsResponse>('benchmark-datasets') : request<BenchmarkDatasetsResponse>('/benchmarks/datasets'),
+  listRuns: (limit = 20, cursor?: string) => {
+    const query = new URLSearchParams({ limit: String(limit) });
+    if (cursor) query.set('cursor', cursor);
+    return mockMode ? listMockBenchmarks() : request<BenchmarkRunsResponse>(`/benchmarks/runs?${query}`);
+  },
+  startRun: (payload: StartBenchmarkRequest) => mockMode ? startMockBenchmark(payload) : request<StartBenchmarkResponse>('/benchmarks/runs', { method: 'POST', body: JSON.stringify(payload) }),
+  getRun: (runId: string, signal?: AbortSignal) => mockMode ? getMockBenchmark(runId) : request<BenchmarkRun>(`/benchmarks/runs/${encodeURIComponent(runId)}`, { signal }),
+  getCases: (runId: string, limit = 50, cursor?: string, signal?: AbortSignal) => {
+    const query = new URLSearchParams({ limit: String(limit) });
+    if (cursor) query.set('cursor', cursor);
+    return mockMode ? getMockBenchmarkCases(runId) : request<BenchmarkCasesResponse>(`/benchmarks/runs/${encodeURIComponent(runId)}/cases?${query}`, { signal });
+  },
+  isMock: mockMode,
 };

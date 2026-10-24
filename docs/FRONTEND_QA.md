@@ -5,18 +5,20 @@
 Run from `frontend/`:
 
 ```powershell
-npm ci
-npm run test
-npm run typecheck
-npm run build
+npm.cmd ci
+npm.cmd run test
+npm.cmd run typecheck
+npm.cmd run build
 ```
 
-The Vitest component suite exercises startup capability and sample loading, disabled Live mode, exact demo selection payload, POST submission and run polling, terminal result rendering and provenance, `409` active-run recovery, partial/failure presentation, live task editing and payload, `?run=` restoration, polling retry without duplicate POST, per-task disclosure, carbon scenario payload, `503` without mode fallback, and safe plain-text output rendering.
+The 18 Vitest component tests exercise the comparison flow plus benchmark dataset loading, benchmark request payload, queued/running/completed polling, result/case display, null metric display, rate-limit errors, loading errors, and duplicate-submit protection. `npm.cmd ci`, `npm.cmd run test` (18 passed), `npm.cmd run typecheck`, and `npm.cmd run build` passed on October 24, 2026. Benchmark and frontend mock JSON files also parse successfully.
 
 ## Verification boundaries
 
 - Component tests use mocked fetch responses. They do not establish compatibility with a running FastAPI service.
-- Backend end-to-end smoke test and browser walkthrough remain outstanding until Sean's API is available on port 8000 or another agreed URL.
+- The benchmark view's proposed API is not in shared OpenAPI and must be agreed before the backend implements it.
+- Backend end-to-end smoke test and browser walkthrough remain outstanding until Sean's API is available on port 8000 or another agreed URL. Port 8000 was not listening during this verification.
+- A browser UI session was unavailable for visual inspection; screenshot review is not complete.
 - Automated tests do not assess screenshot quality, visual contrast by pixel measurement, or actual keyboard behavior in a browser.
 - Desktop, tablet, and phone viewport review remains outstanding. Check long prompts/answers and the attempt table at narrow widths.
 - No issue tracker entries are represented as filed unless linked below.
@@ -27,6 +29,7 @@ The Vitest component suite exercises startup capability and sample loading, disa
 
 1. Run the integrated browser walkthrough against the agreed backend, checking `/capabilities`, `/sample-tasks`, `POST /runs`, and repeated `GET /runs/{id}` including a `409` and a provider failure case.
 2. Verify the production frontend is served by the backend at the configured same-origin path and that `/api` failures remain JSON.
+3. After Sean agrees the proposal, test benchmark datasets/history, submit, poll, rate-limit/provider-timeout errors, and case pages against FastAPI.
 
 ### Visual and interaction review
 

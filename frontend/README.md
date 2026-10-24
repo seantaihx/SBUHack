@@ -8,8 +8,8 @@
 ## Install and run
 
 ```powershell
-npm ci
-npm run dev
+npm.cmd ci
+npm.cmd run dev
 ```
 
 Vite prints the local URL. By default, `/api` requests are proxied to `http://localhost:8000` and the UI calls `/api/v1`.
@@ -31,10 +31,10 @@ Vite exposes `VITE_` values to the browser bundle. Never place credentials, prov
 ## Checks and production bundle
 
 ```powershell
-npm run test
-npm run typecheck
-npm run build
-npm run preview
+npm.cmd run test
+npm.cmd run typecheck
+npm.cmd run build
+npm.cmd run preview
 ```
 
 The build output is `dist/`. The shared project design has the API/backend serve the built frontend on the same origin; confirm the static mount and `/api/v1` routing with the backend owner before deployment. A standalone frontend container is not included because it would duplicate the agreed same-origin deployment and proxy configuration. `npm run preview` is a local static preview, not a production server.

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ApiError, api } from './api/client';
+import BenchmarkDashboard from './BenchmarkDashboard';
 import type { Capabilities, CreateRun, Mode, Run, SampleTasks, Task, TaskType } from './api/types';
 
 const terminal = (status: Run['status']) => ['completed', 'partial', 'failed'].includes(status);
@@ -10,6 +11,7 @@ const pct = (value: number | null) => value === null ? missing : `${Math.abs(val
 const integer = (value: number | null) => value === null ? missing : Math.round(value).toLocaleString();
 
 function App() {
+  const [page, setPage] = useState<'compare' | 'benchmarks'>('compare');
   const [capabilities, setCapabilities] = useState<Capabilities | null>(null);
   const [samples, setSamples] = useState<SampleTasks | null>(null);
   const [selected, setSelected] = useState<string[]>([]);
@@ -107,9 +109,9 @@ function App() {
   const statusLabel = run ? ({ queued: 'Queued', running: 'In progress', completed: 'Completed', partial: 'Partial results', failed: 'Failed' } as const)[run.status] : '';
 
   return <main className="app-shell">
-    <header className="topbar"><a className="brand" href="#top" aria-label="EcoAgent home"><span className="brand-mark"><LeafIcon /></span><span>ecoagent<span className="brand-period">.</span></span></a><div className="topbar-right"><span className="topbar-note"><span className={`live-dot ${!api.isMock && !capabilities ? 'offline-dot' : ''}`} />{api.isMock ? 'FIXTURE MOCK' : loading ? 'CONNECTING' : capabilities ? 'API READY' : 'API UNAVAILABLE'}</span><span className="topbar-divider" /><span className="version">API&nbsp; / &nbsp;{capabilities?.api_version ?? 'v1'}</span></div></header>
+    <header className="topbar"><a className="brand" href="#top" aria-label="EcoAgent home" onClick={() => setPage('compare')}><span className="brand-mark"><LeafIcon /></span><span>ecoagent<span className="brand-period">.</span></span></a><nav className="main-nav" aria-label="Main navigation"><button type="button" aria-current={page === 'compare' ? 'page' : undefined} onClick={() => setPage('compare')}>Compare</button><button type="button" aria-current={page === 'benchmarks' ? 'page' : undefined} onClick={() => setPage('benchmarks')}>Benchmarks</button></nav><div className="topbar-right"><span className="topbar-note"><span className={`live-dot ${!api.isMock && !capabilities ? 'offline-dot' : ''}`} />{api.isMock ? 'FIXTURE MOCK' : loading ? 'CONNECTING' : capabilities ? 'API READY' : 'API UNAVAILABLE'}</span><span className="topbar-divider" /><span className="version">API&nbsp; / &nbsp;{capabilities?.api_version ?? 'v1'}</span></div></header>
     {api.isMock && <div className="mock-banner" role="status"><span className="mock-banner-dot" /> FRONTEND MOCK ACTIVE <span>Static contract fixtures · no backend requests</span></div>}
-    <div className="content" id="top">
+    <div className="content" id="top" hidden={page !== 'compare'}>
       <section className="hero"><div className="hero-copy"><div className="eyebrow"><span className="eyebrow-line" /> INTELLIGENT ROUTING, MADE VISIBLE</div><h1>Better inference.<br /><span>Less overhead.</span></h1><p className="hero-description">Compare how a task-routing policy changes model choice, response, latency and illustrative energy estimates.</p></div><div className="hero-art" aria-hidden="true"><div className="orbit orbit-one" /><div className="orbit orbit-two" /><div className="orbit orbit-three" /><div className="orbit-core"><LeafIcon /></div><div className="orbit-node node-one" /><div className="orbit-node node-two" /><span className="orbit-caption">ROUTE<br />WITH INTENT</span></div></section>
 
       <section className="control-panel panel" aria-labelledby="controls-title">
@@ -143,6 +145,7 @@ function App() {
       {!run && !loading && capabilities && <section className="empty-state"><div className="empty-icon"><LeafIcon /></div><p>SELECT A WORKLOAD TO BEGIN</p><span>Your comparison will appear here. Backend responses determine all routing, metrics and results.</span></section>}
       <footer className="footer"><span>ecoagent<span className="brand-period">.</span> <span className="footer-separator">/</span> Inference, considered.</span><span>ESTIMATES ARE ILLUSTRATIVE. RESULTS ARE NOT QUALITY EVALUATIONS.</span></footer>
     </div>
+    {page === 'benchmarks' && <div className="content"><BenchmarkDashboard /></div>}
   </main>;
 }
 

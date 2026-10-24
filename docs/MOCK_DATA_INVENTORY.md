@@ -33,6 +33,19 @@ These shared files remain the source/examples for the backend and contract revie
 
 Copies under `frontend/public/mock` are deliberate static browser fixtures and can drift from shared examples. When Sean changes the contract or fixture content, update the corresponding copies and this inventory in the same frontend change. No mock should silently become the production default.
 
+## Proposed benchmark fixtures (frontend-only)
+
+These fixtures support the new Benchmark view and are **not part of the current shared OpenAPI contract**. Their shapes are proposed for coordination; their model metrics are invented UI examples.
+
+| File | Consumed by | Content and behavior |
+|---|---|---|
+| `benchmark-datasets.json` | `benchmarkApi.listDatasets()` | One synthetic five-case dataset and configured model choices. |
+| `benchmark-runs.json` | `benchmarkApi.listRuns()` | Empty first page with no next cursor. |
+| `benchmark-run.json` | `benchmarkApi.startRun()` and `getRun()` | Simulated queued/running/completed snapshots assembled by mock transport; terminal costs, token counts, and latency are not measurements. |
+| `benchmark-cases.json` | `benchmarkApi.getCases()` | Two synthetic output/evaluation rows for plain-text UI rendering. |
+| `benchmarks/starter-v1.json` | Backend developer reference | Five objective-style test inputs with expected values and evaluation methods. Does not call Groq. |
+| `benchmarks/proposed-agent-firewall-v1.json` | Product/backend discussion | Proposed loop and Permission Firewall examples. Explicitly not implemented and requires policy/API agreement. |
+
 ## Other fixed frontend values
 
 - Type labels (`classify`, `extract`, `summarize`) and result policy/status enums are TypeScript representations of the shared schema.
