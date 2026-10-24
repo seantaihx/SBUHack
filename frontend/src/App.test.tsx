@@ -92,8 +92,8 @@ describe('EcoAgent frontend contract flows', () => {
     await user.click(screen.getByRole('button', { name: /Compare policies/ }));
 
     expect(await screen.findByText('Completed', {}, { timeout: 5000 })).toBeInTheDocument();
-    expect((await screen.findAllByText('billing')).length).toBe(2);
-    expect(screen.getByText('Simulated latency')).toBeInTheDocument();
+    expect(document.querySelectorAll('.answer-text').length).toBeGreaterThanOrEqual(2);
+    expect(Array.from(document.querySelectorAll<HTMLElement>('.metric-card')).some((card) => card.textContent?.includes('Simulated latency'))).toBe(true);
     expect(screen.getByText(/answer quality not evaluated/i)).toBeInTheDocument();
     expect(fetchMock).toHaveBeenCalledWith(expect.stringMatching(/\/api\/v1\/runs\//), expect.objectContaining({ signal: expect.any(AbortSignal) }));
   });
@@ -108,7 +108,7 @@ describe('EcoAgent frontend contract flows', () => {
     await loadApp();
     await screen.findByText('Completed');
 
-    const card = screen.getByText('Simulated latency').closest('article');
+    const card = Array.from(document.querySelectorAll<HTMLElement>('.metric-card')).find((element) => element.textContent?.includes('Simulated latency'));
     expect(card).not.toBeNull();
     expect(within(card!).getByText('289')).toBeInTheDocument();
     expect(within(card!).getByText('ms slower')).toBeInTheDocument();
@@ -125,7 +125,7 @@ describe('EcoAgent frontend contract flows', () => {
     window.history.replaceState({}, '', `/?run=${completedRun.id}`);
     await loadApp();
     await screen.findByText('Completed');
-    const card = screen.getByText('Simulated latency').closest('article');
+    const card = Array.from(document.querySelectorAll<HTMLElement>('.metric-card')).find((element) => element.textContent?.includes('Simulated latency'));
     expect(card).not.toBeNull();
     expect(within(card!).getAllByText('Unavailable')).toHaveLength(4);
   });
@@ -239,6 +239,7 @@ describe('EcoAgent frontend contract flows', () => {
     expect(posted?.tasks[0].type).toBe('extract');
     expect(posted?.tasks[0].prompt).toBe('Classify this synthetic support message.');
     expect(screen.getByText(/Incomplete comparison/i)).toBeInTheDocument();
+    expect(document.querySelector('.print-report')).toHaveTextContent(/This run is partial/);
     expect(screen.getAllByText(/PROVIDER_TIMEOUT/).length).toBeGreaterThan(0);
     expect(screen.getAllByText('Unavailable').length).toBeGreaterThan(0);
   });
@@ -249,7 +250,7 @@ describe('EcoAgent frontend contract flows', () => {
     await loadApp();
 
     expect(await screen.findByText('Completed')).toBeInTheDocument();
-    expect(screen.getAllByText('billing')).toHaveLength(2);
+    expect(document.querySelectorAll('.answer-text')).toHaveLength(6);
     expect(fetchMock).toHaveBeenCalledWith(`/api/v1/runs/${completedRun.id}`, expect.any(Object));
   });
 
@@ -316,6 +317,54 @@ describe('EcoAgent frontend contract flows', () => {
     expect(screen.queryByText('Completed')).not.toBeInTheDocument();
   });
 
+  it('downloads the loaded JSON and CSV snapshots and offers an explicit print-to-PDF workflow', async () => {
+    mockApi({ getRun: () => response(completedRun) });
+    window.history.replaceState({}, '', `/?run=${completedRun.id}`);
+    const user = userEvent.setup();
+    const blobs: Blob[] = [];
+    const filenames: string[] = [];
+    const createObjectUrlDescriptor = Object.getOwnPropertyDescriptor(window.URL, 'createObjectURL');
+    const revokeObjectUrlDescriptor = Object.getOwnPropertyDescriptor(window.URL, 'revokeObjectURL');
+    const printDescriptor = Object.getOwnPropertyDescriptor(window, 'print');
+    Object.defineProperty(window.URL, 'createObjectURL', { configurable: true, value: (blob: Blob) => { blobs.push(blob); return `blob:export-${blobs.length}`; } });
+    Object.defineProperty(window.URL, 'revokeObjectURL', { configurable: true, value: () => undefined });
+    Object.defineProperty(window, 'print', { configurable: true, value: vi.fn() });
+    const clickSpy = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(function (this: HTMLAnchorElement) { filenames.push(this.download); });
+    try {
+      await loadApp();
+      await screen.findByText('Completed');
+      expect(document.querySelector('.print-report')).toHaveTextContent('Illustrative estimates');
+      expect(document.querySelector('.print-report')).toHaveTextContent('Source references: Unavailable');
+      await user.selectOptions(screen.getByLabelText(`Human review · baseline · ${completedRun.tasks[0].id}`), 'incorrect');
+      await user.click(screen.getByRole('button', { name: 'Export JSON' }));
+      expect(await screen.findByText(/Exported the completed snapshot/)).toBeInTheDocument();
+      const json = JSON.parse(await blobs[0].text()) as { run_id: string; run_snapshot: Run; manual_review_annotations: { by_task: Record<string, { baseline: string }> } };
+      expect(json.run_id).toBe(completedRun.id);
+      expect(json.run_snapshot).toMatchObject({ id: completedRun.id, status: 'completed' });
+      expect(json.manual_review_annotations.by_task[completedRun.tasks[0].id].baseline).toBe('incorrect');
+      expect(filenames[0]).toBe(`ecoagent-run-${completedRun.id}-completed.json`);
+
+      await user.click(screen.getByRole('button', { name: 'Export CSV' }));
+      const csv = await blobs[1].text();
+      expect(csv.split('\r\n')).toHaveLength(completedRun.results.length + 1);
+      expect(csv).toContain('output_text');
+      expect(csv).toContain('human_review');
+      expect(filenames[1]).toBe(`ecoagent-run-${completedRun.id}-completed.csv`);
+
+      await user.click(screen.getByRole('button', { name: /Print \/ Save PDF/ }));
+      expect(window.print).toHaveBeenCalledOnce();
+      expect(screen.getByRole('status')).toHaveTextContent(/not a direct PDF download/i);
+    } finally {
+      clickSpy.mockRestore();
+      if (createObjectUrlDescriptor) Object.defineProperty(window.URL, 'createObjectURL', createObjectUrlDescriptor);
+      else Reflect.deleteProperty(window.URL, 'createObjectURL');
+      if (revokeObjectUrlDescriptor) Object.defineProperty(window.URL, 'revokeObjectURL', revokeObjectUrlDescriptor);
+      else Reflect.deleteProperty(window.URL, 'revokeObjectURL');
+      if (printDescriptor) Object.defineProperty(window, 'print', printDescriptor);
+      else Reflect.deleteProperty(window, 'print');
+    }
+  });
+
   it('renders model output as text rather than interpreting HTML', async () => {
     const unsafeOutput = '<img src=x onerror=alert(1)>';
     const runWithText = { ...completedRun, results: completedRun.results.map((result, index) => index === 0 ? { ...result, output_text: unsafeOutput } : result) };
@@ -324,7 +373,7 @@ describe('EcoAgent frontend contract flows', () => {
     await loadApp();
     await screen.findByText('Completed');
 
-    expect(screen.getByText(unsafeOutput)).toBeInTheDocument();
+    expect(Array.from(document.querySelectorAll('.answer-text')).some((element) => element.textContent === unsafeOutput)).toBe(true);
     expect(screen.queryByRole('img')).not.toBeInTheDocument();
   });
 });

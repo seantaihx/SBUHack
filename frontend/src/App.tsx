@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ApiError, api } from './api/client';
 import BenchmarkDashboard from './BenchmarkDashboard';
-import type { Capabilities, CreateRun, Mode, Run, SampleTasks, Task, TaskType } from './api/types';
-import { clearTaskReviews, createRunExport, latencyChange, promptContainsUrl, readTaskReviews, reviewChoices, taskReview, writeTaskReviews, type ReviewChoice, type ReviewSide, type TaskReviews } from './comparisonUtils';
+import type { Capabilities, ComparisonMetric, CreateRun, Mode, Run, SampleTasks, Task, TaskType } from './api/types';
+import { clearTaskReviews, createRunCsv, createRunExport, latencyChange, promptContainsUrl, readTaskReviews, reviewChoices, taskReview, writeTaskReviews, type ReviewChoice, type ReviewSide, type TaskReviews } from './comparisonUtils';
 
 const terminal = (status: Run['status']) => ['completed', 'partial', 'failed'].includes(status);
 const typeNames: Record<TaskType, string> = { classify: 'Classification', extract: 'Data extraction', summarize: 'Summarization' };
@@ -136,15 +136,30 @@ function App() {
     if (!run) return;
     try {
       const contents = JSON.stringify(createRunExport(run, manualReviews), null, 2);
-      const objectUrl = window.URL.createObjectURL(new Blob([contents], { type: 'application/json' }));
-      const link = document.createElement('a');
-      link.href = objectUrl;
-      link.download = `ecoagent-run-${run.id}-${run.status}.json`;
-      link.click();
-      window.setTimeout(() => window.URL.revokeObjectURL(objectUrl), 0);
+      downloadFile(contents, `ecoagent-run-${run.id}-${run.status}.json`, 'application/json;charset=utf-8');
       setExportNotice(`Exported the ${run.status} snapshot. Prompts and outputs may contain user-supplied data.`);
     } catch {
       setExportNotice('Could not create the JSON export in this browser.');
+    }
+  };
+
+  const exportCsv = () => {
+    if (!run) return;
+    try {
+      downloadFile(createRunCsv(run, manualReviews), `ecoagent-run-${run.id}-${run.status}.csv`, 'text/csv;charset=utf-8');
+      setExportNotice(`Exported ${run.results.length} available attempt rows from the ${run.status} snapshot. Empty cells mean unavailable; prompts and outputs may contain user-supplied data.`);
+    } catch {
+      setExportNotice('Could not create the CSV export in this browser.');
+    }
+  };
+
+  const printReport = () => {
+    if (!run) return;
+    try {
+      setExportNotice('Print report opened. Choose “Save as PDF” in the browser print dialog. This is a print workflow, not a direct PDF download.');
+      window.print();
+    } catch {
+      setExportNotice('Could not open the browser print dialog.');
     }
   };
 
@@ -205,7 +220,7 @@ function App() {
       </section>
 
       {notice && <div className="notice-strip" role="status"><CheckIcon />{notice}</div>}
-      {run && <section className="results-section" aria-live="polite"><div className="results-heading"><div><div className="section-kicker">02 / RESULTS</div><h2>Your comparison</h2><p className="run-meta">Run <span>{run.id.slice(0, 8)}</span> · {run.tasks.length} tasks · {new Date(run.created_at).toLocaleString()}</p></div><div className="results-actions"><div className="run-badges"><span className={`mode-badge ${run.mode}`}><span />{run.mode === 'demo' ? 'DEMO' : 'LIVE'}</span><span className={`provenance-pill ${run.measurement_source === 'simulated' ? 'simulated' : 'observed'}`}><span />{run.measurement_source === 'simulated' ? 'SIMULATED' : 'OBSERVED'}</span><span className={`status-badge ${run.status}`}><span className="status-dot" />{statusLabel}</span></div><button className="secondary-button export-button" type="button" onClick={exportSnapshot}>Export JSON</button></div></div>
+      {run && <section className="results-section" aria-live="polite"><div className="results-heading"><div><div className="section-kicker">02 / RESULTS</div><h2>Your comparison</h2><p className="run-meta">Run <span>{run.id.slice(0, 8)}</span> · {run.tasks.length} tasks · {new Date(run.created_at).toLocaleString()}</p></div><div className="results-actions"><div className="run-badges"><span className={`mode-badge ${run.mode}`}><span />{run.mode === 'demo' ? 'DEMO' : 'LIVE'}</span><span className={`provenance-pill ${run.measurement_source === 'simulated' ? 'simulated' : 'observed'}`}><span />{run.measurement_source === 'simulated' ? 'SIMULATED' : 'OBSERVED'}</span><span className={`status-badge ${run.status}`}><span className="status-dot" />{statusLabel}</span></div><div className="export-actions"><button className="secondary-button export-button" type="button" onClick={exportSnapshot}>Export JSON</button><button className="secondary-button export-button" type="button" onClick={exportCsv}>Export CSV</button><button className="secondary-button export-button" type="button" onClick={printReport}>Print / Save PDF</button></div></div></div>
         {networkError && <div className="error-box compact" role="alert"><AlertIcon /><span>{networkError}</span><button className="text-button" onClick={() => void retry()}>Retry now</button></div>}
         {run.run_error && <div className="error-box compact" role="alert"><AlertIcon />{run.run_error.message} <span className="error-code">{run.run_error.code}</span></div>}
         <div className="progress-panel panel"><div className="progress-top"><div><span className="label-main">Run progress</span><span className="label-sub">{run.completed_attempts} of {run.total_attempts} attempts completed</span></div><span className="progress-time"><span className="clock-icon">◷</span> {terminal(run.status) ? 'Finished' : `Running ${Math.floor(now / 60).toString().padStart(2, '0')}:${(now % 60).toString().padStart(2, '0')}`}</span></div><div className="progress-track"><div className={`progress-fill ${run.status}`} style={{ width: `${run.total_attempts ? Math.min(100, run.completed_attempts / run.total_attempts * 100) : 0}%` }} /></div>{run.status === 'partial' && <p className="progress-caption">Some attempts failed. Metrics use only backend-defined matching cohorts.</p>}</div>
@@ -219,12 +234,55 @@ function App() {
         {exportNotice && <p className="export-notice" role="status">{exportNotice}</p>}
         <section className="answer-section"><div className="answer-heading"><div><span className="section-kicker">04 / OUTPUTS</span><h3>Response comparison</h3><p className="review-explanation">Human judgments only; these annotations are not automated quality scores.</p></div><button className="secondary-button reset-reviews" type="button" onClick={resetManualReviews}>Reset reviews</button></div><p className="review-storage-note">Review labels are stored only in this browser for this run. They do not change backend results.{!reviewStorageAvailable && ' Browser storage is unavailable; labels will last only until this page is closed.'}</p><p className="export-data-note">Export includes this loaded run snapshot and review labels. Prompts and outputs may contain user-supplied data.</p><div className="answer-grid">{run.tasks.map((task, i) => { const baseline = run.results.find((r) => r.task_id === task.id && r.policy === 'baseline'); const optimized = run.results.find((r) => r.task_id === task.id && r.policy === 'optimized'); const isExpanded = expandedTaskId === task.id; const reviewed = taskReview(manualReviews, task.id); return <article className="answer-card" key={task.id}><div className="answer-card-head"><span className="answer-index">0{i + 1}</span><div><strong>{typeNames[task.type]}</strong><span>{task.id}</span></div><span className="manual-review">MANUAL REVIEW</span></div><div className="answer-pair"><div className="reviewed-answer"><Answer policy="baseline" result={baseline} /><label className="review-control" htmlFor={`review-${task.id}-baseline`}>Human review · baseline · {task.id}<select id={`review-${task.id}-baseline`} value={reviewed.baseline} onChange={(event) => updateManualReview(task.id, 'baseline', event.target.value as ReviewChoice)}>{reviewChoices.map((choice) => <option key={choice} value={choice}>{choice === 'not_reviewed' ? 'Not reviewed' : choice[0].toUpperCase() + choice.slice(1)}</option>)}</select></label></div><div className="reviewed-answer"><Answer policy="optimized" result={optimized} /><label className="review-control" htmlFor={`review-${task.id}-optimized`}>Human review · optimized · {task.id}<select id={`review-${task.id}-optimized`} value={reviewed.optimized} onChange={(event) => updateManualReview(task.id, 'optimized', event.target.value as ReviewChoice)}>{reviewChoices.map((choice) => <option key={choice} value={choice}>{choice === 'not_reviewed' ? 'Not reviewed' : choice[0].toUpperCase() + choice.slice(1)}</option>)}</select></label></div></div><button className="disclosure-button" onClick={() => setExpandedTaskId(isExpanded ? null : task.id)} aria-expanded={isExpanded}>{isExpanded ? 'Hide' : 'Show'} task prompt <ChevronIcon open={isExpanded} /></button>{isExpanded && <p className="prompt-disclosure">{task.prompt}</p>}</article>; })}</div></section>
         <details className="assumptions panel"><summary><span><span className="section-kicker">METHODOLOGY</span><strong>What these estimates mean</strong></span><ChevronIcon /></summary><div className="assumption-content"><p>The backend supplied all displayed aggregates. The <strong>illustrative-v1</strong> profile uses hypothetical coefficients and does not measure provider electricity use.</p><div className="coefficient-grid">{(['small', 'large'] as const).map((role) => <div key={role} className="coefficient-card"><span>{role} model</span><code>{capabilities?.energy_profile.models[role].input_wh_per_token ?? missing} Wh / input token</code><code>{capabilities?.energy_profile.models[role].output_wh_per_token ?? missing} Wh / output token</code></div>)}</div><p>Carbon intensity is the scenario value selected for this run: <strong>{run.carbon_intensity_g_per_kwh} gCO₂e/kWh</strong>. It is not live grid data. Coefficients omit hardware, utilization, cooling, networking, location and time variation. Successful HTTP responses do not establish equal answer quality. Negative savings mean an increase.</p></div></details>
+        <PrintRunReport run={run} reviews={manualReviews} />
       </section>}
       {!run && !loading && capabilities && <section className="empty-state"><div className="empty-icon"><LeafIcon /></div><p>SELECT A WORKLOAD TO BEGIN</p><span>Your comparison will appear here. Backend responses determine all routing, metrics and results.</span></section>}
       <footer className="footer"><span>ecoagent<span className="brand-period">.</span> <span className="footer-separator">/</span> Inference, considered.</span><span>ESTIMATES ARE ILLUSTRATIVE. RESULTS ARE NOT QUALITY EVALUATIONS.</span></footer>
     </div>
     {page === 'benchmarks' && <div className="content"><BenchmarkDashboard initialRunId={benchmarkRunToOpen} onOpenComparisonRun={(id) => { void openComparisonRun(id, 'A comparison run is active. Opened it from the benchmark conflict response.'); }} /></div>}
   </main>;
+}
+
+function downloadFile(contents: string, filename: string, mimeType: string) {
+  const objectUrl = window.URL.createObjectURL(new Blob([contents], { type: mimeType }));
+  const link = document.createElement('a');
+  link.href = objectUrl;
+  link.download = filename;
+  link.click();
+  window.setTimeout(() => window.URL.revokeObjectURL(objectUrl), 0);
+}
+
+function displayValue(value: string | number | null | undefined, suffix = ''): string {
+  return value === null || value === undefined ? missing : `${value}${suffix}`;
+}
+
+function PrintRunReport({ run, reviews }: { run: Run; reviews: TaskReviews }) {
+  const taskTypes = new Map(run.tasks.map((task) => [task.id, task.type]));
+  const summaryRows: { label: string; metric: ComparisonMetric; unit: string; count: number; cohort: string }[] = [
+    { label: 'Latency', metric: run.comparison.latency_ms, unit: 'ms', count: run.comparison.latency_pairs, cohort: 'successful pairs' },
+    { label: 'Illustrative energy', metric: run.comparison.energy_wh, unit: 'Wh', count: run.comparison.energy_pairs, cohort: 'complete usage pairs' },
+    { label: 'Illustrative carbon', metric: run.comparison.carbon_g, unit: 'gCO₂e', count: run.comparison.energy_pairs, cohort: 'complete usage pairs' },
+  ];
+  return <article className="print-report" aria-hidden="true">
+    <header className="print-report-header"><h1>EcoAgent comparison report</h1><p>Run {run.id} · {run.created_at}</p><p>{run.mode.toUpperCase()} · {run.measurement_source === 'simulated' ? 'SIMULATED' : 'OBSERVED'} · {run.status.toUpperCase()}</p></header>
+    {!terminal(run.status) && <p className="print-warning">This is a nonterminal snapshot. Results may be incomplete.</p>}
+    {run.status === 'partial' && <p className="print-warning">This run is partial. Review failed and pending attempts before interpreting aggregates.</p>}
+    {run.status === 'failed' && <p className="print-warning">This run failed. The snapshot may contain only partial attempt data.</p>}
+    {run.run_error && <p className="print-warning">Run error: {run.run_error.code} · {run.run_error.message}</p>}
+    <section className="print-section"><h2>Workload and routing</h2>{run.tasks.map((task) => <div className="print-task" key={task.id}><h3>{task.id} · {taskTypes.get(task.id)}</h3><pre className="print-prompt">{task.prompt}</pre>{(['baseline', 'optimized'] as const).map((policy) => {
+      const result = run.results.find((item) => item.task_id === task.id && item.policy === policy);
+      return <p key={policy}><strong>{policy}:</strong> {result ? `${result.model_id} (${result.routing_reason}) · ${result.status}` : 'Unavailable'}</p>;
+    })}</div>)}</section>
+    <section className="print-section"><h2>{run.mode === 'demo' ? 'Simulated latency' : 'Observed latency'}</h2><table className="print-table"><thead><tr><th>Metric</th><th>Baseline</th><th>Optimized</th><th>Saved / change</th><th>Cohort</th></tr></thead><tbody>{summaryRows.filter(({ label }) => label === 'Latency').map(({ label, metric, unit, count, cohort }) => <tr key={label}><th>{label}</th><td>{displayValue(metric.baseline, ` ${unit}`)}</td><td>{displayValue(metric.optimized, ` ${unit}`)}</td><td>{displayValue(metric.saved, ` ${unit}`)} · {displayValue(metric.savings_pct, '%')}</td><td>{count} {cohort}</td></tr>)}</tbody></table><p>Latency is a sum of successful attempt timings, not necessarily elapsed job duration. Token counts appear per attempt below and follow the run provenance.</p></section>
+    <section className="print-section"><h2>Illustrative estimates</h2><table className="print-table"><thead><tr><th>Metric</th><th>Baseline</th><th>Optimized</th><th>Saved / change</th><th>Cohort</th></tr></thead><tbody>{summaryRows.filter(({ label }) => label !== 'Latency').map(({ label, metric, unit, count, cohort }) => <tr key={label}><th>{label}</th><td>{displayValue(metric.baseline, ` ${unit}`)}</td><td>{displayValue(metric.optimized, ` ${unit}`)}</td><td>{displayValue(metric.saved, ` ${unit}`)} · {displayValue(metric.savings_pct, '%')}</td><td>{count} {cohort}</td></tr>)}</tbody></table><p>Negative savings indicate an increase.</p></section>
+    <section className="print-section"><h2>Attempts and answer review</h2>{run.tasks.map((task) => <div className="print-task" key={task.id}><h3>{task.id} · {task.type}</h3>{(['baseline', 'optimized'] as const).map((policy) => {
+      const result = run.results.find((item) => item.task_id === task.id && item.policy === policy);
+      const review = taskReview(reviews, task.id)[policy];
+      return <div className="print-answer" key={policy}><h4>{policy} · {result?.model_id ?? 'Unavailable'} · {result?.status ?? 'pending'}</h4><p>Human review: {review.replace('_', ' ')}</p><pre className="print-output">{result?.output_text ?? (result?.status === 'failed' ? result.error?.message : null) ?? missing}</pre><p>Route: {result?.routing_reason ?? missing}; latency: {displayValue(result?.latency_ms, ' ms')}; tokens in/out: {displayValue(result?.input_tokens)} / {displayValue(result?.output_tokens)}; estimated energy: {displayValue(result?.estimated_energy_wh, ' Wh')}; estimated carbon: {displayValue(result?.estimated_carbon_g, ' gCO₂e')}.</p></div>;
+    })}</div>)}</section>
+    <section className="print-section"><h2>Method and limitations</h2><p>Latency and token figures follow the run's provenance above. Energy and carbon are illustrative estimates using profile {run.energy_estimation_profile} and scenario carbon intensity {run.carbon_intensity_g_per_kwh} gCO₂e/kWh; neither is measured electricity or verified emissions. A successful response does not establish answer correctness or equal answer quality. Human review labels are subjective local annotations, not automated evaluation.</p><p>Source references: Unavailable. Existing comparison API v1 runs do not include attached source snapshots.</p><p>This report contains supplied prompts and outputs. Handle it as user-provided content. It includes no API credentials.</p></section>
+    <p className="print-footer">Print workflow: choose “Save as PDF” in the browser print dialog. This page does not create a direct PDF download.</p>
+  </article>;
 }
 
 function MetricCard({ title, unit, values, count, cohort, format, icon, tint, changeType = 'savings' }: { title: string; unit: string; values: { baseline: number | null; optimized: number | null; saved: number | null; savings_pct: number | null }; count: number; cohort: string; format: (value: number | null) => string; icon: React.ReactNode; tint: string; changeType?: 'savings' | 'latency' }) {

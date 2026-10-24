@@ -89,6 +89,7 @@ export function createRunExport(run: Run, reviews: TaskReviews, exportedAt = new
     export_format: 'ecoagent-run-snapshot',
     export_version: 1,
     exported_at: exportedAt.toISOString(),
+    run_id: run.id,
     snapshot_status: run.status,
     snapshot_is_terminal: terminalStatuses.includes(run.status),
     run_snapshot: run,
@@ -98,4 +99,62 @@ export function createRunExport(run: Run, reviews: TaskReviews, exportedAt = new
       by_task: reviews,
     },
   };
+}
+
+const csvColumns = [
+  'export_version', 'exported_at', 'run_id', 'run_status', 'snapshot_is_terminal', 'mode', 'measurement_source',
+  'created_at', 'policy_version', 'energy_estimation_profile', 'carbon_intensity_g_per_kwh', 'task_id', 'task_type',
+  'policy', 'model_role', 'model_id', 'routing_reason', 'attempt_status', 'output_text', 'latency_ms', 'input_tokens',
+  'output_tokens', 'cost_usd', 'estimated_energy_wh', 'estimated_carbon_g', 'human_review',
+  'attempt_error_code', 'attempt_error_message', 'run_error_code', 'run_error_message',
+] as const;
+
+function csvCell(value: unknown): string {
+  if (value === null || value === undefined) return '';
+  let text = String(value);
+  if (typeof value === 'string' && /^[\u0000-\u0020]*[=+\-@]/.test(text)) text = `'${text}`;
+  return `"${text.replace(/"/g, '""')}"`;
+}
+
+/** One row per backend result/attempt; null metrics are blank cells, never numeric zero. */
+export function createRunCsv(run: Run, reviews: TaskReviews, exportedAt = new Date()): string {
+  const tasks = new Map(run.tasks.map((task) => [task.id, task]));
+  const rows = run.results.map((result) => {
+    const task = tasks.get(result.task_id);
+    const review = task ? taskReview(reviews, task.id)[result.policy] : 'not_reviewed';
+    const values: Record<(typeof csvColumns)[number], unknown> = {
+      export_version: 1,
+      exported_at: exportedAt.toISOString(),
+      run_id: run.id,
+      run_status: run.status,
+      snapshot_is_terminal: terminalStatuses.includes(run.status),
+      mode: run.mode,
+      measurement_source: run.measurement_source,
+      created_at: run.created_at,
+      policy_version: run.policy_version,
+      energy_estimation_profile: run.energy_estimation_profile,
+      carbon_intensity_g_per_kwh: run.carbon_intensity_g_per_kwh,
+      task_id: result.task_id,
+      task_type: task?.type ?? null,
+      policy: result.policy,
+      model_role: result.model_role,
+      model_id: result.model_id,
+      routing_reason: result.routing_reason,
+      attempt_status: result.status,
+      output_text: result.output_text,
+      latency_ms: result.latency_ms,
+      input_tokens: result.input_tokens,
+      output_tokens: result.output_tokens,
+      cost_usd: null,
+      estimated_energy_wh: result.estimated_energy_wh,
+      estimated_carbon_g: result.estimated_carbon_g,
+      human_review: review,
+      attempt_error_code: result.error?.code ?? null,
+      attempt_error_message: result.error?.message ?? null,
+      run_error_code: run.run_error?.code ?? null,
+      run_error_message: run.run_error?.message ?? null,
+    };
+    return csvColumns.map((column) => csvCell(values[column])).join(',');
+  });
+  return [csvColumns.join(','), ...rows].join('\r\n');
 }

@@ -3,6 +3,7 @@ import type { ComparisonMetric, Run } from './api/types';
 import completedFixture from '../public/mock/run-completed.json';
 import {
   clearTaskReviews,
+  createRunCsv,
   createRunExport,
   latencyChange,
   promptContainsUrl,
@@ -20,6 +21,26 @@ function memoryStorage(): ReviewStorage {
     setItem: (key, value) => { values.set(key, value); },
     removeItem: (key) => { values.delete(key); },
   };
+}
+
+function parseCsv(text: string): string[][] {
+  const rows: string[][] = [];
+  let row: string[] = [];
+  let field = '';
+  let quoted = false;
+  for (let i = 0; i < text.length; i += 1) {
+    const char = text[i];
+    if (quoted) {
+      if (char === '"' && text[i + 1] === '"') { field += '"'; i += 1; }
+      else if (char === '"') quoted = false;
+      else field += char;
+    } else if (char === '"' && field.length === 0) quoted = true;
+    else if (char === ',') { row.push(field); field = ''; }
+    else if (char === '\n') { row.push(field.replace(/\r$/, '')); rows.push(row); row = []; field = ''; }
+    else field += char;
+  }
+  if (field || row.length) { row.push(field.replace(/\r$/, '')); rows.push(row); }
+  return rows;
 }
 
 describe('comparison helpers', () => {
@@ -80,6 +101,7 @@ describe('comparison helpers', () => {
       export_format: 'ecoagent-run-snapshot',
       export_version: 1,
       exported_at: '2026-10-24T15:00:00.000Z',
+      run_id: run.id,
       snapshot_status: 'running',
       snapshot_is_terminal: false,
       run_snapshot: run,
@@ -92,5 +114,39 @@ describe('comparison helpers', () => {
     expect(exported.run_snapshot).toBe(run);
     expect(Object.keys(exported)).not.toContain('authorization');
     expect(JSON.stringify(exported)).not.toContain('GROQ_API_KEY');
+  });
+
+  it('creates round-trippable attempt rows with formula protection, Unicode, and blank null metrics', () => {
+    const run = structuredClone(completedFixture) as Run;
+    run.results[0] = {
+      ...run.results[0],
+      output_text: '=HYPERLINK("https://example.invalid","open"), said "雪"\nsecond line',
+      latency_ms: null,
+      input_tokens: null,
+      estimated_energy_wh: null,
+    };
+    const reviews = { [run.tasks[0].id]: { baseline: 'incorrect' as const, optimized: 'unsure' as const } };
+    const csv = createRunCsv(run, reviews, new Date('2026-10-24T15:00:00.000Z'));
+    const [header, ...rows] = parseCsv(csv);
+    const outputIndex = header.indexOf('output_text');
+    const first = Object.fromEntries(header.map((column, index) => [column, rows[0][index]]));
+
+    expect(rows).toHaveLength(run.results.length);
+    expect(first.run_id).toBe(run.id);
+    expect(first.output_text).toBe("'=HYPERLINK(\"https://example.invalid\",\"open\"), said \"雪\"\nsecond line");
+    expect(first.latency_ms).toBe('');
+    expect(first.input_tokens).toBe('');
+    expect(first.estimated_energy_wh).toBe('');
+    expect(first.cost_usd).toBe('');
+    expect(first.human_review).toBe('incorrect');
+    expect(first.attempt_error_code).toBe('');
+    expect(first.run_error_code).toBe('');
+    expect(outputIndex).toBeGreaterThan(-1);
+    expect(csv).toContain('\r\n');
+
+    const json = JSON.parse(JSON.stringify(createRunExport(run, reviews))) as { run_id: string; run_snapshot: Run };
+    expect(json.run_id).toBe(run.id);
+    expect(json.run_snapshot.results[0].latency_ms).toBeNull();
+    expect(json.run_snapshot.results[0].estimated_energy_wh).toBeNull();
   });
 });
