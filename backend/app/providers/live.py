@@ -16,16 +16,20 @@ class LiveProvider:
         self.store = store
         self.transport = transport
 
-    async def infer(self, prompt: str, model_id: str, run_id: str) -> InferenceResult:
-        if self.settings.live_disabled_reason or model_id not in (self.settings.small_model_id, self.settings.large_model_id):
+    async def infer(self, prompt: str, model_id: str, run_id: str, allowed_models=None,
+                    system_message: str = SYSTEM_MESSAGE) -> InferenceResult:
+        allowed = allowed_models or (self.settings.small_model_id, self.settings.large_model_id)
+        if self.settings.live_disabled_reason or model_id not in allowed:
             raise ProviderError('PROVIDER_UNAVAILABLE')
         # Full advertised context + output ceiling is a conservative reservation,
         # NOT an estimate of missing usage. Unknown/failed usage retains it.
-        ceiling = cost(model_id, 131072, 256)
+        completion_limit = self.settings.completion_limit_for(model_id)
+        ceiling = cost(model_id, 131072, completion_limit)
         reservation = self.store.reserve_inference(run_id, ceiling, self.settings)
         headers = {'Authorization': 'Bearer ' + self.settings.api_key} if self.settings.api_key else {}
-        payload = {'model': model_id, 'messages': [{'role': 'system', 'content': SYSTEM_MESSAGE},
-                   {'role': 'user', 'content': prompt}], 'temperature': 0, 'max_tokens': 256, 'stream': False}
+        payload = {'model': model_id, 'messages': [{'role': 'system', 'content': system_message},
+                   {'role': 'user', 'content': prompt}], 'temperature': 0,
+                   'max_completion_tokens': completion_limit, 'stream': False}
         try:
             async with asyncio.timeout(self.settings.request_timeout_seconds):
                 async with httpx.AsyncClient(timeout=self.settings.request_timeout_seconds, follow_redirects=False,
@@ -50,6 +54,7 @@ class LiveProvider:
         try:
             body = response.json()
             output = body['choices'][0]['message']['content']
+            finish_reason = body['choices'][0].get('finish_reason')
             if not isinstance(output, str):
                 raise ValueError()
         except (ValueError, TypeError, KeyError, IndexError):
@@ -63,4 +68,6 @@ class LiveProvider:
         actual_cost = cost(model_id, inputs, outputs)
         if actual_cost is not None:
             self.store.settle_inference(reservation, actual_cost)
-        return InferenceResult(output, latency, inputs, outputs)
+        safe_finish_reason = finish_reason if isinstance(finish_reason, str) and len(finish_reason) <= 64 else None
+        return InferenceResult(output, latency, inputs, outputs, safe_finish_reason,
+                               safe_finish_reason == 'length' if safe_finish_reason is not None else None)

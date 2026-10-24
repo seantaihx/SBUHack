@@ -7,7 +7,7 @@ from datetime import datetime, timezone, timedelta
 from .errors import APIError
 from .providers.base import ProviderError
 
-from .schemas import ErrorInfo, Run
+from .schemas import ErrorInfo, Run, SourceSnapshot
 from .timestamps import now
 
 
@@ -32,13 +32,17 @@ class Store:
             db.execute('CREATE INDEX IF NOT EXISTS runs_history ON runs (kind, created_at DESC, id DESC)')
             db.execute('CREATE TABLE IF NOT EXISTS inference_reservations '
                        '(id INTEGER PRIMARY KEY, run_id TEXT NOT NULL, created_at TEXT NOT NULL, cost_usd REAL NOT NULL)')
+            db.execute('CREATE TABLE IF NOT EXISTS sources '
+                       '(source_id TEXT PRIMARY KEY, created_at TEXT NOT NULL, expires_at TEXT, bound_run_id TEXT, snapshot TEXT NOT NULL)')
+            db.execute('CREATE INDEX IF NOT EXISTS sources_expiry ON sources (expires_at) WHERE bound_run_id IS NULL')
 
     def _connect(self):
         return sqlite3.connect(self.path, timeout=5)
 
-    def _create(self, run_id, status, created_at, snapshot, kind, rate_limit=None):
+    def _create(self, run_id, status, created_at, snapshot, kind, rate_limit=None, source_id=None):
         with self._lock, closing(self._connect()) as db, db:
             db.execute('BEGIN IMMEDIATE')
+            db.execute('DELETE FROM sources WHERE bound_run_id IS NULL AND expires_at <= ?', (now(),))
             active = db.execute("SELECT id, kind FROM runs WHERE status IN ('queued', 'running')").fetchone()
             if active:
                 raise RunActive(*active)
@@ -47,8 +51,49 @@ class Store:
                 count = db.execute('SELECT COUNT(*) FROM runs WHERE kind = ? AND created_at >= ?', (kind, minute_ago)).fetchone()[0]
                 if count >= rate_limit:
                     raise APIError(429, 'RATE_LIMITED', 'The server benchmark submission limit was reached.')
+            if source_id is not None:
+                source_row = db.execute('SELECT expires_at, bound_run_id, snapshot FROM sources WHERE source_id = ?', (source_id,)).fetchone()
+                if not source_row or (source_row[0] and source_row[0] <= now()):
+                    raise APIError(404, 'SOURCE_NOT_FOUND', 'This source preview expired or was not found.')
+                if source_row[1] is not None:
+                    raise APIError(409, 'SOURCE_ALREADY_BOUND', 'This source is already attached to a run. Create a new preview to reuse its content.')
+                source = SourceSnapshot.model_validate_json(source_row[2])
+                source.expires_at = None
+                db.execute('UPDATE sources SET bound_run_id = ?, expires_at = NULL, snapshot = ? WHERE source_id = ?',
+                           (run_id, source.model_dump_json(), source_id))
             db.execute('INSERT INTO runs (id,status,created_at,snapshot,kind) VALUES (?, ?, ?, ?, ?)',
                        (run_id, status, created_at, snapshot, kind))
+
+    def create_source(self, source: SourceSnapshot):
+        timestamp = now()
+        source_id = str(source.source_id)
+        with self._lock, closing(self._connect()) as db, db:
+            db.execute('BEGIN IMMEDIATE')
+            db.execute('DELETE FROM sources WHERE bound_run_id IS NULL AND expires_at <= ?', (timestamp,))
+            db.execute('INSERT INTO sources (source_id,created_at,expires_at,bound_run_id,snapshot) VALUES (?,?,?,?,?)',
+                       (source_id, timestamp, source.expires_at, None, source.model_dump_json()))
+
+    def get_source(self, source_id: str) -> SourceSnapshot | None:
+        with self._lock, closing(self._connect()) as db, db:
+            db.execute('BEGIN IMMEDIATE')
+            row = db.execute('SELECT expires_at,bound_run_id,snapshot FROM sources WHERE source_id = ?', (source_id,)).fetchone()
+            if not row:
+                return None
+            if row[0] and row[0] <= now() and row[1] is None:
+                db.execute('DELETE FROM sources WHERE source_id = ?', (source_id,))
+                return None
+            return SourceSnapshot.model_validate_json(row[2])
+
+    def delete_source(self, source_id: str) -> bool:
+        with self._lock, closing(self._connect()) as db, db:
+            db.execute('BEGIN IMMEDIATE')
+            row = db.execute('SELECT bound_run_id FROM sources WHERE source_id = ?', (source_id,)).fetchone()
+            if not row:
+                return False
+            if row[0] is not None:
+                raise APIError(409, 'SOURCE_IN_USE', 'A source attached to a run is retained with that run.')
+            db.execute('DELETE FROM sources WHERE source_id = ?', (source_id,))
+            return True
 
     def _get(self, run_id, kind):
         with self._lock, closing(self._connect()) as db:
@@ -60,8 +105,8 @@ class Store:
             db.execute("UPDATE runs SET status = ?, snapshot = ? WHERE id = ? "
                        "AND status IN ('queued', 'running')", (status, snapshot, run_id))
 
-    def create(self, run: Run):
-        self._create(str(run.id), run.status, run.created_at, run.model_dump_json(), 'comparison')
+    def create(self, run: Run, source_id: str | None = None):
+        self._create(str(run.id), run.status, run.created_at, run.model_dump_json(), 'comparison', source_id=source_id)
 
     def get(self, run_id: str) -> Run | None:
         snapshot = self._get(run_id, 'comparison')
@@ -72,6 +117,17 @@ class Store:
 
     def create_benchmark(self, record, rate_limit=None):
         self._create(record.run.run_id, record.run.status, record.run.created_at, record.model_dump_json(), 'benchmark', rate_limit)
+
+    def create_agent(self, run):
+        self._create(str(run.run_id), run.status, run.created_at, run.model_dump_json(), 'agent')
+
+    def get_agent(self, run_id):
+        from .agent_schemas import AgentRun
+        snapshot = self._get(run_id, 'agent')
+        return AgentRun.model_validate_json(snapshot) if snapshot else None
+
+    def save_agent(self, run):
+        self._save(str(run.run_id), run.status, run.model_dump_json())
 
     def get_benchmark(self, run_id):
         from .benchmarks.schemas import BenchmarkRecord
@@ -100,6 +156,18 @@ class Store:
             db.execute('BEGIN IMMEDIATE')
             rows = db.execute("SELECT id, kind, snapshot FROM runs WHERE status IN ('queued', 'running')").fetchall()
             for run_id, kind, snapshot in rows:
+                if kind == 'agent':
+                    from .agent_schemas import AgentEvent, AgentRun
+                    agent = AgentRun.model_validate_json(snapshot)
+                    agent.status = 'running'
+                    agent.phase = 'paused'
+                    agent.stop_reason = 'APPLICATION_RESTARTED_REVIEW_REQUIRED'
+                    agent.events.append(AgentEvent(sequence=len(agent.events) + 1, occurred_at=now(), actor='policy',
+                                                   operation='pause', target=None, decision='stopped',
+                                                   summary='Application restarted; no action resumed automatically.'))
+                    db.execute('UPDATE runs SET status = ?, snapshot = ? WHERE id = ?',
+                               ('running', agent.model_dump_json(), run_id))
+                    continue
                 record = BenchmarkRecord.model_validate_json(snapshot) if kind == 'benchmark' else Run.model_validate_json(snapshot)
                 run = record.run if kind == 'benchmark' else record
                 run.status = 'failed'
@@ -131,3 +199,9 @@ class Store:
     def settle_inference(self, reservation_id, actual_cost):
         with self._lock, closing(self._connect()) as db, db:
             db.execute('UPDATE inference_reservations SET cost_usd = ? WHERE id = ?', (actual_cost, reservation_id))
+
+    def remaining_daily_cost(self, settings):
+        start = datetime.now(timezone.utc).strftime('%Y-%m-%dT00:00:00Z')
+        with self._lock, closing(self._connect()) as db:
+            reserved = db.execute('SELECT COALESCE(SUM(cost_usd),0) FROM inference_reservations WHERE created_at >= ?', (start,)).fetchone()[0]
+        return max(0.0, settings.max_daily_cost_usd - reserved)

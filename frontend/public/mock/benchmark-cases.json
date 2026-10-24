@@ -1,7 +1,73 @@
 {
   "items": [
-    { "case_id": "classify-support-001", "category": "classification", "status": "passed", "evaluation_method": "exact_match", "expected": "billing", "baseline": { "model_id": "openai/gpt-oss-120b", "routing_reason": "fixed_baseline", "output": "billing", "latency_ms": 1120, "input_tokens": 55, "output_tokens": 2, "cost_usd": 0.001, "error": null }, "candidate": { "model_id": "openai/gpt-oss-20b", "routing_reason": "simple_task_small", "output": "billing", "latency_ms": 510, "input_tokens": 55, "output_tokens": 2, "cost_usd": 0.0004, "error": null }, "evaluation_details": "Exact label match." },
-    { "case_id": "arithmetic-001", "category": "arithmetic", "status": "failed", "evaluation_method": "exact_match", "expected": "144", "baseline": { "model_id": "openai/gpt-oss-120b", "routing_reason": "fixed_baseline", "output": "144", "latency_ms": 1380, "input_tokens": 34, "output_tokens": 4, "cost_usd": 0.0008, "error": null }, "candidate": { "model_id": "openai/gpt-oss-20b", "routing_reason": "simple_task_small", "output": "142", "latency_ms": 620, "input_tokens": 34, "output_tokens": 4, "cost_usd": 0.0002, "error": null }, "evaluation_details": "Candidate output did not match the deterministic expected value." }
+    {
+      "case_id": "classify-support-001",
+      "category": "classification",
+      "status": "passed",
+      "evaluation_method": "exact_match",
+      "expected": "billing",
+      "baseline": {
+        "model_id": "openai/gpt-oss-120b",
+        "routing_reason": "fixed_baseline",
+        "output": "billing",
+        "latency_ms": 1120,
+        "input_tokens": 55,
+        "output_tokens": 2,
+        "cost_usd": 0.001,
+        "error": null,
+        "provider_id": "synthetic_fixture",
+        "finish_reason": null,
+        "output_truncated": false
+      },
+      "candidate": {
+        "model_id": "openai/gpt-oss-20b",
+        "routing_reason": "simple_task_small",
+        "output": "billing",
+        "latency_ms": 510,
+        "input_tokens": 55,
+        "output_tokens": 2,
+        "cost_usd": 0.0004,
+        "error": null,
+        "provider_id": "synthetic_fixture",
+        "finish_reason": null,
+        "output_truncated": false
+      },
+      "evaluation_details": "Exact label match."
+    },
+    {
+      "case_id": "arithmetic-001",
+      "category": "arithmetic",
+      "status": "failed",
+      "evaluation_method": "exact_match",
+      "expected": "144",
+      "baseline": {
+        "model_id": "openai/gpt-oss-120b",
+        "routing_reason": "fixed_baseline",
+        "output": "144",
+        "latency_ms": 1380,
+        "input_tokens": 34,
+        "output_tokens": 4,
+        "cost_usd": 0.0008,
+        "error": null,
+        "provider_id": "synthetic_fixture",
+        "finish_reason": null,
+        "output_truncated": false
+      },
+      "candidate": {
+        "model_id": "openai/gpt-oss-20b",
+        "routing_reason": "simple_task_small",
+        "output": "142",
+        "latency_ms": 620,
+        "input_tokens": 34,
+        "output_tokens": 4,
+        "cost_usd": 0.0002,
+        "error": null,
+        "provider_id": "synthetic_fixture",
+        "finish_reason": null,
+        "output_truncated": false
+      },
+      "evaluation_details": "Candidate output did not match the deterministic expected value."
+    }
   ],
   "next_cursor": null
 }

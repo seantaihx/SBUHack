@@ -3,12 +3,14 @@ from typing import Annotated, Literal
 from uuid import UUID
 import re
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 Mode = Literal['demo', 'live']
 Role = Literal['small', 'large']
 Policy = Literal['baseline', 'optimized']
-Reason = Literal['baseline_large', 'simple_task_small', 'summary_large']
+SourceKind = Literal['text', 'pdf', 'csv', 'webpage']
+TaskType = Literal['classify', 'extract', 'summarize', 'write', 'code']
+Reason = Literal['baseline_large', 'simple_task_small', 'summary_large', 'writing_large', 'coding_large', 'validation_fallback_large']
 Nonnegative = Annotated[float, Field(ge=0, allow_inf_nan=False)]
 Count = Annotated[int, Field(ge=0)]
 Intensity = Annotated[float, Field(ge=0, le=2000, allow_inf_nan=False)]
@@ -19,10 +21,27 @@ class Model(BaseModel):
                               json_schema_serialization_defaults_required=True)
 
 
+class TaskConstraints(Model):
+    allowed_labels: list[str] | None = Field(default=None, min_length=1, max_length=30)
+    required_json_fields: list[str] | None = Field(default=None, min_length=1, max_length=30)
+
+    @field_validator('allowed_labels', 'required_json_fields')
+    @classmethod
+    def unique_nonempty_items(cls, value):
+        if value is None:
+            return value
+        if any(not item.strip() or len(item) > 100 for item in value):
+            raise ValueError('Constraint values must be nonempty and bounded.')
+        if len({item.casefold() for item in value}) != len(value):
+            raise ValueError('Constraint values must be unique.')
+        return [item.strip() for item in value]
+
+
 class Task(Model):
     id: str = Field(pattern=r'^[A-Za-z0-9_-]{1,64}$')
-    type: Literal['classify', 'extract', 'summarize']
+    type: TaskType
     prompt: str = Field(min_length=1, max_length=2000)
+    constraints: TaskConstraints | None = None
 
     @field_validator('id')
     @classmethod
@@ -36,11 +55,87 @@ class Task(Model):
     def trim_prompt(cls, value):
         return value.strip() if isinstance(value, str) else value
 
+    @model_validator(mode='after')
+    def constraints_match_type(self):
+        if self.constraints:
+            if self.constraints.allowed_labels and self.type != 'classify':
+                raise ValueError('Allowed labels apply only to classification tasks.')
+            if self.constraints.required_json_fields and self.type != 'extract':
+                raise ValueError('Required JSON fields apply only to extraction tasks.')
+        return self
+
+
+class SourceReference(Model):
+    kind: Literal['pdf_page', 'csv_cell', 'webpage_text']
+    page_number: Count | None = None
+    row_number: Count | None = None
+    column_name: str | None = None
+    column_index: Count | None = None
+    url: str | None = None
+    start_char: Count
+    end_char: Count
+    excerpt: str
+
+
+class SourceMetadata(Model):
+    source_id: UUID
+    kind: SourceKind
+    name: str
+    media_type: str
+    original_url: str | None = None
+    final_url: str | None = None
+    retrieved_at: str | None = None
+    content_sha256: str
+    character_count: Count
+    unit_count: Count | None = None
+    parse_duration_ms: Nonnegative
+    expires_at: str | None = None
+    references: list[SourceReference] = Field(default_factory=list)
+    references_complete: bool = True
+
+
+class SourceSnapshot(SourceMetadata):
+    extracted_text: str
+
+
+class SourceResponse(Model):
+    source: SourceSnapshot
+
+
+class CreateTextSource(Model):
+    name: str = Field(default='Pasted text', max_length=200)
+    text: str = Field(min_length=1, max_length=100000)
+
+
+class CreateWebpageSource(Model):
+    url: str = Field(min_length=1, max_length=2048)
+
 
 class CreateRun(Model):
     mode: Mode
     tasks: list[Task] = Field(min_length=1, max_length=10)
     carbon_intensity_g_per_kwh: Intensity = 400
+    source_snapshot_id: UUID | None = None
+    confirm_source_submission: bool | None = None
+    quality_fallback: bool = False
+
+    @field_validator('source_snapshot_id', mode='before')
+    @classmethod
+    def parse_source_id(cls, value):
+        if value is None or isinstance(value, UUID):
+            return value
+        try:
+            return UUID(value) if isinstance(value, str) else value
+        except ValueError:
+            return value
+
+    @model_validator(mode='after')
+    def source_requires_confirmation(self):
+        if self.source_snapshot_id is not None and self.confirm_source_submission is not True:
+            raise ValueError('A source requires explicit submission confirmation.')
+        if self.source_snapshot_id is None and self.confirm_source_submission is True:
+            raise ValueError('Confirmation requires a source snapshot.')
+        return self
 
 
 class ErrorInfo(Model):
@@ -55,7 +150,7 @@ class ErrorEnvelope(Model):
 
 class Health(Model):
     status: Literal['ok'] = 'ok'
-    api_version: Literal['1.0.0'] = '1.0.0'
+    api_version: Literal['1.1.0'] = '1.1.0'
 
 
 class SampleTasks(Model):
@@ -66,6 +161,23 @@ class SampleTasks(Model):
 class ModelInfo(Model):
     role: Role
     live_model_id: str | None = None
+
+
+class FallbackAttempt(Model):
+    model_role: Role
+    model_id: str
+    output_text: str | None
+    latency_ms: Nonnegative | None
+    input_tokens: Count | None
+    output_tokens: Count | None
+    cost_usd: Nonnegative | None
+    estimated_energy_wh: Nonnegative | None
+    estimated_carbon_g: Nonnegative | None
+    error: ErrorInfo | None
+    provider_finish_reason: str | None = Field(default=None, max_length=64)
+    output_truncated: bool | None = None
+    output_validation: Literal['passed', 'failed', 'not_configured']
+    validation_notes: list[str] = Field(default_factory=list)
 
 
 class Coefficient(Model):
@@ -86,13 +198,15 @@ class EnergyProfile(Model):
 
 
 class Capabilities(Model):
-    api_version: Literal['1.0.0'] = '1.0.0'
+    api_version: Literal['1.1.0'] = '1.1.0'
     demo_enabled: Literal[True] = True
     live_enabled: bool
     live_disabled_reason: str | None
     max_tasks: Literal[10] = 10
     max_prompt_chars: Literal[2000] = 2000
-    policy_version: Literal['task-routing-v1'] = 'task-routing-v1'
+    policy_version: str = 'task-routing-v1'
+    task_profile_version: str = 'task-instructions-v1'
+    supported_task_types: list[TaskType] = Field(default_factory=lambda: ['classify', 'extract', 'summarize', 'write', 'code'])
     models: list[ModelInfo] = Field(min_length=2, max_length=2)
     energy_profile: EnergyProfile
 
@@ -111,6 +225,17 @@ class Result(Model):
     estimated_energy_wh: Nonnegative | None
     estimated_carbon_g: Nonnegative | None
     error: ErrorInfo | None
+    provider_finish_reason: str | None = Field(default=None, max_length=64)
+    output_truncated: bool | None = None
+    output_validation: Literal['passed', 'failed', 'not_configured'] = 'not_configured'
+    validation_notes: list[str] = Field(default_factory=list)
+    fallback_used: bool = False
+    fallback_reason: str | None = None
+    fallback_model_id: str | None = None
+    initial_attempt: FallbackAttempt | None = None
+    fallback_attempt: FallbackAttempt | None = None
+    attempt_count: Count = 1
+    cost_usd: Nonnegative | None = None
 
 
 class ComparisonMetric(Model):
@@ -134,7 +259,9 @@ class Run(Model):
     status: Literal['queued', 'running', 'completed', 'partial', 'failed']
     mode: Mode
     measurement_source: Literal['simulated', 'provider_usage_and_client_timing']
-    policy_version: Literal['task-routing-v1'] = 'task-routing-v1'
+    policy_version: str = 'task-routing-v1'
+    task_profile_version: str = 'task-instructions-v1'
+    quality_fallback: bool = False
     energy_estimation_profile: Literal['illustrative-v1'] = 'illustrative-v1'
     carbon_intensity_g_per_kwh: Intensity
     tasks: list[Task] = Field(min_length=1, max_length=10)
@@ -146,3 +273,5 @@ class Run(Model):
     results: list[Result] = Field(default_factory=list)
     comparison: Comparison = Field(default_factory=Comparison)
     run_error: ErrorInfo | None = None
+    source_snapshot: SourceMetadata | None = None
+    source_submission_confirmed: bool = False

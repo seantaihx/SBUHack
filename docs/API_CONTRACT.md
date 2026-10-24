@@ -1,6 +1,6 @@
 # Frontend/API integration contract
 
-This document maps the existing frontend to the shared EcoAgent API v1. The original comparison API remains unchanged; the accepted benchmark extension is specified below. The source of truth is [`../contracts/openapi.json`](../contracts/openapi.json), with behavioral rules in [`02-api-and-data.md`](02-api-and-data.md).
+This document maps the frontend to EcoAgent API v1.1, including source preview, benchmark, task-quality and bounded fallback fields. The source of truth is [`../contracts/openapi.json`](../contracts/openapi.json). Backend values and responses remain authoritative.
 
 ## Connection configuration
 
@@ -12,20 +12,32 @@ Set `VITE_USE_FRONTEND_MOCK=true` only for the explicit fixture preview. The def
 
 ## Endpoints consumed by the frontend
 
-All routes below are relative to `/api/v1`. JSON uses snake_case. `GET /health` is in the shared contract but is **not currently called by the frontend**.
+All routes below are relative to `/api/v1`. JSON uses snake_case. `GET /health` is in the shared contract but is **not currently called by the frontend**. The local workspace-agent routes are consumed by `AgentDashboard` and defined in the “Workspace agent API” section below.
 
 | Frontend API method | HTTP method and path | Request body | Success response | Frontend consumers |
 |---|---|---|---|---|
 | `api.capabilities()` | `GET /capabilities` | None | `Capabilities` (schema below) | `App` startup: modes, safe Live disabled reason, task/prompt limits, policy label, default carbon scenario and energy coefficients in assumptions disclosure. |
 | `api.sampleTasks()` | `GET /sample-tasks` | None | `SampleTasks` | `App` startup and Demo checkboxes. The request payload uses the exact selected task objects returned here. |
-| `api.createRun(payload)` | `POST /runs` | `CreateRun` (schema below) | `202 Run`; `Location: /api/v1/runs/{id}` | Compare button submission state; initial run status, task list, run ID and URL restoration. The UI disables repeat submission while pending. |
+| `api.createRun(payload)` | `POST /runs` | `CreateRun` (schema below), including optional Live-only `quality_fallback` | `202 Run`; `Location: /api/v1/runs/{id}` | Compare button submission state; initial run status, task list, run ID and URL restoration. The UI disables repeat submission while pending. |
 | `api.getRun(id)` | `GET /runs/{run_id}` | None; `{run_id}` is a server-generated UUID path segment | `200 Run` | Initial `?run=<uuid>` restoration, polling, manual retry, and reopening an active run after a `409`. |
+| `sourceApi.createText(text)` | `POST /sources/text` | `{"name":"Pasted text","text":"..."}` | `201 {source: SourceSnapshot}` | Explicit Preview source action. |
+| `sourceApi.createFile(file)` | `POST /sources/files` | One `file` in multipart/form-data | `201 {source: SourceSnapshot}` | Explicit Parse and preview action for PDF or CSV. Browser sets the multipart boundary. |
+| `sourceApi.createWebpage(url)` | `POST /sources/webpage` | `{"url":"https://example.org/page"}` | `201 {source: SourceSnapshot}` | Explicit Fetch and preview action for public HTTP(S) pages. |
+| `sourceApi.get(id)` | `GET /sources/{source_id}` | None; UUID path segment | `200 {source: SourceSnapshot}` | Refresh restoration of the exact source preview attached to a run. |
+| `sourceApi.remove(id)` | `DELETE /sources/{source_id}` | None; UUID path segment | `204` | Remove an unbound preview; an attached source returns `409 SOURCE_IN_USE`. |
+| `agentApi.capabilities()` | `GET /agent/capabilities` | None | `200 AgentCapabilities` | Agent page: safe local availability and explicit operation limits. |
+| `agentApi.start(payload)` | `POST /agent-runs` | `AgentStartRequest`; includes literal `confirm_provider_submission: true` | `202 AgentRun`; Location | Agent page: submits one local task; conflicts route to active agent run. |
+| `agentApi.get(id)` | `GET /agent-runs/{run_id}` | None | `200 AgentRun` | Refresh restoration and polling while planning. |
+| `agentApi.events(id,cursor,limit)` | `GET /agent-runs/{run_id}/events` | Query `cursor` and `limit` | `200 AgentEventsResponse` | Human-readable action history. |
+| `agentApi.approve(id,action)` | `POST /agent-runs/{run_id}/approvals` | `{action_id,action_hash,approved}` | `200 AgentRun` | Approve/deny exactly one pending file operation. |
+| `agentApi.continue(id)` | `POST /agent-runs/{run_id}/continue` | Empty | `200 AgentRun` | Explicitly request one further planning call. |
+| `agentApi.stop(id)` | `POST /agent-runs/{run_id}/stop` | Empty | `200 AgentRun` | Stop an active/paused local task. |
 
 The client currently uses the `Run.id` body field to navigate/poll; it does not read the `Location` header. The backend should still return the contractually required header.
 
 ## Request and response shapes
 
-These TypeScript definitions are in [`../frontend/src/api/types.ts`](../frontend/src/api/types.ts) and mirror the OpenAPI v1 schema. Backend values remain authoritative.
+These TypeScript definitions are in [`../frontend/src/api/types.ts`](../frontend/src/api/types.ts) and mirror the OpenAPI v1.1 schema. Backend values remain authoritative.
 
 ### `Task`
 
@@ -33,11 +45,12 @@ These TypeScript definitions are in [`../frontend/src/api/types.ts`](../frontend
 {
   "id": "classify-1",
   "type": "classify",
-  "prompt": "Classify this support message..."
+  "prompt": "Classify this support message...",
+  "constraints": { "allowed_labels": ["billing", "technical", "general"], "required_json_fields": null }
 }
 ```
 
-`id` matches `^[A-Za-z0-9_-]{1,64}$`; `type` is `classify`, `extract`, or `summarize`; `prompt` is trimmed nonempty text up to the configured 2000-character limit.
+`id` matches `^[A-Za-z0-9_-]{1,64}$`; `type` is `classify`, `extract`, `summarize`, `write`, or `code`; `prompt` is trimmed nonempty text up to the configured 2000-character limit. Optional `constraints.allowed_labels` enables exact-label validation for classification; `constraints.required_json_fields` enables JSON-object and required-key validation for extraction.
 
 ### `CreateRun`
 
@@ -45,23 +58,38 @@ These TypeScript definitions are in [`../frontend/src/api/types.ts`](../frontend
 {
   "mode": "demo",
   "tasks": [{ "id": "classify-1", "type": "classify", "prompt": "..." }],
-  "carbon_intensity_g_per_kwh": 400
+  "carbon_intensity_g_per_kwh": 400,
+  "quality_fallback": false
 }
 ```
 
 `mode` is `demo` or `live`; there must be 1–10 unique tasks; scenario carbon intensity is 0–2000 gCO2e/kWh. Demo tasks must exactly match a nonempty subset of `demo/tasks.json`. Live prompts can be edited only when `Capabilities.live_enabled` is true. Unknown request fields are rejected by the contract.
 
+`quality_fallback` defaults false. When enabled in Live mode, one optimized classify/extract request may escalate to the large model after deterministic validation fails. Provider errors and truncation do not retry. The fallback adds a provider call and is counted by request/spending safeguards; its outputs and nullable metrics are returned for review. A run uses `task-routing-v2-fallback`; otherwise it uses `task-routing-v1`.
+
+To attach a parsed source, include `source_snapshot_id: "<uuid>"` and `confirm_source_submission: true`. Source-backed runs require Live mode. The task prompt remains the user's instruction; the backend appends the same extracted source text to both policies as untrusted data. The frontend requires explicit confirmation before submission. Failed parsing or retrieval creates no snapshot and cannot fall back to fixture content.
+
+### Source parsing, safety, and retention
+
+`SourceSnapshot` contains the full extracted text, SHA-256 of that exact UTF-8 text, source kind/name/media type, character/unit counts, parse duration, and references. PDF references identify pages; CSV references identify data cells; webpage references cover extracted visible text. These references locate source text but are not validated citations for model claims. The model does not currently return answer-grounding citations or an explicit `not_found_in_source` state.
+
+Backend limits: 10 MiB per file; text PDF up to 100 pages; CSV up to 10,000 data rows and 200 columns; 100,000 extracted characters; webpage response up to 5 MiB, 10 seconds and three redirects. CSV must be UTF-8/UTF-8 BOM and comma-delimited. Formula-like CSV cells stay plain text. Encrypted/scanned PDFs, OCR, authenticated pages, scripts and non-HTML/plain-text responses are unsupported. URL retrieval permits public destinations only on HTTP 80 or HTTPS 443; every redirect is revalidated and sockets are pinned to checked IP addresses. Query strings are used to fetch pages but omitted from stored/displayed URL provenance.
+
+Unbound previews expire after 30 minutes. A source attached to a run has no expiry and the exact source text is retained in SQLite with its run; this prototype has no run deletion or source cleanup endpoint. Bound source text remains in that local database until the operator removes the database. Do not submit confidential or regulated data. `GET /sources/{id}` returns the retained snapshot; run responses/export metadata do not duplicate the source text.
+
 ### `Capabilities`
 
 ```json
 {
-  "api_version": "1.0.0",
+  "api_version": "1.1.0",
   "demo_enabled": true,
   "live_enabled": false,
   "live_disabled_reason": "Live inference is not configured. Use Demo mode.",
   "max_tasks": 10,
   "max_prompt_chars": 2000,
   "policy_version": "task-routing-v1",
+  "task_profile_version": "task-instructions-v1",
+  "supported_task_types": ["classify", "extract", "summarize", "write", "code"],
   "models": [
     { "role": "small", "live_model_id": null },
     { "role": "large", "live_model_id": null }
@@ -99,6 +127,8 @@ The actual task array is authoritative and comes from the backend. The sample fi
   "mode": "demo",
   "measurement_source": "simulated",
   "policy_version": "task-routing-v1",
+  "task_profile_version": "task-instructions-v1",
+  "quality_fallback": false,
   "energy_estimation_profile": "illustrative-v1",
   "carbon_intensity_g_per_kwh": 400,
   "tasks": [/* Task[] echoed for refresh restoration */],
@@ -120,7 +150,9 @@ The actual task array is authoritative and comes from the backend. The sample fi
 }
 ```
 
-The full OpenAPI schema defines `Result`, `Comparison`, nullable metrics, and `run_error`. Run states are `queued → running → completed | partial | failed`. Results are ordered by requested task, baseline first. Each result contains the backend-selected model role/ID, route reason, output or attempt error, nullable latency/tokens, and nullable illustrative estimates. A failed result has null output and numeric fields; missing values are displayed as **Unavailable**, never zero.
+The full OpenAPI schema defines `Result`, `Comparison`, nullable metrics, and `run_error`. Run states are `queued → running → completed | partial | failed`. Results are ordered by requested task, baseline first. Each result contains the backend-selected model role/ID, route reason, output or attempt error, nullable latency/tokens, provider finish reason, output completeness, deterministic validation status, and nullable illustrative estimates. A failed result has null output and numeric fields; missing values are displayed as **Unavailable**, never zero. Run snapshots include `source_snapshot` (metadata or null) and `source_submission_confirmed`.
+
+Live runs use server-owned `task-instructions-v1` profiles; validation checks format and explicitly supplied constraints, not semantic truth. `quality_fallback` is an explicit Live-only opt-in. One optimized classify/extract response can escalate once after deterministic validation failure. Provider errors and truncation are not retried. When escalation runs, both attempt outputs/errors and nullable usage/cost/estimates are returned. `total_attempts` counts actual provider calls and can increase when escalation starts; `completed_attempts` counts provider calls, while `results` still has one row per task/policy. Code generation is returned as text and is not executed.
 
 The backend computes routing and all aggregates. Energy/carbon totals use only complete paired usage; latency totals use only successful pairs. Provide cohort counts. Partial and running comparisons are incomplete; a completed run is not a quality evaluation.
 
@@ -135,6 +167,8 @@ Errors use `{ "error": { "code": "...", "message": "safe readable text", "detail
 | `422` | `VALIDATION_ERROR`, `INVALID_DEMO_TASK`, `DUPLICATE_TASK_ID` | Show the safe message; do not change mode or alter the payload silently. |
 | `503` | `LIVE_UNAVAILABLE` | Show the backend message; never fall back to Demo. |
 | `500` | `INTERNAL_ERROR` | Show the safe message. |
+| `400/413/415/422/502/504` | `SOURCE_*` | Keep input selected, show the safe backend reason, and never infer from failed/partial source content. |
+| `409` | `SOURCE_ALREADY_BOUND`, `SOURCE_IN_USE` | Explain that a bound snapshot stays with its run; use a fresh preview to create a new source-backed run. |
 | network/other | No usable envelope or connection | Keep the last run snapshot during polling, offer retry, and do not automatically repeat `POST /runs`. Submission uncertainty is stated to the user. |
 
 Attempt-level provider failures are fields on a successful `GET /runs/{run_id}` snapshot and are rendered next to the corresponding attempt. They are not expected as an HTTP failure from the polling endpoint.
@@ -143,13 +177,21 @@ Attempt-level provider failures are fields on a successful `GET /runs/{run_id}` 
 
 | Endpoint | Contract response | Status |
 |---|---|---|
-| `GET /health` | `Health`: `{ "status": "ok", "api_version": "1.0.0" }` | Defined in OpenAPI; unused by current UI. API readiness indication is based on successful capabilities and sample-task fetches. |
+| `GET /health` | `Health`: `{ "status": "ok", "api_version": "1.1.0" }` | Defined in OpenAPI; unused by current UI. API readiness indication is based on successful capabilities and sample-task fetches. |
 
-No other comparison routes are defined; benchmark history/evaluation is the separately accepted extension below. Cancellation, authentication and browser provider-configuration routes remain absent.
+The source-preview routes below are additive. Cancellation, authentication and browser provider-configuration routes remain absent.
 
-## Accepted benchmark API (October 24, 2026)
+## Workspace agent API (local opt-in)
 
-Sean authorized adoption of the existing typed frontend contract. The five routes and all schemas are now in `contracts/openapi.json`; the original comparison API is unchanged. Types in `frontend/src/api/types.ts` and client calls in `frontend/src/api/client.ts` require no changes. The executable dataset is `benchmarks/starter-v1.json`.
+These routes are served by the same API but are strictly limited to a loopback Host and direct loopback client. Configure backend-only `AGENT_ENABLED=true` and `AGENT_WORKSPACE_ROOT`; Live inference must also be configured. The browser requires explicit provider-submission confirmation at start. Never expose these unauthenticated routes publicly. `GET /agent/capabilities` reports only the workspace's display name and safe disabled reason, never the root path.
+
+`AgentStartRequest` requires `task_type: write|code`, `instruction` (1–5000 chars), `confirm_provider_submission: true`, one or more exact relative `read_paths`/`write_paths` (up to 20 each), and `max_steps` (1–12, default 8). It returns `202 AgentRun` and Location. `AgentCapabilities` advertises only `read_file` and `write_file`; each operation requires its own approval tied to an action UUID and hash. Stale approvals fail with 409. `GET /agent-runs/{id}` returns status and pending action. `GET /agent-runs/{id}/events?cursor=0&limit=50` returns the event page and next cursor. `POST /agent-runs/{id}/approvals` accepts `{"action_id":"<uuid>","action_hash":"<sha256>","approved":true}`. `POST /continue` is an explicit single-step continuation; `POST /stop` ends the task. Start conflicts return 409 with `active_run_id` and `active_run_kind`.
+
+There is no shell, network, delete, file execution, git, deployment, or permission-change tool. Path scope is exact; path traversal, sensitive credential/config paths, symlink escapes, duplicate operations, oversized/non-UTF-8 files, and detected credential-like text are rejected. The backend caps each file at 50,000 characters and model planning calls at 12. Each proposed read or write pauses for human approval, and a run never auto-continues after a tool action. Approved file content may be sent to the configured provider after the operator explicitly continues; the credential filter is not a secret-detection guarantee. Code is generated as text and never run. Active runs are paused at server restart.
+
+## Initial benchmark contract (historical)
+
+The following describes the initial five-route `starter-v1` integration. It is retained as historical context; the current implemented source and benchmark contract appears below and supersedes the original five-route/case/model limits.
 
 | Method and route | Input | Success schema |
 |---|---|---|
@@ -189,4 +231,40 @@ Checked-in `contracts/examples/benchmark-*.json` show acknowledgements, catalog,
 
 No wire-schema change is required. `VITE_USE_FRONTEND_MOCK=false` (the existing default) selects real backend transport; BENCHMARK_INFERENCE_MODE selects the server adapter independently. The current UI does not expose server mode before the first run (it says SOURCE PENDING), but each returned snapshot prominently shows SIMULATED/OBSERVED. History/case Load more controls already exist in the actual code despite older integration notes.
 
-One existing cross-view limitation: the comparison view assumes a 409 active_run_id belongs to `/runs`; if a benchmark is active it cannot reopen it there. The server still correctly rejects the duplicate and the user can switch to Benchmarks/history. Coordinate a future active_run_kind-aware navigation improvement with Muffin; no frontend source was altered in this backend integration.
+The active-run navigation limitation noted during initial integration has since been fixed: both run types return `active_run_kind` and the frontend opens the identified run without resubmission.
+
+## Current implemented source and benchmark contract
+
+All routes are under `/api/v1`; the generated, machine-readable source of truth is [`../contracts/openapi.json`](../contracts/openapi.json).
+
+### Live completion length
+
+The backend defaults `INFERENCE_MAX_COMPLETION_TOKENS` to 65536, configurable from 1 to 65536, and sends it as Groq's `max_completion_tokens`. The backend clamps known models to their provider ceilings: 65,536 for GPT-OSS and 16,384 for Qwen 3.8 27B. The same configured setting applies to both sides of a comparison and live benchmark attempts. Live request reservations include 131072 input tokens plus the model-bounded output cap, so a larger cap can lower the effective benchmark case maximum or cause a request to be blocked by existing spend limits. No automatic retry is performed. If the provider returns `finish_reason=length`, the output remains visible but marked incomplete and excluded from benchmark correctness scoring; a provider/context hard limit can still be reached.
+
+### Source import and preview
+
+| Route | Request | Response |
+|---|---|---|
+| `POST /sources/text` | `{"name":"Pasted text","text":"..."}` | `201 {"source": SourceSnapshot}` |
+| `POST /sources/files` | One multipart `file` (PDF or CSV) | `201 {"source": SourceSnapshot}` |
+| `POST /sources/webpage` | `{"url":"https://example.org/page"}` | `201 {"source": SourceSnapshot}` |
+| `GET /sources/{source_id}` | UUID | `200 {"source": SourceSnapshot}` |
+| `DELETE /sources/{source_id}` | UUID | `204`; `409 SOURCE_IN_USE` if bound to a run |
+
+`SourceSnapshot` includes the complete extracted text, its SHA-256, source kind/name/media type, URLs and retrieval timestamp when applicable, parse duration, character/unit counts, expiry and input references. References point to PDF pages, CSV data cells, or webpage-text offsets. They do not validate generated answer claims. The inference model does not currently return validated citations or a `not_found_in_source` result.
+
+Limits are 10 MiB per file; 100 PDF pages; 10,000 CSV data rows; 200 columns; 100,000 extracted characters; webpage responses up to 5 MiB and 10 seconds; and at most three redirects. CSV must be UTF-8/UTF-8 BOM and comma-delimited; cells, including formulas, remain text. Scanned/encrypted PDFs and OCR are unsupported. Webpage retrieval accepts public HTTP port 80 or HTTPS port 443, checks all resolved addresses and redirects, pins the socket to a checked public IP, and permits HTML/plain text only. URL query strings are used for retrieval but omitted from stored/displayed provenance.
+
+Unbound previews expire after 30 minutes. `POST /runs` can include `source_snapshot_id` with `confirm_source_submission:true`; attached sources are Live-only. The same source text is appended to both policies as untrusted content, and the run stores source metadata plus a confirmation flag. The exact text is retained in SQLite with a bound run and has no cleanup endpoint in this prototype. Avoid confidential/regulated data. Source text is not duplicated in the run response/export; retrieve it via `GET /sources/{id}`.
+
+### Expanded benchmark catalog and full JSON export
+
+Current routes include `GET /benchmarks/datasets`, `GET /benchmarks/datasets/{dataset_id}`, history/start/run/case routes, and `GET /benchmarks/runs/{run_id}/export`. The export includes the complete authored dataset, exact inputs/expected values/evaluator definitions, persisted outputs/outcomes, run provenance and model pricing assumptions. `data_completeness` is `partial` when a run covers only a bounded dataset subset or has not finished persisting every selected case.
+
+`starter-v1` remains the five-case baseline. `starter-v2` version 2.1.0 has 26 synthetic cases across classification, arithmetic, extraction, summarization, reasoning, formatting, fact retrieval, writing and code generation. Writing/code cases use lexical checks only; code is not executed and the fixtures do not establish semantic quality. `max_cases_per_run` is returned by the dataset catalog and defaults to 10 under the existing maximum of 20 paired inference requests. No request/spending guard is raised to fit the full dataset; use explicit bounded runs for additional cases.
+
+The model catalog includes configured GPT-OSS small/large models and the priced `qwen/qwen3.8-27b` Groq Preview option. The UI marks Qwen as Preview; provider account availability is not probed. See the [Groq supported-model page](https://console.groq.com/docs/models) for published model status/rates. `eco-auto` is a routing policy, not a provider model ID.
+
+Benchmark evaluators are deterministic authored checks (exact match, exact JSON values/keys, or literal required facts), not semantic quality judges. Truncated outputs, and outputs with unknown completion status, are marked `incomplete` and excluded from the evaluated-case pass-rate denominator. Metrics distinguish total/evaluated/passed/failed/incomplete/error counts. Simulated answers and timings are fixtures, not evidence of model quality. Estimated token costs are not provider billing.
+
+Comparison and benchmark duplicate-run responses include `active_run_id` and `active_run_kind`, so the frontend routes to the existing run without repeating a submission.

@@ -10,6 +10,8 @@ class InferenceResult:
     latency_ms: float
     input_tokens: int | None
     output_tokens: int | None
+    finish_reason: str | None = None
+    output_truncated: bool | None = None
 
 
 _MESSAGES = {
@@ -18,6 +20,8 @@ _MESSAGES = {
     'PROVIDER_RATE_LIMITED': 'The provider or configured server request/spending limits blocked this attempt.',
     'PROVIDER_UNAVAILABLE': 'The inference provider is unavailable.',
     'PROVIDER_BAD_RESPONSE': 'The inference provider returned an invalid response.',
+    'SOURCE_NOT_FOUND': 'The attached source snapshot is no longer available.',
+    'SOURCE_FETCH_FAILED': 'The attached source snapshot could not be read.',
 }
 
 

@@ -1,16 +1,29 @@
-// Mirrors contracts/openapi.json v1.0.0. The backend remains authoritative.
-export type TaskType = 'classify' | 'extract' | 'summarize';
+// Mirrors contracts/openapi.json v1.1.0. The backend remains authoritative.
+export type TaskType = 'classify' | 'extract' | 'summarize' | 'write' | 'code';
 export type Mode = 'demo' | 'live';
 export type RunStatus = 'queued' | 'running' | 'completed' | 'partial' | 'failed';
-export type Task = { id: string; type: TaskType; prompt: string };
+export type TaskConstraints = { allowed_labels?: string[] | null; required_json_fields?: string[] | null };
+export type Task = { id: string; type: TaskType; prompt: string; constraints?: TaskConstraints | null };
+export type SourceReference = {
+  kind: 'pdf_page' | 'csv_cell' | 'webpage_text'; page_number: number | null; row_number: number | null;
+  column_name: string | null; column_index: number | null; url: string | null; start_char: number; end_char: number; excerpt: string;
+};
+export type SourceMetadata = {
+  source_id: string; kind: 'text' | 'pdf' | 'csv' | 'webpage'; name: string; media_type: string;
+  original_url: string | null; final_url: string | null; retrieved_at: string | null; content_sha256: string;
+  character_count: number; unit_count: number | null; parse_duration_ms: number; expires_at: string | null;
+  references: SourceReference[]; references_complete: boolean;
+};
+export type SourceSnapshot = SourceMetadata & { extracted_text: string };
 export type Coefficient = { input_wh_per_token: number; output_wh_per_token: number };
 export type EnergyProfile = {
   id: 'illustrative-v1'; basis: 'hypothetical_demo_coefficients_not_measurements';
   default_carbon_intensity_g_per_kwh: number; models: { small: Coefficient; large: Coefficient };
 };
 export type Capabilities = {
-  api_version: '1.0.0'; demo_enabled: boolean; live_enabled: boolean; live_disabled_reason: string | null;
+  api_version: '1.1.0'; demo_enabled: boolean; live_enabled: boolean; live_disabled_reason: string | null;
   max_tasks: number; max_prompt_chars: number; policy_version: string;
+  task_profile_version: string; supported_task_types: TaskType[];
   models: { role: 'small' | 'large'; live_model_id: string | null }[]; energy_profile: EnergyProfile;
 };
 export type SampleTasks = { version: 'sample-v1'; tasks: Task[] };
@@ -18,9 +31,20 @@ export type ApiErrorInfo = { code: string; message: string; details: Record<stri
 export type ApiErrorEnvelope = { error: ApiErrorInfo };
 export type Result = {
   task_id: string; policy: 'baseline' | 'optimized'; model_role: 'small' | 'large'; model_id: string;
-  routing_reason: 'baseline_large' | 'simple_task_small' | 'summary_large'; status: 'succeeded' | 'failed';
+  routing_reason: 'baseline_large' | 'simple_task_small' | 'summary_large' | 'writing_large' | 'coding_large' | 'validation_fallback_large'; status: 'succeeded' | 'failed';
   output_text: string | null; latency_ms: number | null; input_tokens: number | null; output_tokens: number | null;
   estimated_energy_wh: number | null; estimated_carbon_g: number | null; error: ApiErrorInfo | null;
+  provider_finish_reason: string | null; output_truncated: boolean | null;
+  output_validation: 'passed' | 'failed' | 'not_configured'; validation_notes: string[];
+  fallback_used: boolean; fallback_reason: string | null; fallback_model_id: string | null;
+  initial_attempt: FallbackAttempt | null; fallback_attempt: FallbackAttempt | null; attempt_count: number; cost_usd: number | null;
+};
+export type FallbackAttempt = {
+  model_role: 'small' | 'large'; model_id: string; output_text: string | null; latency_ms: number | null;
+  input_tokens: number | null; output_tokens: number | null; cost_usd: number | null;
+  estimated_energy_wh: number | null; estimated_carbon_g: number | null; error: ApiErrorInfo | null;
+  provider_finish_reason: string | null; output_truncated: boolean | null;
+  output_validation: 'passed' | 'failed' | 'not_configured'; validation_notes: string[];
 };
 export type ComparisonMetric = { baseline: number | null; optimized: number | null; saved: number | null; savings_pct: number | null };
 export type Comparison = {
@@ -29,23 +53,55 @@ export type Comparison = {
 };
 export type Run = {
   id: string; status: RunStatus; mode: Mode; measurement_source: 'simulated' | 'provider_usage_and_client_timing';
-  policy_version: string; energy_estimation_profile: string; carbon_intensity_g_per_kwh: number; tasks: Task[];
+  policy_version: string; task_profile_version: string; quality_fallback: boolean;
+  energy_estimation_profile: string; carbon_intensity_g_per_kwh: number; tasks: Task[];
   created_at: string; started_at: string | null; finished_at: string | null; total_attempts: number;
   completed_attempts: number; results: Result[]; comparison: Comparison; run_error: ApiErrorInfo | null;
+  source_snapshot: SourceMetadata | null; source_submission_confirmed: boolean;
 };
-export type CreateRun = { mode: Mode; tasks: Task[]; carbon_intensity_g_per_kwh: number };
+export type CreateRun = { mode: Mode; tasks: Task[]; carbon_intensity_g_per_kwh: number; quality_fallback?: boolean; source_snapshot_id?: string; confirm_source_submission?: true };
+
+export type AgentCapabilities = {
+  enabled: boolean; disabled_reason: string | null; workspace_name: string | null;
+  task_types: ('write' | 'code')[]; operations: ('read_file' | 'write_file')[];
+  approval_required_for_each_operation: true; shell_execution_enabled: false; network_tools_enabled: false;
+  max_steps: number; max_file_chars: number;
+};
+export type AgentPendingAction = {
+  action_id: string; action_hash: string; operation: 'read_file' | 'write_file'; path: string;
+  summary: string; content: string | null; before_text: string | null; base_sha256: string | null;
+};
+export type AgentEvent = {
+  sequence: number; occurred_at: string; actor: 'agent' | 'operator' | 'policy' | 'tool';
+  operation: string; target: string | null;
+  decision: 'proposed' | 'approved' | 'denied' | 'denied_out_of_scope' | 'denied_duplicate' | 'completed' | 'failed' | 'stopped';
+  summary: string; action_hash: string | null; details: string | null;
+};
+export type AgentRun = {
+  run_id: string; status: 'queued' | 'running' | 'completed' | 'failed' | 'cancelled';
+  phase: 'planning' | 'awaiting_approval' | 'paused' | 'completed' | 'failed';
+  task_type: 'write' | 'code'; workspace_name: string; instruction: string;
+  read_paths: string[]; write_paths: string[]; max_steps: number; model_calls: number; steps_completed: number;
+  pending_action: AgentPendingAction | null; events: AgentEvent[]; final_text: string | null;
+  stop_reason: string | null; created_at: string; started_at: string | null; finished_at: string | null;
+};
+export type AgentStartRequest = {
+  task_type: 'write' | 'code'; instruction: string; confirm_provider_submission: true;
+  read_paths: string[]; write_paths: string[]; max_steps: number;
+};
+export type AgentEventsResponse = { events: AgentEvent[]; next_cursor: string | null };
 
 // Proposed benchmark API types. Keep these marked as proposals until Sean confirms the contract.
 export type BenchmarkStatus = 'queued' | 'running' | 'completed' | 'partial' | 'failed' | 'cancelled';
 export type BenchmarkConfig = { model_id: string; optimization_enabled: boolean };
 export type BenchmarkDataset = {
   dataset_id: string; name: string; version: string; description: string; case_count: number;
-  categories: string[]; supported_models: string[]; provenance: 'curated' | 'synthetic';
+  categories: string[]; supported_models: string[]; preview_models: string[]; max_cases_per_run: number; provenance: 'curated' | 'synthetic';
 };
 export type BenchmarkDatasetsResponse = { datasets: BenchmarkDataset[] };
 export type BenchmarkMetricSet = {
-  total_cases: number | null; passed_cases: number | null; pass_rate: number | null;
-  failed_cases: number | null; total_cost_usd: number | null; mean_latency_ms: number | null;
+  total_cases: number | null; evaluated_cases: number | null; passed_cases: number | null; pass_rate: number | null;
+  failed_cases: number | null; incomplete_cases: number | null; total_cost_usd: number | null; mean_latency_ms: number | null;
   input_tokens: number | null; output_tokens: number | null; total_requests: number | null; error_count: number | null;
 };
 export type BenchmarkProgress = { completed: number; total: number };
@@ -63,12 +119,19 @@ export type StartBenchmarkRequest = {
 export type StartBenchmarkResponse = { run_id: string; status: 'queued' };
 export type BenchmarkRunsResponse = { items: BenchmarkRun[]; next_cursor: string | null };
 export type BenchmarkCaseSide = {
-  model_id: string; routing_reason: string | null; output: string | null; latency_ms: number | null;
+  model_id: string; provider_id: string; finish_reason: string | null; output_truncated: boolean | null;
+  routing_reason: string | null; output: string | null; latency_ms: number | null;
   input_tokens: number | null; output_tokens: number | null; cost_usd: number | null; error: ApiErrorInfo | null;
 };
 export type BenchmarkCase = {
-  case_id: string; category: string; status: 'passed' | 'failed' | 'skipped' | 'error';
+  case_id: string; category: string; status: 'passed' | 'failed' | 'skipped' | 'error' | 'incomplete';
   evaluation_method: string; expected: string | null; baseline: BenchmarkCaseSide | null; candidate: BenchmarkCaseSide | null;
   evaluation_details: string | null;
 };
 export type BenchmarkCasesResponse = { items: BenchmarkCase[]; next_cursor: string | null };
+export type BenchmarkExport = {
+  export_version: 'benchmark-analysis-v1'; exported_at: string; data_completeness: 'complete' | 'partial';
+  completeness_note: string | null; dataset: { dataset_id: string; version: string; provenance: 'curated' | 'synthetic'; cases: unknown[] };
+  run: BenchmarkRun; pricing_snapshot: { provider_id: string; currency: string; basis: string; as_of: string; models: Record<string, { input_usd_per_million: number; output_usd_per_million: number }> };
+  cases: { definition: unknown; outcome: Record<string, boolean | null>; result: BenchmarkCase }[];
+};
