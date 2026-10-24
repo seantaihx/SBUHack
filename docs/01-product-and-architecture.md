@@ -16,7 +16,7 @@ The MVP does not measure a provider's electricity consumption. It must never cal
 - Versioned policy `task-routing-v1`: baseline always uses logical model `large`; optimized uses `small` for classify/extract and `large` for summarize. The user or dataset supplies task type; this MVP does not automatically infer complexity.
 - No response cache, retries, prompt compression, batching, or external routing LLM in v1. Those would confound attribution or expand scope.
 - All requests use the same system message and generation settings. Only the selected model changes. Routes choosing the same model may still yield different text or latency; disclose this.
-- Fixed generation settings: temperature 0, max_tokens 256, non-streaming. A compatible endpoint must support these; unsupported settings cause a visible provider error, not a hidden fallback.
+- Shared generation settings: temperature 0, non-streaming, and a backend-configured completion cap. `INFERENCE_MAX_COMPLETION_TOKENS` defaults to 65,536 (allowed range 1–65,536) and is sent as `max_completion_tokens`; baseline and optimized attempts use the same setting, clamped to known model ceilings. Current Groq ceilings are 65,536 for GPT-OSS and 16,384 for Qwen 3.8 27B. A provider may still stop at a hard output or context limit. Do not treat a `finish_reason=length` response as complete or retry automatically because that can duplicate provider charges.
 - No automatic claims about accuracy. A result panel allows human comparison; no numeric quality score in v1.
 - Demonstrate policy routing and integration first. Energy estimates are a transparent secondary illustration.
 

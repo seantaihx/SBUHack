@@ -14,7 +14,10 @@
         "input_tokens": 60,
         "output_tokens": 20,
         "cost_usd": 2.1e-05,
-        "error": null
+        "error": null,
+        "provider_id": "synthetic_fixture",
+        "finish_reason": null,
+        "output_truncated": false
       },
       "candidate": {
         "model_id": "openai/gpt-oss-20b",
@@ -28,7 +31,10 @@
           "code": "PROVIDER_TIMEOUT",
           "message": "The inference attempt exceeded its deadline.",
           "details": {}
-        }
+        },
+        "provider_id": "synthetic_fixture",
+        "finish_reason": null,
+        "output_truncated": null
       },
       "evaluation_details": "Deterministic lexical/JSON checks only; not semantic quality equivalence."
     }

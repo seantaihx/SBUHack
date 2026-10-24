@@ -158,14 +158,16 @@ def test_restart_recovers_unfinished_run_and_preserves_results(tmp_path, state):
                        (ROOT / 'contracts/examples/run-queued.json').read_text())['comparison'])
     if state == 'queued':
         fixture.update(started_at=None, completed_attempts=0, results=[])
-    store.create(Run.model_validate_json(json.dumps(fixture)))
+    recovered_snapshot = Run.model_validate_json(json.dumps(fixture))
+    expected_results = [result.model_dump(mode='json') for result in recovered_snapshot.results]
+    store.create(recovered_snapshot)
     with TestClient(create_app(settings)) as client:
         recovered = client.get('/api/v1/runs/' + fixture['id']).json()
         validate(recovered, 'Run')
         assert recovered['status'] == 'failed'
         assert recovered['run_error']['code'] == 'RUN_INTERRUPTED'
         assert recovered['finished_at'].endswith('Z')
-        assert recovered['results'] == fixture['results']
+        assert recovered['results'] == expected_results
         assert recovered['completed_attempts'] == len(fixture['results'])
         assert wait_run(client, submit(client, SAMPLES['tasks'][:1]))['status'] == 'completed'
     with TestClient(create_app(settings)) as client:

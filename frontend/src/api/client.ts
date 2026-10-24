@@ -1,4 +1,4 @@
-import type { BenchmarkCasesResponse, BenchmarkDatasetsResponse, BenchmarkRun, BenchmarkRunsResponse, Capabilities, CreateRun, Run, SampleTasks, StartBenchmarkRequest, StartBenchmarkResponse } from './types';
+import type { AgentCapabilities, AgentEventsResponse, AgentRun, AgentStartRequest, BenchmarkCasesResponse, BenchmarkDatasetsResponse, BenchmarkExport, BenchmarkRun, BenchmarkRunsResponse, Capabilities, CreateRun, Run, SampleTasks, SourceSnapshot, StartBenchmarkRequest, StartBenchmarkResponse } from './types';
 
 const mockMode = import.meta.env.VITE_USE_FRONTEND_MOCK === 'true';
 const apiBaseUrl = (import.meta.env.VITE_API_BASE_URL || '/api/v1').replace(/\/+$/, '');
@@ -12,7 +12,9 @@ export class ApiError extends Error {
 }
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
-  const response = await fetch(`${apiBaseUrl}${path}`, { ...init, headers: { 'Content-Type': 'application/json', ...init?.headers } });
+  const headers = new Headers(init?.headers);
+  if (!(init?.body instanceof FormData) && !headers.has('Content-Type')) headers.set('Content-Type', 'application/json');
+  const response = await fetch(`${apiBaseUrl}${path}`, { ...init, headers });
   const body: unknown = await response.json().catch(() => null);
   if (!response.ok) {
     const envelope = body as { error?: { message?: string; code?: string; details?: Record<string, unknown> } } | null;
@@ -36,6 +38,49 @@ export const api = {
     return fixture<Run>(status);
   },
   advanceMock: (id: string) => sessionStorage.setItem(`ecoagent-mock-${id}`, 'run-completed'),
+};
+
+function requireSourceApi() {
+  if (mockMode) throw new ApiError('Source APIs are unavailable in frontend fixture mode.', 503, 'SOURCE_API_MOCK');
+}
+
+export const sourceApi = {
+  createText: async (text: string, name = 'Pasted text') => {
+    requireSourceApi();
+    return request<{ source: SourceSnapshot }>('/sources/text', { method: 'POST', body: JSON.stringify({ text, name }) });
+  },
+  createFile: async (file: File) => {
+    requireSourceApi();
+    const body = new FormData(); body.append('file', file);
+    return request<{ source: SourceSnapshot }>('/sources/files', { method: 'POST', body });
+  },
+  createWebpage: async (url: string) => {
+    requireSourceApi();
+    return request<{ source: SourceSnapshot }>('/sources/webpage', { method: 'POST', body: JSON.stringify({ url }) });
+  },
+  get: async (id: string, signal?: AbortSignal) => mockMode ? Promise.reject(new ApiError('Source restoration is unavailable in fixture mode.', 503, 'SOURCE_API_MOCK')) : request<{ source: SourceSnapshot }>(`/sources/${encodeURIComponent(id)}`, { signal }),
+  remove: async (id: string) => {
+    requireSourceApi();
+    await request<null>(`/sources/${encodeURIComponent(id)}`, { method: 'DELETE' });
+  },
+};
+
+function requireAgentApi() {
+  if (mockMode) throw new ApiError('Workspace agent APIs require the real backend; fixture mode cannot execute workspace actions.', 503, 'AGENT_API_MOCK');
+}
+
+export const agentApi = {
+  capabilities: () => request<AgentCapabilities>('/agent/capabilities'),
+  start: (payload: AgentStartRequest) => { requireAgentApi(); return request<AgentRun>('/agent-runs', { method: 'POST', body: JSON.stringify(payload) }); },
+  get: (id: string, signal?: AbortSignal) => { requireAgentApi(); return request<AgentRun>(`/agent-runs/${encodeURIComponent(id)}`, { signal }); },
+  events: (id: string, cursor = 0, signal?: AbortSignal) => { requireAgentApi(); return request<AgentEventsResponse>(`/agent-runs/${encodeURIComponent(id)}/events?cursor=${cursor}`, { signal }); },
+  approve: (id: string, actionId: string, actionHash: string, approved: boolean) => {
+    requireAgentApi(); return request<AgentRun>(`/agent-runs/${encodeURIComponent(id)}/approvals`, {
+      method: 'POST', body: JSON.stringify({ action_id: actionId, action_hash: actionHash, approved }),
+    });
+  },
+  continue: (id: string) => { requireAgentApi(); return request<AgentRun>(`/agent-runs/${encodeURIComponent(id)}/continue`, { method: 'POST' }); },
+  stop: (id: string) => { requireAgentApi(); return request<AgentRun>(`/agent-runs/${encodeURIComponent(id)}/stop`, { method: 'POST' }); },
 };
 
 const mockBenchmarks = new Map<string, { run: BenchmarkRun; polls: number }>();
@@ -123,5 +168,6 @@ export const benchmarkApi = {
     if (cursor) query.set('cursor', cursor);
     return mockMode ? getMockBenchmarkCases(runId) : request<BenchmarkCasesResponse>(`/benchmarks/runs/${encodeURIComponent(runId)}/cases?${query}`, { signal });
   },
+  exportRun: (runId: string) => mockMode ? mockJson<BenchmarkExport>('benchmark-export') : request<BenchmarkExport>(`/benchmarks/runs/${encodeURIComponent(runId)}/export`),
   isMock: mockMode,
 };

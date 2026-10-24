@@ -219,8 +219,8 @@ describe('EcoAgent frontend contract flows', () => {
     const prompt = 'Summarize this pasted text and context from https://example.com/article';
     await user.type(screen.getByRole('textbox', { name: /Prompt/ }), prompt);
 
-    expect(screen.getByText(/Paste the source text\. URLs are not fetched\./)).toBeInTheDocument();
-    expect(screen.getByText(/page will not be retrieved/i)).toBeInTheDocument();
+    expect(screen.getByText(/Attach a source above, or include synthetic text in your prompt/i)).toBeInTheDocument();
+    expect(screen.getByText(/A URL inside the prompt is not fetched/i)).toBeInTheDocument();
     const submit = screen.getByRole('button', { name: /Compare policies/ });
     expect(submit).toBeEnabled();
     await user.click(submit);
@@ -234,9 +234,9 @@ describe('EcoAgent frontend contract flows', () => {
     await loadApp();
     await user.selectOptions(screen.getByLabelText('Source type'), 'text');
     await user.type(screen.getByLabelText('Pasted source text'), 'Synthetic source that must not be ignored.');
-    const blockedSubmit = screen.getByRole('button', { name: 'Clear source to compare' });
+    const blockedSubmit = screen.getByRole('button', { name: 'Preview source first' });
     await waitFor(() => expect(blockedSubmit).toBeDisabled());
-    expect(screen.getByText(/comparison button is disabled/i)).toBeInTheDocument();
+    expect(screen.getByText(/Preview this source successfully before starting/i)).toBeInTheDocument();
     expect(fetchMock.mock.calls.some(([url]) => String(url).includes('/sources'))).toBe(false);
     expect(fetchMock.mock.calls.filter(([, init]) => init?.method === 'POST')).toHaveLength(0);
 
@@ -384,7 +384,7 @@ describe('EcoAgent frontend contract flows', () => {
       await loadApp();
       await screen.findByText('Completed');
       expect(document.querySelector('.print-report')).toHaveTextContent('Illustrative estimates');
-      expect(document.querySelector('.print-report')).toHaveTextContent('Source references: Unavailable');
+      expect(document.querySelector('.print-report')).toHaveTextContent('Source snapshot: None attached.');
       await user.selectOptions(screen.getByLabelText(`Human review · baseline · ${completedRun.tasks[0].id}`), 'incorrect');
       await user.click(screen.getByRole('button', { name: 'Export JSON' }));
       expect(await screen.findByText(/Exported the completed snapshot/)).toBeInTheDocument();

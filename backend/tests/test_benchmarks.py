@@ -37,10 +37,14 @@ def test_benchmark_catalog_creation_progress_results(client):
     assert response.status_code == 200
     validate(response.json(), 'BenchmarkDatasetsResponse')
     catalog = response.json()['datasets']
-    assert [d['dataset_id'] for d in catalog] == ['starter-v1']
+    assert [d['dataset_id'] for d in catalog] == ['starter-v1', 'starter-v2']
     assert catalog[0]['case_count'] == 5
-    assert catalog[0]['supported_models'] == ['openai/gpt-oss-20b', 'openai/gpt-oss-120b']
+    assert catalog[0]['supported_models'] == ['openai/gpt-oss-20b', 'openai/gpt-oss-120b', 'qwen/qwen3.8-27b']
     assert catalog[0]['provenance'] == 'synthetic'
+    expanded = catalog[1]
+    assert expanded['case_count'] == 26
+    assert expanded['max_cases_per_run'] == 10
+    assert expanded['preview_models'] == ['qwen/qwen3.8-27b']
     path = start(client)
     initial = client.get(path).json()
     assert initial['progress']['completed'] < 5
@@ -65,6 +69,24 @@ def test_benchmark_catalog_creation_progress_results(client):
     assert cases[0]['baseline']['output'] == 'billing'
     assert run['baseline_metrics']['total_cost_usd'] > 0
     assert client.get(BASE + '/runs').json()['items'][0] == run
+
+
+def test_expanded_dataset_and_export_are_self_contained(client):
+    definition = client.get(BASE + '/datasets/starter-v2')
+    validate(definition.json(), 'BenchmarkDatasetDefinition')
+    assert len(definition.json()['cases']) == 26
+    path = start(client, dataset_id='starter-v2', baseline={'model_id': 'qwen/qwen3.8-27b', 'optimization_enabled': False}, max_cases=10)
+    run = wait(client, path)
+    assert run['status'] == 'completed'
+    export_response = client.get(path + '/export')
+    validate(export_response.json(), 'BenchmarkExport')
+    export = export_response.json()
+    assert export['data_completeness'] == 'partial'
+    assert len(export['dataset']['cases']) == 26
+    assert len(export['cases']) == 10
+    assert export['cases'][0]['definition']['input']
+    assert export['cases'][0]['result']['baseline']['provider_id'] == 'synthetic_fixture'
+    assert export['pricing_snapshot']['models']['qwen/qwen3.8-27b']['input_usd_per_million'] == 0.8
 
 
 def test_benchmark_cursor_pages_are_stable_and_scoped(client):
@@ -221,6 +243,55 @@ def test_null_usage_benchmark_retains_null_cost(client):
     assert run['baseline_metrics']['input_tokens'] is None
     assert run['baseline_metrics']['output_tokens'] == 2
     assert run['baseline_metrics']['mean_latency_ms'] == 10
+
+
+def test_truncated_outputs_are_incomplete_and_excluded_from_pass_rate(client):
+    from backend.app.providers.base import InferenceResult
+    async def infer(case, model, run_id):
+        return InferenceResult('billing', 10, 8, 256, 'length', True)
+    client.app.state.benchmarks.infer = infer
+    run = wait(client, start(client, max_cases=1))
+    assert run['status'] == 'completed'
+    assert run['baseline_metrics']['total_cases'] == 1
+    assert run['baseline_metrics']['evaluated_cases'] == 0
+    assert run['baseline_metrics']['pass_rate'] is None
+    assert run['baseline_metrics']['incomplete_cases'] == 1
+    case = client.get(BASE + '/runs/' + run['run_id'] + '/cases').json()['items'][0]
+    assert case['status'] == 'incomplete'
+    assert case['baseline']['output_truncated'] is True
+
+
+def test_live_model_pair_case_cap_accounts_for_reserved_cost_before_submission(tmp_path):
+    from backend.app.main import create_app
+    from backend.app.settings import Settings
+    settings = Settings(database_path=tmp_path / 'priced.sqlite3', live_enabled=True,
+                        api_key='test-only-placeholder', benchmark_mode='groq')
+    with TestClient(create_app(settings)) as client:
+        response = client.post(BASE + '/runs', json={
+            'dataset_id': 'starter-v2',
+            'baseline': {'model_id': 'qwen/qwen3.8-27b', 'optimization_enabled': False},
+            'candidate': {'model_id': 'qwen/qwen3.8-27b', 'optimization_enabled': False},
+            'max_cases': 3,
+        })
+        assert response.status_code == 422
+        assert response.json()['error']['details']['max_cases_per_run'] == 1
+        assert client.app.state.store.remaining_daily_cost(settings) == settings.max_daily_cost_usd
+
+
+def test_completion_budget_changes_benchmark_case_cap(tmp_path):
+    from backend.app.main import create_app
+    from backend.app.settings import Settings
+    settings = Settings(database_path=tmp_path / 'extended-priced.sqlite3', live_enabled=True,
+                        api_key='test-only-placeholder', benchmark_mode='groq', max_completion_tokens=4096)
+    with TestClient(create_app(settings)) as client:
+        response = client.post(BASE + '/runs', json={
+            'dataset_id': 'starter-v2',
+            'baseline': {'model_id': 'qwen/qwen3.8-27b', 'optimization_enabled': False},
+            'candidate': {'model_id': 'qwen/qwen3.8-27b', 'optimization_enabled': False},
+            'max_cases': 3,
+        })
+        assert response.status_code == 422
+        assert response.json()['error']['details']['max_cases_per_run'] == 2
 
 
 def test_structurally_valid_but_invalid_history_cursor_is_rejected(client):

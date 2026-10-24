@@ -10,7 +10,16 @@
       "output_text": "billing",
       "input_tokens": 40,
       "output_tokens": 3,
-      "latency_ms": 1200
+      "latency_ms": 1200,
+      "output_validation": "not_configured",
+      "validation_notes": [],
+      "fallback_used": false,
+      "fallback_reason": null,
+      "fallback_model_id": null,
+      "initial_attempt": null,
+      "fallback_attempt": null,
+      "attempt_count": 1,
+      "cost_usd": null
     },
     {
       "task_id": "classify-1",
@@ -20,7 +29,16 @@
       "output_text": "billing",
       "input_tokens": 40,
       "output_tokens": 3,
-      "latency_ms": 350
+      "latency_ms": 350,
+      "output_validation": "not_configured",
+      "validation_notes": [],
+      "fallback_used": false,
+      "fallback_reason": null,
+      "fallback_model_id": null,
+      "initial_attempt": null,
+      "fallback_attempt": null,
+      "attempt_count": 1,
+      "cost_usd": null
     },
     {
       "task_id": "extract-1",
@@ -30,7 +48,16 @@
       "output_text": "{\"order_id\":\"ECO-1042\",\"total_usd\":42.5}",
       "input_tokens": 60,
       "output_tokens": 25,
-      "latency_ms": 1500
+      "latency_ms": 1500,
+      "output_validation": "not_configured",
+      "validation_notes": [],
+      "fallback_used": false,
+      "fallback_reason": null,
+      "fallback_model_id": null,
+      "initial_attempt": null,
+      "fallback_attempt": null,
+      "attempt_count": 1,
+      "cost_usd": null
     },
     {
       "task_id": "extract-1",
@@ -40,7 +67,16 @@
       "output_text": "{\"order_id\":\"ECO-1042\",\"total_usd\":42.5}",
       "input_tokens": 60,
       "output_tokens": 25,
-      "latency_ms": 500
+      "latency_ms": 500,
+      "output_validation": "not_configured",
+      "validation_notes": [],
+      "fallback_used": false,
+      "fallback_reason": null,
+      "fallback_model_id": null,
+      "initial_attempt": null,
+      "fallback_attempt": null,
+      "attempt_count": 1,
+      "cost_usd": null
     },
     {
       "task_id": "summarize-1",
@@ -50,7 +86,16 @@
       "output_text": "The team routed simple classification to a smaller model, kept summaries on a larger model, and planned quality evaluation before deployment.",
       "input_tokens": 70,
       "output_tokens": 38,
-      "latency_ms": 2000
+      "latency_ms": 2000,
+      "output_validation": "not_configured",
+      "validation_notes": [],
+      "fallback_used": false,
+      "fallback_reason": null,
+      "fallback_model_id": null,
+      "initial_attempt": null,
+      "fallback_attempt": null,
+      "attempt_count": 1,
+      "cost_usd": null
     },
     {
       "task_id": "summarize-1",
@@ -60,7 +105,16 @@
       "output_text": "The team routed simple classification to a smaller model, kept summaries on a larger model, and planned quality evaluation before deployment.",
       "input_tokens": 70,
       "output_tokens": 38,
-      "latency_ms": 1900
+      "latency_ms": 1900,
+      "output_validation": "not_configured",
+      "validation_notes": [],
+      "fallback_used": false,
+      "fallback_reason": null,
+      "fallback_model_id": null,
+      "initial_attempt": null,
+      "fallback_attempt": null,
+      "attempt_count": 1,
+      "cost_usd": null
     }
   ]
 }

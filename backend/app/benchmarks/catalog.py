@@ -3,8 +3,10 @@ import json
 from ..settings import ROOT
 
 
-def dataset():
-    return json.loads((ROOT / 'benchmarks/starter-v1.json').read_text())
+def dataset(dataset_id='starter-v1'):
+    if dataset_id not in {'starter-v1', 'starter-v2'}:
+        return None
+    return json.loads((ROOT / f'benchmarks/{dataset_id}.json').read_text(encoding='utf-8'))
 
 
 def expected_text(case):

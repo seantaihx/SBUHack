@@ -1,5 +1,5 @@
 {
-  "api_version": "1.0.0",
+  "api_version": "1.1.0",
   "demo_enabled": true,
   "live_enabled": false,
   "live_disabled_reason": "Live inference is not configured. Use Demo mode.",
@@ -30,5 +30,13 @@
         "output_wh_per_token": 0.0004
       }
     }
-  }
+  },
+  "task_profile_version": "task-instructions-v1",
+  "supported_task_types": [
+    "classify",
+    "extract",
+    "summarize",
+    "write",
+    "code"
+  ]
 }

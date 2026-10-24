@@ -1,12 +1,14 @@
 from uuid import UUID
-from datetime import datetime
+from datetime import datetime, timezone
 from fastapi import APIRouter, Query, Request, Response
 from ..errors import APIError
 from ..schemas import ErrorEnvelope
 from ..store import RunActive
 from . import pagination
 from .schemas import (BenchmarkDatasetsResponse, BenchmarkRunsResponse, StartBenchmarkRequest,
-                      StartBenchmarkResponse, BenchmarkRun, BenchmarkCasesResponse)
+                      StartBenchmarkResponse, BenchmarkRun, BenchmarkCasesResponse,
+                      BenchmarkDatasetDefinition, BenchmarkExport)
+from ..pricing import PRICES
 
 router = APIRouter(prefix='/api/v1/benchmarks')
 
@@ -20,7 +22,16 @@ def get_record(request, run_id):
 
 @router.get('/datasets', response_model=BenchmarkDatasetsResponse, responses={500: {'model': ErrorEnvelope}})
 async def datasets(request: Request):
-    return BenchmarkDatasetsResponse(datasets=[request.app.state.benchmarks.catalog()])
+    return BenchmarkDatasetsResponse(datasets=request.app.state.benchmarks.catalog())
+
+
+@router.get('/datasets/{dataset_id}', response_model=BenchmarkDatasetDefinition,
+            responses={code: {'model': ErrorEnvelope} for code in (404, 422, 500)})
+async def dataset_definition(dataset_id: str, request: Request):
+    definition = request.app.state.benchmarks.data.get(dataset_id)
+    if definition is None:
+        raise APIError(404, 'DATASET_NOT_FOUND', 'The benchmark dataset was not found.')
+    return BenchmarkDatasetDefinition.model_validate(definition)
 
 
 @router.post('/runs', status_code=202, response_model=StartBenchmarkResponse, responses={code: {'model': ErrorEnvelope} for code in (404, 409, 422, 429, 503, 500)})
@@ -65,3 +76,26 @@ async def cases(run_id: UUID, request: Request, limit: int = Query(50, ge=1, le=
     end = offset + limit
     return BenchmarkCasesResponse(items=record.cases[offset:end], next_cursor=(
         pagination.encode('cases:' + str(run_id), [end]) if end < len(record.cases) else None))
+
+
+@router.get('/runs/{run_id}/export', response_model=BenchmarkExport,
+            responses={code: {'model': ErrorEnvelope} for code in (404, 422, 500)})
+async def export_run(run_id: UUID, request: Request):
+    record = get_record(request, run_id)
+    if not record.dataset_snapshot:
+        raise APIError(500, 'EXPORT_INCOMPLETE', 'The stored run does not include its dataset definition.')
+    dataset = record.dataset_snapshot
+    cases = []
+    for index, result in enumerate(record.cases):
+        definition = dataset['cases'][index] if index < len(dataset.get('cases', [])) else None
+        cases.append({'definition': definition, 'outcome': record.outcomes[index] if index < len(record.outcomes) else {},
+                      'result': result.model_dump(mode='json')})
+    complete = len(record.cases) == record.run.max_cases == len(dataset.get('cases', [])) and all(c['definition'] for c in cases)
+    return BenchmarkExport(
+        exported_at=datetime.now(timezone.utc).isoformat().replace('+00:00', 'Z'),
+        data_completeness='complete' if complete else 'partial',
+        completeness_note=None if complete else 'This run evaluated only a bounded subset or has not persisted every selected case yet.',
+        dataset=dataset, run=record.run,
+        pricing_snapshot={'provider_id': 'groq', 'currency': 'USD', 'basis': 'published token rates; estimates, not billing',
+                          'as_of': '2026-10-24', 'models': {model: {'input_usd_per_million': rates[0], 'output_usd_per_million': rates[1]} for model, rates in PRICES.items()}},
+        cases=cases)

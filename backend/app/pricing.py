@@ -1,7 +1,12 @@
 """USD estimates per million tokens; Groq standard rates checked 2026-10-24.
 Source: https://console.groq.com/docs/models . Not actual billing.
 """
-PRICES = {'openai/gpt-oss-20b': (0.075, 0.30), 'openai/gpt-oss-120b': (0.15, 0.60)}
+PRICES = {
+    'openai/gpt-oss-20b': (0.075, 0.30),
+    'openai/gpt-oss-120b': (0.15, 0.60),
+    # Groq preview model, rate verified 2026-10-24. Access can change by account.
+    'qwen/qwen3.8-27b': (0.80, 4.00),
+}
 
 
 def cost(model: str, inputs: int | None, outputs: int | None) -> float | None:

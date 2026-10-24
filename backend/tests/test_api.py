@@ -163,6 +163,7 @@ def test_concurrent_submissions_reserve_exactly_one_slot(client):
     rejected = next(r for r in responses if r.status_code == 409)
     validate(rejected.json(), 'ErrorEnvelope')
     assert rejected.json()['error']['details']['active_run_id'] == accepted.json()['id']
+    assert rejected.json()['error']['details']['active_run_kind'] == 'comparison'
     assert wait_run(client, accepted.headers['location'])['status'] == 'completed'
     assert client.post('/api/v1/runs', json={'mode': 'demo', 'tasks': SAMPLES['tasks'][:1]}).status_code == 202
 
@@ -185,12 +186,19 @@ def test_fixtures_resolve_independently_of_cwd(tmp_path, monkeypatch):
 
 def test_generated_response_schema_requires_every_shared_response_field():
     import backend.app.schemas as schemas
+    import backend.app.agent_schemas as agent_schemas
     import backend.app.benchmarks.schemas as benchmark_schemas
     from conftest import CONTRACT
     for name, shared in CONTRACT['components']['schemas'].items():
-        if name in ('CreateRun', 'Task'):
+        # Request models are checked by request validation tests. This check is
+        # deliberately about serialized response shapes; create/update request
+        # schemas omit optional defaults differently in OpenAPI.
+        if name in (
+            'CreateRun', 'CreateTextSource', 'CreateWebpageSource',
+            'StartBenchmarkRequest', 'AgentStartRequest', 'AgentApprovalRequest',
+        ) or name.startswith(('Task', 'Body_')):
             continue
-        model = getattr(schemas, name, None) or getattr(benchmark_schemas, name)
+        model = getattr(schemas, name, None) or getattr(benchmark_schemas, name, None) or getattr(agent_schemas, name)
         generated = model.model_json_schema(mode='serialization')
         assert set(generated['required']) == set(shared['required']), name
         assert set(generated['properties']) == set(shared['properties']), name
