@@ -12,7 +12,11 @@ npm.cmd run typecheck
 npm.cmd run build
 ```
 
-On October 24, 2026, all 42 Vitest tests passed. TypeScript typechecking also passed with the current source UI; the final production build is pending. Tests cover comparison submission/polling and duplicate prevention, errors, latency direction for negative/positive/zero/null values, local review persistence/storage failures, JSON/CSV export structure, CSV quoting/formula protection/Unicode/nulls, download/print actions, URL warnings, benchmark restoration, typed 409 navigation, local source previews, and safe blocking of unsupported source submissions.
+On October 24, 2026, the latest local frontend run passed **44 Vitest tests**, TypeScript typechecking, and a production build with `VITE_USE_FRONTEND_MOCK=false`. `npm.cmd ci` was not rerun in this check; the existing installed dependencies were used. Tests cover comparison submission/polling and duplicate prevention, errors, latency direction for negative/positive/zero/null values, local review persistence/storage failures, JSON/CSV export structure, CSV quoting/formula protection/Unicode/nulls, download/print actions, URL warnings, benchmark restoration, typed 409 navigation, local source previews, safe blocking of unsupported source submissions, and output search/copy success/failure.
+
+The full backend regression suite passed locally: `127 passed in 25.66s`. No provider inference was sent. The HTTP smoke script could not start on this Windows checkout because it hardcodes `cwd='/tmp'` (`WinError 267`); the benchmark smoke script was skipped after that failure. This is an environment portability issue in the backend smoke harness, not a frontend test failure.
+
+The comparison output view now highlights case-insensitive search matches using safe React text nodes and provides a per-attempt Copy button. Complete returned text remains visible, including when the search is empty. A clipboard failure leaves the output selectable and reports a status message. This frontend control does not add provider metadata or cost data absent from API v1.
 
 ## Results export milestone
 
@@ -49,17 +53,19 @@ Benchmark mode was not specified in the private root `.env`; backend settings de
 
 ### Functional
 
-1. Complete this final test/typecheck/build pass after the source UI changes.
-2. In a real browser, save the print report to PDF, reopen it, and inspect page breaks, long/wide content, and Unicode; decide whether to keep this print workflow or add a true PDF file generator.
-3. Walk through Demo/Live labels, URL restoration, JSON/CSV downloads, review persistence/reset, network retry, benchmark dataset/history/cases, and narrow-screen behavior.
-4. After Sean accepts and implements the proposal, add actual PDF/CSV parsing, safe URL retrieval, source references, explicit submission confirmation, and end-to-end source-run verification.
-5. Exercise a provider failure only in an explicitly authorized Live environment; this session sent no Live requests. Confirm the production frontend is served by the backend at the expected same-origin path.
+1. In a real browser, save the print report to PDF, reopen it, and inspect page breaks, long/wide content, and Unicode; decide whether to keep this print workflow or add a true PDF file generator.
+2. Walk through Demo/Live labels, URL restoration, JSON/CSV downloads, review persistence/reset, network retry, benchmark dataset/history/cases, clipboard controls, and narrow-screen behavior.
+3. After Sean accepts and implements the source proposal, add actual PDF/CSV parsing, safe URL retrieval, source references, explicit submission confirmation, and end-to-end source-run verification.
+4. Exercise a provider failure only in an explicitly authorized Live environment; this session sent no Live requests. Confirm the production frontend is served by the backend at the expected same-origin path.
+5. Sean-owned follow-up: make the backend HTTP smoke harness use a portable temporary working directory so both smoke scripts can run from Windows.
 
 ### API coordination
 
-The shared active-run gate can reject a comparison submission while a benchmark is active. Benchmark 409 responses include `details.active_run_id` and `details.active_run_kind`; comparison 409 responses currently include only `details.active_run_id`. The comparison client therefore cannot safely know whether to restore a comparison or navigate to Benchmarks. Proposal for Sean: add `active_run_kind: "comparison" | "benchmark"` to comparison 409 details, matching the benchmark response. No backend or shared contract was changed here.
+The shared active-run gate can reject a comparison submission while a benchmark is active. Benchmark 409 responses include `details.active_run_id` and `details.active_run_kind`; comparison 409 responses currently include only `details.active_run_id`. The frontend navigates safely when `active_run_kind` is returned, and shows the backend error without guessing when it is missing. Proposal for Sean: add `active_run_kind: "comparison" | "benchmark"` to comparison 409 details, matching the benchmark response. No backend or shared contract was changed here.
 
 Source import/export API proposal: [`proposals/source-import-export.md`](proposals/source-import-export.md). It is pending Sean's review; only the frontend's guarded source-selection/preview shell exists. No parser, source routes, backend code, or accepted OpenAPI changes were added. Exact open decisions are listed in that proposal.
+
+Provider usage, output-completeness, and decimal pricing proposal: [`proposals/provider-transparency-contract.md`](proposals/provider-transparency-contract.md), with an illustrative response at [`proposals/examples/provider-attempt-v2.json`](proposals/examples/provider-attempt-v2.json). It is not accepted and does not change the current contract. Sean/team decisions are needed on versioning, provider usage normalization, prompt/output retention, rate sources, and storage migration before the frontend can render these fields.
 
 ### Visual and accessibility review
 

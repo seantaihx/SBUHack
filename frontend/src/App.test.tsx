@@ -98,6 +98,34 @@ describe('EcoAgent frontend contract flows', () => {
     expect(fetchMock).toHaveBeenCalledWith(expect.stringMatching(/\/api\/v1\/runs\//), expect.objectContaining({ signal: expect.any(AbortSignal) }));
   });
 
+  it('highlights searched output text and copies a complete returned answer', async () => {
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    vi.stubGlobal('navigator', new Proxy(navigator, { get: (target, key, receiver) => key === 'clipboard' ? { writeText } : Reflect.get(target, key, receiver) }));
+    mockApi({ getRun: () => response(completedRun) });
+    const user = userEvent.setup();
+    window.history.replaceState({}, '', `/?run=${completedRun.id}`);
+    await loadApp();
+    await screen.findByText('Completed');
+
+    await user.type(screen.getByRole('searchbox', { name: /Find in responses/ }), 'bill');
+    expect(document.querySelectorAll('mark.output-match')).toHaveLength(2);
+    await user.click(screen.getByRole('button', { name: 'Copy baseline output for classify-1' }));
+    expect(writeText).toHaveBeenCalledWith('billing');
+    expect(screen.getByText('Copied baseline output for classify-1.')).toHaveAttribute('role', 'status');
+  });
+
+  it('explains when the browser cannot copy an output', async () => {
+    const writeText = vi.fn().mockRejectedValue(new Error('Clipboard denied.'));
+    vi.stubGlobal('navigator', new Proxy(navigator, { get: (target, key, receiver) => key === 'clipboard' ? { writeText } : Reflect.get(target, key, receiver) }));
+    mockApi({ getRun: () => response(completedRun) });
+    window.history.replaceState({}, '', `/?run=${completedRun.id}`);
+    await loadApp();
+    await screen.findByText('Completed');
+
+    await userEvent.setup().click(screen.getByRole('button', { name: 'Copy baseline output for classify-1' }));
+    expect(screen.getByText('Could not copy output. Select the response text and copy it manually.')).toHaveAttribute('role', 'status');
+  });
+
   it('shows negative latency savings as an absolute slower amount', async () => {
     const slowerRun = {
       ...completedRun,
