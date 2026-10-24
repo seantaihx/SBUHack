@@ -1,6 +1,6 @@
 # Muffin progress checkpoint
 
-**Checkpoint: WIP — 2026-10-24**
+**Checkpoint: WIP — 2026-10-24 (proposal/export complete; source UI next)**
 
 ## Current branch and safety
 
@@ -17,20 +17,27 @@
 
 - Read the attached expansion requirements and inspected README, frontend setup, accepted API contract, OpenAPI/fixtures inventory, current source files, current main and remote branch heads.
 - Drafted `docs/proposals/source-import-export.md`. It is **PROPOSED, not accepted**; no shared contract or backend file changed.
+- Added JSON export metadata, one-row-per-attempt CSV with text-cell formula protection, and an explicitly labeled browser Print/Save as PDF report.
+- Added 36-test coverage for exports, CSV quote/newline/Unicode handling, formula safety, null preservation, partial-run warnings, and UI download/print actions.
+- Fetched real persisted simulated run `0aab1070-143a-4a37-96b0-4893c2dd12d0`; generated/reopened JSON and parsed six CSV attempt rows with 30 fields in `%TEMP%`.
 
-## This task's files / tests
+## Files / tests
 
 - `docs/proposals/source-import-export.md` — proposed source routes, schemas, limits, errors, URL safety, run/source references, retention questions, and exact Sean decisions.
 - `docs/handoffs/muffin-progress.md` — this checkpoint.
-- No tests for the new export formats have run yet.
+- `frontend/src/App.tsx`, `frontend/src/comparisonUtils.ts`, `frontend/src/styles.css` — export actions/report.
+- `frontend/src/App.test.tsx`, `frontend/src/comparisonUtils.test.ts` — UI/format tests.
+- `frontend/README.md`, `docs/FRONTEND_QA.md` — format and verification notes.
+- Commands run: `npm.cmd run test` (36 passed), `npm.cmd run typecheck` (passed), `VITE_USE_FRONTEND_MOCK=false npm.cmd run build` (passed).
+- PDF output remains unverified; the implemented browser print flow is not a direct PDF download.
+- Proposal checkpoint commit `d2d0e1b` was pushed to `origin/Muffin_branch`.
+- Export milestone commit `46b367c` was pushed to `origin/Muffin_branch`; branch was clean after push before this handoff edit.
 
 ## Unfinished work
 
-1. Complete Milestone 1 exports from real loaded run snapshots: JSON metadata, safe CSV, and a clearly labeled print-to-PDF interim report.
-2. Add focused tests for format/null preservation, CSV quoting/formula safety, partial runs, review annotations, and report content.
-3. Run frontend tests/typecheck/build and verify downloads from a real persisted Demo run; reopen/round-trip JSON and CSV and inspect print report layout where available.
-4. Update QA docs and this checkpoint with actual verification.
-5. Do not implement source ingestion UI or call proposed routes until Sean confirms the proposal; do not change backend or accepted OpenAPI.
+1. Implement the next independent frontend step: source selection/preview UI behind unmistakable fixture mode, with normal API mode showing source endpoints unavailable and never reporting fixture success.
+2. Open/reopen a browser-generated print report and visually check pagination when browser UI automation is available.
+3. Continue not calling proposed source routes or changing backend/OpenAPI until Sean confirms the proposal.
 
 ## Contract status and blockers
 
@@ -41,4 +48,4 @@
 
 ## Exact next action
 
-Implement JSON/CSV exports and a print-optimized report using the currently loaded `Run` and local review annotations, then test their output structure before integrating any source feature.
+Implement fixture-only source selection and preview while API mode remains explicitly unavailable.
