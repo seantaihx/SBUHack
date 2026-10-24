@@ -1,0 +1,56 @@
+{
+  "id": "b7523d30-e051-481c-8934-f77ca6c22e7d",
+  "status": "queued",
+  "mode": "demo",
+  "measurement_source": "simulated",
+  "policy_version": "task-routing-v1",
+  "energy_estimation_profile": "illustrative-v1",
+  "carbon_intensity_g_per_kwh": 400,
+  "tasks": [
+    {
+      "id": "classify-1",
+      "type": "classify",
+      "prompt": "Classify this support message as billing, technical, or general. Return one label only. Message: I was charged twice for my subscription."
+    },
+    {
+      "id": "extract-1",
+      "type": "extract",
+      "prompt": "Extract the order ID and total from this text. Return JSON only with keys order_id and total_usd. Text: Order ECO-1042 was confirmed. Total: $42.50."
+    },
+    {
+      "id": "summarize-1",
+      "type": "summarize",
+      "prompt": "Summarize in one sentence: The team moved simple classification requests to a smaller model, retained the larger model for summaries, and planned further quality evaluation before deployment."
+    }
+  ],
+  "created_at": "2026-10-24T16:00:00Z",
+  "started_at": null,
+  "finished_at": null,
+  "total_attempts": 6,
+  "completed_attempts": 0,
+  "results": [],
+  "comparison": {
+    "successful_pairs": 0,
+    "energy_pairs": 0,
+    "latency_pairs": 0,
+    "energy_wh": {
+      "baseline": null,
+      "optimized": null,
+      "saved": null,
+      "savings_pct": null
+    },
+    "carbon_g": {
+      "baseline": null,
+      "optimized": null,
+      "saved": null,
+      "savings_pct": null
+    },
+    "latency_ms": {
+      "baseline": null,
+      "optimized": null,
+      "saved": null,
+      "savings_pct": null
+    }
+  },
+  "run_error": null
+}

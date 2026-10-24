@@ -1,0 +1,9 @@
+{
+  "error": {
+    "code": "RUN_ALREADY_ACTIVE",
+    "message": "A comparison is already running.",
+    "details": {
+      "active_run_id": "b7523d30-e051-481c-8934-f77ca6c22e7d"
+    }
+  }
+}
