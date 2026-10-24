@@ -30,6 +30,59 @@ describe('BenchmarkDashboard', () => {
     expect(screen.getByText('No previous runs returned by the backend.')).toBeInTheDocument();
   });
 
+  it('restores a benchmark from its query parameter and opens its run snapshot', async () => {
+    window.history.replaceState({}, '', `/?benchmark=${completed.run_id}`);
+    render(<BenchmarkDashboard initialRunId={completed.run_id} />);
+
+    expect(await screen.findByRole('heading', { name: 'Completed' })).toBeInTheDocument();
+    expect(await screen.findByText('Opened the active benchmark identified by the backend.')).toBeInTheDocument();
+    expect(benchmarkApi.getRun).toHaveBeenCalledWith(completed.run_id);
+    expect(new URL(window.location.href).searchParams.get('benchmark')).toBe(completed.run_id);
+  });
+
+  it('navigates to an active comparison when a benchmark conflict identifies its type', async () => {
+    const navigate = vi.fn();
+    vi.mocked(benchmarkApi.startRun).mockRejectedValue(new ApiError('Another run is already active.', 409, 'RUN_ALREADY_ACTIVE', {
+      active_run_id: 'comparison-run-id', active_run_kind: 'comparison',
+    }));
+    const user = userEvent.setup();
+    render(<BenchmarkDashboard onOpenComparisonRun={navigate} />);
+    await screen.findByRole('combobox', { name: /Dataset/ });
+    await user.click(screen.getByRole('button', { name: 'Run benchmark' }));
+
+    await waitFor(() => expect(navigate).toHaveBeenCalledWith('comparison-run-id'));
+    expect(benchmarkApi.getRun).not.toHaveBeenCalled();
+    expect(benchmarkApi.startRun).toHaveBeenCalledTimes(1);
+  });
+
+  it('opens an active benchmark on a typed conflict without another submission', async () => {
+    vi.mocked(benchmarkApi.startRun).mockRejectedValue(new ApiError('Another run is already active.', 409, 'RUN_ALREADY_ACTIVE', {
+      active_run_id: completed.run_id, active_run_kind: 'benchmark',
+    }));
+    const user = userEvent.setup();
+    render(<BenchmarkDashboard />);
+    await screen.findByRole('combobox', { name: /Dataset/ });
+    await user.click(screen.getByRole('button', { name: 'Run benchmark' }));
+
+    expect(await screen.findByRole('heading', { name: 'Completed' })).toBeInTheDocument();
+    expect(new URL(window.location.href).searchParams.get('benchmark')).toBe(completed.run_id);
+    expect(benchmarkApi.startRun).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not guess the active run type when a conflict omits it', async () => {
+    vi.mocked(benchmarkApi.startRun).mockRejectedValue(new ApiError('Another run is already active.', 409, 'RUN_ALREADY_ACTIVE', {
+      active_run_id: 'opaque-run-id',
+    }));
+    const user = userEvent.setup();
+    render(<BenchmarkDashboard />);
+    await screen.findByRole('combobox', { name: /Dataset/ });
+    await user.click(screen.getByRole('button', { name: 'Run benchmark' }));
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(/did not identify the active run type/i);
+    expect(benchmarkApi.getRun).not.toHaveBeenCalled();
+    expect(benchmarkApi.startRun).toHaveBeenCalledTimes(1);
+  });
+
   it('submits the selected workload and renders backend metrics and case outcomes', async () => {
     const user = userEvent.setup();
     let request: StartBenchmarkRequest | undefined;

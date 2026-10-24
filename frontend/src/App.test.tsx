@@ -1,19 +1,26 @@
-import { render, screen, within } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import App from './App';
-import type { Capabilities, CreateRun, Run, SampleTasks } from './api/types';
+import { benchmarkApi } from './api/client';
+import type { BenchmarkCasesResponse, BenchmarkDatasetsResponse, BenchmarkRun, Capabilities, CreateRun, Run, SampleTasks } from './api/types';
 import capabilitiesFixture from '../public/mock/capabilities.json';
 import tasksFixture from '../public/mock/tasks.json';
 import queuedFixture from '../public/mock/run-queued.json';
 import completedFixture from '../public/mock/run-completed.json';
 import partialFixture from '../public/mock/run-partial.json';
+import benchmarkDatasetsFixture from '../public/mock/benchmark-datasets.json';
+import benchmarkRunFixture from '../public/mock/benchmark-run.json';
+import benchmarkCasesFixture from '../public/mock/benchmark-cases.json';
 
 const capabilities = capabilitiesFixture as Capabilities;
 const sampleTasks = tasksFixture as SampleTasks;
 const queuedRun = queuedFixture as Run;
 const completedRun = completedFixture as Run;
 const partialRun = partialFixture as Run;
+const benchmarkDatasets = benchmarkDatasetsFixture as BenchmarkDatasetsResponse;
+const benchmarkRun = benchmarkRunFixture as BenchmarkRun;
+const benchmarkCases = benchmarkCasesFixture as BenchmarkCasesResponse;
 type FetchResponse = { ok: boolean; status: number; json: () => Promise<unknown> };
 type FetchOptions = {
   caps?: Capabilities;
@@ -48,7 +55,7 @@ async function loadApp() {
 }
 
 describe('EcoAgent frontend contract flows', () => {
-  afterEach(() => vi.useRealTimers());
+  afterEach(() => { vi.useRealTimers(); vi.restoreAllMocks(); localStorage.clear(); });
 
   it('loads capabilities and sample tasks, and explains when Live is disabled', async () => {
     const fetchMock = mockApi();
@@ -85,25 +92,153 @@ describe('EcoAgent frontend contract flows', () => {
     await user.click(screen.getByRole('button', { name: /Compare policies/ }));
 
     expect(await screen.findByText('Completed', {}, { timeout: 5000 })).toBeInTheDocument();
-    expect((await screen.findAllByText('billing')).length).toBe(2);
-    expect(screen.getByText('Simulated latency')).toBeInTheDocument();
+    expect(document.querySelectorAll('.answer-text').length).toBeGreaterThanOrEqual(2);
+    expect(Array.from(document.querySelectorAll<HTMLElement>('.metric-card')).some((card) => card.textContent?.includes('Simulated latency'))).toBe(true);
     expect(screen.getByText(/answer quality not evaluated/i)).toBeInTheDocument();
     expect(fetchMock).toHaveBeenCalledWith(expect.stringMatching(/\/api\/v1\/runs\//), expect.objectContaining({ signal: expect.any(AbortSignal) }));
   });
 
-  it('opens an existing active run after a 409 response', async () => {
+  it('shows negative latency savings as an absolute slower amount', async () => {
+    const slowerRun = {
+      ...completedRun,
+      comparison: { ...completedRun.comparison, latency_ms: { baseline: 4700, optimized: 4989, saved: -289, savings_pct: -6.1 } },
+    };
+    mockApi({ getRun: () => response(slowerRun) });
+    window.history.replaceState({}, '', `/?run=${completedRun.id}`);
+    await loadApp();
+    await screen.findByText('Completed');
+
+    const card = Array.from(document.querySelectorAll<HTMLElement>('.metric-card')).find((element) => element.textContent?.includes('Simulated latency'));
+    expect(card).not.toBeNull();
+    expect(within(card!).getByText('289')).toBeInTheDocument();
+    expect(within(card!).getByText('ms slower')).toBeInTheDocument();
+    expect(within(card!).getByText('6.1% slower')).toBeInTheDocument();
+    expect(within(card!).queryByText(/-289/)).not.toBeInTheDocument();
+  });
+
+  it('keeps unavailable latency change null and visibly unavailable', async () => {
+    const unavailableRun = {
+      ...completedRun,
+      comparison: { ...completedRun.comparison, latency_ms: { baseline: null, optimized: null, saved: null, savings_pct: null } },
+    };
+    mockApi({ getRun: () => response(unavailableRun) });
+    window.history.replaceState({}, '', `/?run=${completedRun.id}`);
+    await loadApp();
+    await screen.findByText('Completed');
+    const card = Array.from(document.querySelectorAll<HTMLElement>('.metric-card')).find((element) => element.textContent?.includes('Simulated latency'));
+    expect(card).not.toBeNull();
+    expect(within(card!).getAllByText('Unavailable')).toHaveLength(4);
+  });
+
+  it('does not guess an active run type when a comparison 409 omits it', async () => {
     const activeId = completedRun.id;
-    mockApi({
-      post: () => response({ error: { code: 'RUN_ALREADY_ACTIVE', message: 'A comparison is already running.', details: { active_run_id: activeId } } }, 409),
+    const fetchMock = mockApi({
+      post: () => response({ error: { code: 'RUN_ALREADY_ACTIVE', message: 'Another run is already active.', details: { active_run_id: activeId } } }, 409),
+    });
+    const user = userEvent.setup();
+    await loadApp();
+    await user.click(screen.getByRole('button', { name: /Compare policies/ }));
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(/did not identify the active run type/i);
+    expect(new URL(window.location.href).searchParams.get('run')).toBeNull();
+    expect(fetchMock.mock.calls.filter(([url]) => String(url).includes(`/runs/${activeId}`))).toHaveLength(0);
+  });
+
+  it('opens a comparison run when a 409 identifies active_run_kind', async () => {
+    const activeId = completedRun.id;
+    const fetchMock = mockApi({
+      post: () => response({ error: { code: 'RUN_ALREADY_ACTIVE', message: 'Another run is already active.', details: { active_run_id: activeId, active_run_kind: 'comparison' } } }, 409),
       getRun: (id) => { expect(id).toBe(activeId); return response(completedRun); },
     });
     const user = userEvent.setup();
     await loadApp();
     await user.click(screen.getByRole('button', { name: /Compare policies/ }));
 
-    expect(await screen.findByText(/An active comparison already exists/i)).toBeInTheDocument();
+    expect(await screen.findByText(/Opened that run/i)).toBeInTheDocument();
     expect(screen.getByText('Completed')).toBeInTheDocument();
     expect(new URL(window.location.href).searchParams.get('run')).toBe(activeId);
+    expect(fetchMock).toHaveBeenCalledWith(`/api/v1/runs/${activeId}`, expect.any(Object));
+  });
+
+  it('navigates to an identified active benchmark without resubmitting', async () => {
+    vi.spyOn(benchmarkApi, 'listDatasets').mockResolvedValue(benchmarkDatasets);
+    vi.spyOn(benchmarkApi, 'listRuns').mockResolvedValue({ items: [], next_cursor: null });
+    vi.spyOn(benchmarkApi, 'getRun').mockResolvedValue(benchmarkRun);
+    vi.spyOn(benchmarkApi, 'getCases').mockResolvedValue(benchmarkCases);
+    const activeId = benchmarkRun.run_id;
+    const fetchMock = mockApi({
+      post: () => response({ error: { code: 'RUN_ALREADY_ACTIVE', message: 'Another run is already active.', details: { active_run_id: activeId, active_run_kind: 'benchmark' } } }, 409),
+    });
+    const user = userEvent.setup();
+    await loadApp();
+    await user.click(screen.getByRole('button', { name: /Compare policies/ }));
+
+    expect(await screen.findByRole('heading', { name: 'Compare model configurations' })).toBeInTheDocument();
+    expect(await screen.findByText('Opened the active benchmark identified by the backend.')).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Completed' })).toBeInTheDocument();
+    expect(new URL(window.location.href).searchParams.get('benchmark')).toBe(activeId);
+    expect(fetchMock.mock.calls.filter(([, init]) => init?.method === 'POST')).toHaveLength(1);
+    expect(benchmarkApi.getRun).toHaveBeenCalledWith(activeId);
+  });
+
+  it('keeps a URL-containing prompt usable and explains that the page is not fetched', async () => {
+    const liveCaps = { ...capabilities, live_enabled: true, live_disabled_reason: null };
+    let posted: CreateRun | undefined;
+    mockApi({ caps: liveCaps, post: (body) => { posted = body; return response({ ...queuedRun, mode: 'live', tasks: body.tasks, total_attempts: body.tasks.length * 2 }, 202); } });
+    const user = userEvent.setup();
+    await loadApp();
+    await user.click(screen.getByRole('button', { name: /Live/ }));
+    const prompt = 'Summarize this pasted text and context from https://example.com/article';
+    await user.type(screen.getByRole('textbox', { name: /Prompt/ }), prompt);
+
+    expect(screen.getByText(/Paste the source text\. URLs are not fetched\./)).toBeInTheDocument();
+    expect(screen.getByText(/page will not be retrieved/i)).toBeInTheDocument();
+    const submit = screen.getByRole('button', { name: /Compare policies/ });
+    expect(submit).toBeEnabled();
+    await user.click(submit);
+    await screen.findByText('Queued');
+    expect(posted?.tasks[0].prompt).toBe(prompt);
+  });
+
+  it('blocks a run when an unavailable source is selected, then preserves text-only comparison after clearing it', async () => {
+    const fetchMock = mockApi();
+    const user = userEvent.setup();
+    await loadApp();
+    await user.selectOptions(screen.getByLabelText('Source type'), 'text');
+    await user.type(screen.getByLabelText('Pasted source text'), 'Synthetic source that must not be ignored.');
+    const blockedSubmit = screen.getByRole('button', { name: 'Clear source to compare' });
+    await waitFor(() => expect(blockedSubmit).toBeDisabled());
+    expect(screen.getByText(/comparison button is disabled/i)).toBeInTheDocument();
+    expect(fetchMock.mock.calls.some(([url]) => String(url).includes('/sources'))).toBe(false);
+    expect(fetchMock.mock.calls.filter(([, init]) => init?.method === 'POST')).toHaveLength(0);
+
+    await user.selectOptions(screen.getByLabelText('Source type'), 'none');
+    const textOnlySubmit = screen.getByRole('button', { name: 'Compare policies' });
+    await waitFor(() => expect(textOnlySubmit).toBeEnabled());
+    await user.click(textOnlySubmit);
+    expect(await screen.findByText('Queued')).toBeInTheDocument();
+    const request = fetchMock.mock.calls.find(([url, init]) => String(url).endsWith('/runs') && init?.method === 'POST');
+    expect(request).toBeDefined();
+    expect(String(request?.[1]?.body)).not.toContain('Synthetic source that must not be ignored.');
+  });
+
+  it('saves manual reviews per run, restores them, and resets to not reviewed', async () => {
+    mockApi({ getRun: () => response(completedRun) });
+    window.history.replaceState({}, '', `/?run=${completedRun.id}`);
+    const user = userEvent.setup();
+    const firstView = render(<App />);
+    await screen.findByText('Completed');
+    const review = screen.getByLabelText(`Human review · optimized · ${completedRun.tasks[0].id}`);
+    await user.selectOptions(review, 'correct');
+    expect(localStorage.getItem(`ecoagent-manual-review:${completedRun.id}`)).toContain('correct');
+    firstView.unmount();
+
+    render(<App />);
+    await screen.findByText('Completed');
+    await waitFor(() => expect(screen.getByLabelText(`Human review · optimized · ${completedRun.tasks[0].id}`)).toHaveValue('correct'));
+    await user.click(screen.getByRole('button', { name: 'Reset reviews' }));
+    expect(screen.getByLabelText(`Human review · optimized · ${completedRun.tasks[0].id}`)).toHaveValue('not_reviewed');
+    expect(localStorage.getItem(`ecoagent-manual-review:${completedRun.id}`)).toBeNull();
   });
 
   it('shows a partial run as incomplete and exposes failed attempts', async () => {
@@ -113,7 +248,7 @@ describe('EcoAgent frontend contract flows', () => {
     const user = userEvent.setup();
     await loadApp();
     await user.click(screen.getByRole('button', { name: /Live/ }));
-    await user.selectOptions(screen.getByRole('combobox'), 'extract');
+    await user.selectOptions(screen.getByLabelText(/Task 1 type/), 'extract');
     await user.type(screen.getByRole('textbox', { name: /Prompt/ }), 'Classify this synthetic support message.');
     await user.click(screen.getByRole('button', { name: /Add task/ }));
     expect(screen.getByText('2/10')).toBeInTheDocument();
@@ -126,6 +261,7 @@ describe('EcoAgent frontend contract flows', () => {
     expect(posted?.tasks[0].type).toBe('extract');
     expect(posted?.tasks[0].prompt).toBe('Classify this synthetic support message.');
     expect(screen.getByText(/Incomplete comparison/i)).toBeInTheDocument();
+    expect(document.querySelector('.print-report')).toHaveTextContent(/This run is partial/);
     expect(screen.getAllByText(/PROVIDER_TIMEOUT/).length).toBeGreaterThan(0);
     expect(screen.getAllByText('Unavailable').length).toBeGreaterThan(0);
   });
@@ -136,7 +272,7 @@ describe('EcoAgent frontend contract flows', () => {
     await loadApp();
 
     expect(await screen.findByText('Completed')).toBeInTheDocument();
-    expect(screen.getAllByText('billing')).toHaveLength(2);
+    expect(document.querySelectorAll('.answer-text')).toHaveLength(6);
     expect(fetchMock).toHaveBeenCalledWith(`/api/v1/runs/${completedRun.id}`, expect.any(Object));
   });
 
@@ -203,6 +339,54 @@ describe('EcoAgent frontend contract flows', () => {
     expect(screen.queryByText('Completed')).not.toBeInTheDocument();
   });
 
+  it('downloads the loaded JSON and CSV snapshots and offers an explicit print-to-PDF workflow', async () => {
+    mockApi({ getRun: () => response(completedRun) });
+    window.history.replaceState({}, '', `/?run=${completedRun.id}`);
+    const user = userEvent.setup();
+    const blobs: Blob[] = [];
+    const filenames: string[] = [];
+    const createObjectUrlDescriptor = Object.getOwnPropertyDescriptor(window.URL, 'createObjectURL');
+    const revokeObjectUrlDescriptor = Object.getOwnPropertyDescriptor(window.URL, 'revokeObjectURL');
+    const printDescriptor = Object.getOwnPropertyDescriptor(window, 'print');
+    Object.defineProperty(window.URL, 'createObjectURL', { configurable: true, value: (blob: Blob) => { blobs.push(blob); return `blob:export-${blobs.length}`; } });
+    Object.defineProperty(window.URL, 'revokeObjectURL', { configurable: true, value: () => undefined });
+    Object.defineProperty(window, 'print', { configurable: true, value: vi.fn() });
+    const clickSpy = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(function (this: HTMLAnchorElement) { filenames.push(this.download); });
+    try {
+      await loadApp();
+      await screen.findByText('Completed');
+      expect(document.querySelector('.print-report')).toHaveTextContent('Illustrative estimates');
+      expect(document.querySelector('.print-report')).toHaveTextContent('Source references: Unavailable');
+      await user.selectOptions(screen.getByLabelText(`Human review · baseline · ${completedRun.tasks[0].id}`), 'incorrect');
+      await user.click(screen.getByRole('button', { name: 'Export JSON' }));
+      expect(await screen.findByText(/Exported the completed snapshot/)).toBeInTheDocument();
+      const json = JSON.parse(await blobs[0].text()) as { run_id: string; run_snapshot: Run; manual_review_annotations: { by_task: Record<string, { baseline: string }> } };
+      expect(json.run_id).toBe(completedRun.id);
+      expect(json.run_snapshot).toMatchObject({ id: completedRun.id, status: 'completed' });
+      expect(json.manual_review_annotations.by_task[completedRun.tasks[0].id].baseline).toBe('incorrect');
+      expect(filenames[0]).toBe(`ecoagent-run-${completedRun.id}-completed.json`);
+
+      await user.click(screen.getByRole('button', { name: 'Export CSV' }));
+      const csv = await blobs[1].text();
+      expect(csv.split('\r\n')).toHaveLength(completedRun.results.length + 1);
+      expect(csv).toContain('output_text');
+      expect(csv).toContain('human_review');
+      expect(filenames[1]).toBe(`ecoagent-run-${completedRun.id}-completed.csv`);
+
+      await user.click(screen.getByRole('button', { name: /Print \/ Save PDF/ }));
+      expect(window.print).toHaveBeenCalledOnce();
+    expect(screen.getByText(/not a direct PDF download/i)).toBeInTheDocument();
+    } finally {
+      clickSpy.mockRestore();
+      if (createObjectUrlDescriptor) Object.defineProperty(window.URL, 'createObjectURL', createObjectUrlDescriptor);
+      else Reflect.deleteProperty(window.URL, 'createObjectURL');
+      if (revokeObjectUrlDescriptor) Object.defineProperty(window.URL, 'revokeObjectURL', revokeObjectUrlDescriptor);
+      else Reflect.deleteProperty(window.URL, 'revokeObjectURL');
+      if (printDescriptor) Object.defineProperty(window, 'print', printDescriptor);
+      else Reflect.deleteProperty(window, 'print');
+    }
+  });
+
   it('renders model output as text rather than interpreting HTML', async () => {
     const unsafeOutput = '<img src=x onerror=alert(1)>';
     const runWithText = { ...completedRun, results: completedRun.results.map((result, index) => index === 0 ? { ...result, output_text: unsafeOutput } : result) };
@@ -211,7 +395,7 @@ describe('EcoAgent frontend contract flows', () => {
     await loadApp();
     await screen.findByText('Completed');
 
-    expect(screen.getByText(unsafeOutput)).toBeInTheDocument();
+    expect(Array.from(document.querySelectorAll('.answer-text')).some((element) => element.textContent === unsafeOutput)).toBe(true);
     expect(screen.queryByRole('img')).not.toBeInTheDocument();
   });
 });
