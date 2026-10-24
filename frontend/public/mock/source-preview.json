@@ -6,7 +6,11 @@
     "character_count": 123,
     "unit_count": 2,
     "references": [
-      { "kind": "pdf_page", "page_number": 1, "excerpt": "Annual utilization for 2015 is 91.0%." }
+      {
+        "kind": "pdf_page",
+        "page_number": 1,
+        "excerpt": "Annual utilization for 2015 is 91.0%."
+      }
     ]
   },
   "csv": {
@@ -16,7 +20,12 @@
     "character_count": 74,
     "unit_count": 2,
     "references": [
-      { "kind": "csv_cell", "row_number": 2, "column_name": "utilization", "excerpt": "91.0%" }
+      {
+        "kind": "csv_cell",
+        "row_number": 2,
+        "column_name": "utilization",
+        "excerpt": "91.0%"
+      }
     ]
   }
 }

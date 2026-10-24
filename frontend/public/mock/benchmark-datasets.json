@@ -6,9 +6,20 @@
       "version": "1.0.0",
       "description": "Small objective-check workload for routing and structured responses.",
       "case_count": 5,
-      "categories": ["classification", "summarization", "arithmetic", "extraction", "reasoning"],
-      "supported_models": ["openai/gpt-oss-20b", "openai/gpt-oss-120b"],
-      "provenance": "synthetic"
+      "categories": [
+        "classification",
+        "summarization",
+        "arithmetic",
+        "extraction",
+        "reasoning"
+      ],
+      "supported_models": [
+        "openai/gpt-oss-20b",
+        "openai/gpt-oss-120b"
+      ],
+      "provenance": "synthetic",
+      "preview_models": [],
+      "max_cases_per_run": 5
     }
   ]
 }

@@ -52,3 +52,56 @@
 ## Exact next action
 
 Ask Sean to review `docs/proposals/source-import-export.md`; preserve the current explicit API-unavailable guard until those decisions are agreed.
+
+## Milestone 3 — source import and expanded analysis (October 24, 2026)
+
+This milestone supersedes the earlier WIP checkpoint above. The user approved the source API proposal and authorized implementation on `Muffin_branch`. Backend/API and dataset changes are recorded in local commit `18b03b1`; frontend and handoff changes are recorded separately. Neither commit was pushed or merged.
+
+### Implemented
+
+- Backend source preview for pasted text, text-based PDF and UTF-8 CSV; public HTTP(S) webpage retrieval with DNS/redirect validation, pinned connections, byte/time limits, and safe errors. Source preview is explicit, rendered as text, and immutable. A separate confirmation is required to attach it to a Live run; the same untrusted source snapshot is supplied to both policies. Source metadata restores with a run; unbound previews expire after 30 minutes and bound text remains in the local SQLite database.
+- Additive routes: `POST /sources/text`, `POST /sources/files`, `POST /sources/webpage`, `GET /sources/{id}`, `DELETE /sources/{id}`. Bound snapshots cannot be deleted independently.
+- Expanded benchmark `starter-v2` with 24 synthetic cases, retained five-case `starter-v1`, effective per-run limits, preview model listing, truncation-aware evaluation, and a self-contained JSON export with dataset definitions and outcomes. The export marks a bounded run `partial` when it does not contain all authored cases.
+- Updated typed frontend source integration, explicit fixture boundary, source confirmation, benchmark model/case selection and JSON download; regenerated OpenAPI and synchronized API examples/fixtures.
+- Updated source/benchmark contract, mock inventory, QA and launch documentation. Older proposal sections are now labeled historical.
+
+### Verification
+
+- `.\.venv\Scripts\python.exe -m pytest -q backend/tests` — **139 passed**.
+- `npm.cmd run typecheck --prefix frontend` — passed; `npm.cmd run test --prefix frontend` — **45 passed**; `VITE_USE_FRONTEND_MOCK=false npm.cmd run build --prefix frontend` — passed.
+- Parsed every checked-in contract example, browser mock and benchmark JSON — **33 files passed**; `git diff --check` passed.
+- Local HTTP integration used a temporary SQLite DB and forced `LIVE_ENABLED=false` plus simulated benchmark inference. Source POST/GET/DELETE passed; `starter-v2` catalog/definition loaded; a one-case run completed; export contained all 24 definitions and correctly reported partial coverage.
+- No browser automation surface was available for visual, responsive or keyboard walkthrough. No live provider call or billable inference was made. No screenshot was captured.
+
+### Changed areas
+
+Backend: `backend/app/sources.py`, comparison and benchmark routes/schemas/runner/store/provider/settings/pricing, pinned source parser dependencies, and regression tests. Frontend: `App`, `SourceInput`, `BenchmarkDashboard`, typed API client/types, fixtures and focused tests. Shared: `.env.example`, `README.md`, `contracts/openapi.json`, examples, `benchmarks/starter-v2.json`, `docs/API_CONTRACT.md`, benchmark/QA/inventory docs, and the two proposal records.
+
+### Remaining limits
+
+- Scanned/image-only PDFs are rejected; OCR is not included. Web pages are fetched as static HTML/plain text; JavaScript-rendered content, login, crawling, and search are unsupported.
+- Extracted locators are not answer citations. The model does not return validated claim citations or an explicit not-found-in-source state.
+- Dataset evaluators are synthetic exact/lexical checks; they do not establish semantic quality. Energy/carbon figures remain illustrative.
+- Qwen is marked Preview. Real Groq account access and inference were not tested. The per-run maximum can be lower than ten when the selected model pair reaches request or spend safeguards.
+- The screen and print-to-PDF layout have not had a visual browser walkthrough in this checkout; no GitHub issues were filed.
+
+### Launch and review commands (PowerShell)
+
+```powershell
+# Terminal 1: backend, with root .env for private configuration as needed
+.\.venv\Scripts\python.exe -m uvicorn backend.app.main:app --host 127.0.0.1 --port 8000 --workers 1
+
+# Terminal 2: frontend with real API transport
+$env:VITE_USE_FRONTEND_MOCK = "false"
+$env:VITE_API_PROXY_TARGET = "http://127.0.0.1:8000"
+npm.cmd run dev --prefix frontend -- --host 127.0.0.1 --port 5173
+
+# Checks
+.\.venv\Scripts\python.exe -m pytest -q backend/tests
+npm.cmd run typecheck --prefix frontend
+npm.cmd run test --prefix frontend
+$env:VITE_USE_FRONTEND_MOCK = "false"
+npm.cmd run build --prefix frontend
+```
+
+The runnable source requests and exact limits are documented in [`../API_CONTRACT.md`](../API_CONTRACT.md). Source-backed inference remains unavailable until the backend explicitly enables Live and configures a supported provider; the frontend does not silently switch modes.

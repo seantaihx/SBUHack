@@ -42,7 +42,9 @@
       "status": "succeeded",
       "estimated_energy_wh": 0.0052,
       "estimated_carbon_g": 0.00208,
-      "error": null
+      "error": null,
+      "provider_finish_reason": null,
+      "output_truncated": false
     },
     {
       "task_id": "classify-1",
@@ -57,7 +59,9 @@
       "status": "succeeded",
       "estimated_energy_wh": 0.0010400000000000001,
       "estimated_carbon_g": 0.0004160000000000001,
-      "error": null
+      "error": null,
+      "provider_finish_reason": null,
+      "output_truncated": false
     },
     {
       "task_id": "extract-1",
@@ -72,7 +76,9 @@
       "status": "succeeded",
       "estimated_energy_wh": 0.016,
       "estimated_carbon_g": 0.0063999999999999994,
-      "error": null
+      "error": null,
+      "provider_finish_reason": null,
+      "output_truncated": false
     },
     {
       "task_id": "extract-1",
@@ -87,7 +93,9 @@
       "status": "succeeded",
       "estimated_energy_wh": 0.0032,
       "estimated_carbon_g": 0.00128,
-      "error": null
+      "error": null,
+      "provider_finish_reason": null,
+      "output_truncated": false
     },
     {
       "task_id": "summarize-1",
@@ -102,7 +110,9 @@
       "status": "succeeded",
       "estimated_energy_wh": 0.0222,
       "estimated_carbon_g": 0.00888,
-      "error": null
+      "error": null,
+      "provider_finish_reason": null,
+      "output_truncated": false
     },
     {
       "task_id": "summarize-1",
@@ -117,7 +127,9 @@
       "status": "succeeded",
       "estimated_energy_wh": 0.0222,
       "estimated_carbon_g": 0.00888,
-      "error": null
+      "error": null,
+      "provider_finish_reason": null,
+      "output_truncated": false
     }
   ],
   "comparison": {
@@ -143,5 +155,7 @@
       "savings_pct": 41.48936170212766
     }
   },
-  "run_error": null
+  "run_error": null,
+  "source_snapshot": null,
+  "source_submission_confirmed": false
 }

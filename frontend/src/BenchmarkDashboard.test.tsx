@@ -30,6 +30,23 @@ describe('BenchmarkDashboard', () => {
     expect(screen.getByText('No previous runs returned by the backend.')).toBeInTheDocument();
   });
 
+  it('allows typing intermediate case counts and clamps only after editing', async () => {
+    const user = userEvent.setup();
+    render(<BenchmarkDashboard />);
+    await screen.findByRole('combobox', { name: /Dataset/ });
+    const input = screen.getByRole('spinbutton', { name: /Maximum cases/ });
+
+    await user.clear(input);
+    await user.type(input, '4');
+    expect(input).toHaveValue(4);
+
+    await user.clear(input);
+    await user.type(input, '9');
+    expect(input).toHaveValue(9);
+    await user.tab();
+    expect(input).toHaveValue(5);
+  });
+
   it('restores a benchmark from its query parameter and opens its run snapshot', async () => {
     window.history.replaceState({}, '', `/?benchmark=${completed.run_id}`);
     render(<BenchmarkDashboard initialRunId={completed.run_id} />);
@@ -98,7 +115,7 @@ describe('BenchmarkDashboard', () => {
       candidate: { model_id: 'eco-auto', optimization_enabled: true },
       max_cases: 5,
     });
-    expect(screen.getByText('Simulated fixture results; not measured model performance. Evaluation: exact_match_or_deterministic_check.')).toBeInTheDocument();
+    expect(screen.getByText(/Simulated fixture results; not measured model performance\. Evaluation: deterministic authored checks, not semantic answer-quality evaluation\./)).toBeInTheDocument();
     expect(screen.getByText('$0.0150')).toBeInTheDocument();
     expect(screen.getByText('142')).toBeInTheDocument();
     expect(benchmarkApi.getCases).toHaveBeenCalledWith(completed.run_id, 50, undefined, expect.any(AbortSignal));
