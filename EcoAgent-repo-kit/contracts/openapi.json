@@ -1,0 +1,832 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "EcoAgent API",
+    "version": "1.0.0",
+    "description": "Proposed hackathon contract. Normative behavioral rules: docs/02-api-and-data.md. Energy coefficients and demo outputs are illustrative."
+  },
+  "servers": [
+    {
+      "url": "/api/v1"
+    }
+  ],
+  "paths": {
+    "/health": {
+      "get": {
+        "operationId": "getHealth",
+        "summary": "Process readiness",
+        "responses": {
+          "200": {
+            "description": "Process readiness",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Health"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/capabilities": {
+      "get": {
+        "operationId": "getCapabilities",
+        "summary": "Configured capabilities; no external provider probe",
+        "responses": {
+          "200": {
+            "description": "Configured capabilities; no external provider probe",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Capabilities"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/sample-tasks": {
+      "get": {
+        "operationId": "getSampleTasks",
+        "summary": "Exact demo workload",
+        "responses": {
+          "200": {
+            "description": "Exact demo workload",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SampleTasks"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/runs": {
+      "post": {
+        "operationId": "createRun",
+        "summary": "Start one comparison job",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateRun"
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "description": "Queued run snapshot",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Run"
+                }
+              }
+            },
+            "headers": {
+              "Location": {
+                "description": "Relative URL of this run",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Another run is active",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Request validation failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Live mode not configured",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/runs/{run_id}": {
+      "get": {
+        "operationId": "getRun",
+        "summary": "Full run snapshot",
+        "responses": {
+          "200": {
+            "description": "Full snapshot",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Run"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Unknown run",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Invalid UUID",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "run_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ]
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "Task": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9_-]{1,64}$"
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "classify",
+              "extract",
+              "summarize"
+            ]
+          },
+          "prompt": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 2000
+          }
+        },
+        "required": [
+          "id",
+          "type",
+          "prompt"
+        ],
+        "additionalProperties": false
+      },
+      "CreateRun": {
+        "type": "object",
+        "properties": {
+          "mode": {
+            "type": "string",
+            "enum": [
+              "demo",
+              "live"
+            ]
+          },
+          "tasks": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 10,
+            "items": {
+              "$ref": "#/components/schemas/Task"
+            }
+          },
+          "carbon_intensity_g_per_kwh": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 2000,
+            "default": 400
+          }
+        },
+        "required": [
+          "mode",
+          "tasks"
+        ],
+        "additionalProperties": false
+      },
+      "ErrorInfo": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "string"
+          },
+          "message": {
+            "type": "string"
+          },
+          "details": {
+            "type": "object",
+            "additionalProperties": true
+          }
+        },
+        "required": [
+          "code",
+          "message",
+          "details"
+        ],
+        "additionalProperties": false
+      },
+      "ErrorEnvelope": {
+        "type": "object",
+        "properties": {
+          "error": {
+            "$ref": "#/components/schemas/ErrorInfo"
+          }
+        },
+        "required": [
+          "error"
+        ],
+        "additionalProperties": false
+      },
+      "Health": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "ok"
+            ]
+          },
+          "api_version": {
+            "type": "string",
+            "const": "1.0.0"
+          }
+        },
+        "required": [
+          "status",
+          "api_version"
+        ],
+        "additionalProperties": false
+      },
+      "SampleTasks": {
+        "type": "object",
+        "properties": {
+          "version": {
+            "type": "string",
+            "const": "sample-v1"
+          },
+          "tasks": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Task"
+            }
+          }
+        },
+        "required": [
+          "version",
+          "tasks"
+        ],
+        "additionalProperties": false
+      },
+      "ModelInfo": {
+        "type": "object",
+        "properties": {
+          "role": {
+            "type": "string",
+            "enum": [
+              "small",
+              "large"
+            ]
+          },
+          "live_model_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "role",
+          "live_model_id"
+        ],
+        "additionalProperties": false
+      },
+      "Coefficient": {
+        "type": "object",
+        "properties": {
+          "input_wh_per_token": {
+            "type": "number",
+            "minimum": 0
+          },
+          "output_wh_per_token": {
+            "type": "number",
+            "minimum": 0
+          }
+        },
+        "required": [
+          "input_wh_per_token",
+          "output_wh_per_token"
+        ],
+        "additionalProperties": false
+      },
+      "EnergyProfile": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "const": "illustrative-v1"
+          },
+          "basis": {
+            "type": "string",
+            "const": "hypothetical_demo_coefficients_not_measurements"
+          },
+          "default_carbon_intensity_g_per_kwh": {
+            "type": "number",
+            "const": 400
+          },
+          "models": {
+            "type": "object",
+            "properties": {
+              "small": {
+                "$ref": "#/components/schemas/Coefficient"
+              },
+              "large": {
+                "$ref": "#/components/schemas/Coefficient"
+              }
+            },
+            "required": [
+              "small",
+              "large"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "id",
+          "basis",
+          "default_carbon_intensity_g_per_kwh",
+          "models"
+        ],
+        "additionalProperties": false
+      },
+      "Capabilities": {
+        "type": "object",
+        "properties": {
+          "api_version": {
+            "type": "string",
+            "const": "1.0.0"
+          },
+          "demo_enabled": {
+            "type": "boolean",
+            "const": true
+          },
+          "live_enabled": {
+            "type": "boolean"
+          },
+          "live_disabled_reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "max_tasks": {
+            "type": "integer",
+            "const": 10
+          },
+          "max_prompt_chars": {
+            "type": "integer",
+            "const": 2000
+          },
+          "policy_version": {
+            "type": "string",
+            "const": "task-routing-v1"
+          },
+          "models": {
+            "type": "array",
+            "minItems": 2,
+            "maxItems": 2,
+            "items": {
+              "$ref": "#/components/schemas/ModelInfo"
+            }
+          },
+          "energy_profile": {
+            "$ref": "#/components/schemas/EnergyProfile"
+          }
+        },
+        "required": [
+          "api_version",
+          "demo_enabled",
+          "live_enabled",
+          "live_disabled_reason",
+          "max_tasks",
+          "max_prompt_chars",
+          "policy_version",
+          "models",
+          "energy_profile"
+        ],
+        "additionalProperties": false
+      },
+      "Result": {
+        "type": "object",
+        "properties": {
+          "task_id": {
+            "type": "string"
+          },
+          "policy": {
+            "type": "string",
+            "enum": [
+              "baseline",
+              "optimized"
+            ]
+          },
+          "model_role": {
+            "type": "string",
+            "enum": [
+              "small",
+              "large"
+            ]
+          },
+          "model_id": {
+            "type": "string"
+          },
+          "routing_reason": {
+            "type": "string",
+            "enum": [
+              "baseline_large",
+              "simple_task_small",
+              "summary_large"
+            ]
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "succeeded",
+              "failed"
+            ]
+          },
+          "output_text": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "latency_ms": {
+            "anyOf": [
+              {
+                "type": "number",
+                "minimum": 0
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "input_tokens": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 0
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "output_tokens": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 0
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "estimated_energy_wh": {
+            "anyOf": [
+              {
+                "type": "number",
+                "minimum": 0
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "estimated_carbon_g": {
+            "anyOf": [
+              {
+                "type": "number",
+                "minimum": 0
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "error": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ErrorInfo"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "task_id",
+          "policy",
+          "model_role",
+          "model_id",
+          "routing_reason",
+          "status",
+          "output_text",
+          "latency_ms",
+          "input_tokens",
+          "output_tokens",
+          "estimated_energy_wh",
+          "estimated_carbon_g",
+          "error"
+        ],
+        "additionalProperties": false
+      },
+      "ComparisonMetric": {
+        "type": "object",
+        "properties": {
+          "baseline": {
+            "anyOf": [
+              {
+                "type": "number",
+                "minimum": 0
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "optimized": {
+            "anyOf": [
+              {
+                "type": "number",
+                "minimum": 0
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "saved": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "savings_pct": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "baseline",
+          "optimized",
+          "saved",
+          "savings_pct"
+        ],
+        "additionalProperties": false
+      },
+      "Comparison": {
+        "type": "object",
+        "properties": {
+          "successful_pairs": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "energy_pairs": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "latency_pairs": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "energy_wh": {
+            "$ref": "#/components/schemas/ComparisonMetric"
+          },
+          "carbon_g": {
+            "$ref": "#/components/schemas/ComparisonMetric"
+          },
+          "latency_ms": {
+            "$ref": "#/components/schemas/ComparisonMetric"
+          }
+        },
+        "required": [
+          "successful_pairs",
+          "energy_pairs",
+          "latency_pairs",
+          "energy_wh",
+          "carbon_g",
+          "latency_ms"
+        ],
+        "additionalProperties": false
+      },
+      "Run": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "queued",
+              "running",
+              "completed",
+              "partial",
+              "failed"
+            ]
+          },
+          "mode": {
+            "type": "string",
+            "enum": [
+              "demo",
+              "live"
+            ]
+          },
+          "measurement_source": {
+            "type": "string",
+            "enum": [
+              "simulated",
+              "provider_usage_and_client_timing"
+            ]
+          },
+          "policy_version": {
+            "type": "string",
+            "const": "task-routing-v1"
+          },
+          "energy_estimation_profile": {
+            "type": "string",
+            "const": "illustrative-v1"
+          },
+          "carbon_intensity_g_per_kwh": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 2000
+          },
+          "tasks": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 10,
+            "items": {
+              "$ref": "#/components/schemas/Task"
+            }
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "started_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "finished_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "total_attempts": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "completed_attempts": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "results": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Result"
+            }
+          },
+          "comparison": {
+            "$ref": "#/components/schemas/Comparison"
+          },
+          "run_error": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ErrorInfo"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "status",
+          "mode",
+          "measurement_source",
+          "policy_version",
+          "energy_estimation_profile",
+          "carbon_intensity_g_per_kwh",
+          "tasks",
+          "created_at",
+          "started_at",
+          "finished_at",
+          "total_attempts",
+          "completed_attempts",
+          "results",
+          "comparison",
+          "run_error"
+        ],
+        "additionalProperties": false
+      }
+    }
+  }
+}

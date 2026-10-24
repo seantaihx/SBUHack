@@ -1,0 +1,15 @@
+{
+  "id": "illustrative-v1",
+  "basis": "hypothetical_demo_coefficients_not_measurements",
+  "default_carbon_intensity_g_per_kwh": 400,
+  "models": {
+    "small": {
+      "input_wh_per_token": 2e-05,
+      "output_wh_per_token": 8e-05
+    },
+    "large": {
+      "input_wh_per_token": 0.0001,
+      "output_wh_per_token": 0.0004
+    }
+  }
+}

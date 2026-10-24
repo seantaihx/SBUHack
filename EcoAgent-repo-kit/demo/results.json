@@ -1,0 +1,66 @@
+{
+  "provenance": "synthetic; identical paired answers are fixtures, not evidence of equivalent model quality",
+  "execution_delay_ms_per_attempt": 150,
+  "results": [
+    {
+      "task_id": "classify-1",
+      "policy": "baseline",
+      "model_role": "large",
+      "model_id": "demo-large",
+      "output_text": "billing",
+      "input_tokens": 40,
+      "output_tokens": 3,
+      "latency_ms": 1200
+    },
+    {
+      "task_id": "classify-1",
+      "policy": "optimized",
+      "model_role": "small",
+      "model_id": "demo-small",
+      "output_text": "billing",
+      "input_tokens": 40,
+      "output_tokens": 3,
+      "latency_ms": 350
+    },
+    {
+      "task_id": "extract-1",
+      "policy": "baseline",
+      "model_role": "large",
+      "model_id": "demo-large",
+      "output_text": "{\"order_id\":\"ECO-1042\",\"total_usd\":42.5}",
+      "input_tokens": 60,
+      "output_tokens": 25,
+      "latency_ms": 1500
+    },
+    {
+      "task_id": "extract-1",
+      "policy": "optimized",
+      "model_role": "small",
+      "model_id": "demo-small",
+      "output_text": "{\"order_id\":\"ECO-1042\",\"total_usd\":42.5}",
+      "input_tokens": 60,
+      "output_tokens": 25,
+      "latency_ms": 500
+    },
+    {
+      "task_id": "summarize-1",
+      "policy": "baseline",
+      "model_role": "large",
+      "model_id": "demo-large",
+      "output_text": "The team routed simple classification to a smaller model, kept summaries on a larger model, and planned quality evaluation before deployment.",
+      "input_tokens": 70,
+      "output_tokens": 38,
+      "latency_ms": 2000
+    },
+    {
+      "task_id": "summarize-1",
+      "policy": "optimized",
+      "model_role": "large",
+      "model_id": "demo-large",
+      "output_text": "The team routed simple classification to a smaller model, kept summaries on a larger model, and planned quality evaluation before deployment.",
+      "input_tokens": 70,
+      "output_tokens": 38,
+      "latency_ms": 1900
+    }
+  ]
+}
