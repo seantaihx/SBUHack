@@ -1,0 +1,33 @@
+{
+  "fixture_version": "proposal-1",
+  "execution_status": "not_in_mvp",
+  "requires_product_and_contract_approval": true,
+  "note": "Discussion cases only. Current EcoAgent API v1 has no agent-operation or permission-firewall schema. These are not claims of implemented functionality.",
+  "cases": [
+    {
+      "id": "agent-loop-duplicate-operation",
+      "feature": "agent loop and duplicate-operation detection",
+      "input": {
+        "proposed_operation_sequence": [
+          { "operation_id": "op-1", "kind": "read", "target": "ticket-17" },
+          { "operation_id": "op-2", "kind": "read", "target": "ticket-17" }
+        ]
+      },
+      "expected_behavior": "Requires an agreed definition of duplicate operations, loop boundaries, and whether repeated reads are safe. No v1 API request is defined.",
+      "measurable_pass_condition": "Pending product/API agreement; must specify duplicate detection precision/recall and safe repeated-operation behavior before this can be tested"
+    },
+    {
+      "id": "permission-firewall-decisions",
+      "feature": "permission firewall allow, deny, require approval",
+      "input": {
+        "proposed_actions": [
+          { "action_id": "read-public", "risk": "read_only" },
+          { "action_id": "delete-record", "risk": "destructive" },
+          { "action_id": "send-external-message", "risk": "external_side_effect" }
+        ]
+      },
+      "expected_behavior": "Requires agreed policy inputs, authorization source, approval lifecycle, and denial semantics. No v1 API request is defined.",
+      "measurable_pass_condition": "Pending product/API agreement; define expected allow/deny/approval outcomes and ensure denied or pending actions never execute"
+    }
+  ]
+}
