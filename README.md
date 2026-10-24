@@ -14,6 +14,8 @@ SBUHacks inference comparison and benchmark prototype. Deterministic simulation 
 
 Shared specification: [original architecture](docs/01-product-and-architecture.md), [comparison semantics](docs/02-api-and-data.md), [accepted benchmark contract](docs/API_CONTRACT.md), [OpenAPI](contracts/openapi.json), [handoff and verification](docs/backend-handoff.md). Original v1 schemas/fixtures are preserved; benchmark schemas/examples are additive. The workspace agent is a separate opt-in, loopback-only prototype; its execution is approval-gated and it has no shell or network tools.
 
+Use the [feature acceptance test plan](docs/FEATURE_ACCEPTANCE_TESTS.md) for a manual checklist covering main and Muffin_branch functionality, safety boundaries, and verification limits.
+
 ## Setup and launch on Windows
 
 Use PowerShell from the repository root. `npm.cmd` avoids the PowerShell script execution policy that can block `npm.ps1`.
