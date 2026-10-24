@@ -19,3 +19,13 @@ Launch from repository root:
 Frontend action: fetch `/api/v1/sample-tasks`, POST `{mode: "demo", tasks: [samples.tasks[0]]}` to `/api/v1/runs`, then poll Location and render both outputs. Use Vite `/api` proxy to port 8000. The exact curl request is in README.
 
 Limitations: fixture inference only, not a fake HTTP provider or real provider integration. Live disabled. No frontend yet, no browser walkthrough or built-frontend serving. Full recovery and failure acceptance are the next backend milestone.
+
+## Milestone 2 — core demo execution verified
+
+The core demo now includes all three tasks, matched-cohort arithmetic, an atomic active-run gate, safe attempt/job errors, hard total attempt deadlines, graceful interruption and startup recovery. Completed runs remain immutable. Validation and generated response schemas follow the shared contract.
+
+Verification: 57 tests passed; dependency check passed (31 installed packages); real Uvicorn HTTP smoke passed metadata, one-task completion, SQLite persistence, abrupt-process interruption, RUN_INTERRUPTED recovery, preserved results, and a new run after recovery. Failure tests use injected in-process provider doubles, not a real provider or fake HTTP server.
+
+The independent reviewer reported no confirmed material defect during its initial pass, but hit its usage limit before delivering a final verdict. Independent review is incomplete and must not be represented as approved.
+
+The subsequent user request authorizes integrating main's benchmark frontend and implementing its proposed API, followed by Groq support. This supersedes the earlier optional-work gate; the existing demo remains supported.

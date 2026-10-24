@@ -1,18 +1,10 @@
 """Synthetic fixture inference; latency and token counts are NOT measurements."""
 import asyncio
 import json
-from dataclasses import dataclass
 
 from ..schemas import EnergyProfile, Policy, Role, SampleTasks, Task
 from ..settings import ROOT
-
-
-@dataclass(frozen=True)
-class InferenceResult:
-    output_text: str
-    latency_ms: float
-    input_tokens: int | None
-    output_tokens: int | None
+from .base import InferenceResult
 
 
 class DemoProvider:

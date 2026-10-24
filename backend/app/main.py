@@ -32,9 +32,12 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     @asynccontextmanager
     async def lifespan(app: FastAPI):
         app.state.store = Store(settings.database_path)
+        app.state.store.recover()
         app.state.runner = Runner(app.state.store, demo)
-        yield
-        await app.state.runner.close()
+        try:
+            yield
+        finally:
+            await app.state.runner.close()
 
     app = FastAPI(title='EcoAgent API', version='1.0.0', lifespan=lifespan,
                   docs_url=None, redoc_url=None, openapi_url=None)
@@ -53,9 +56,14 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         code = 'NOT_FOUND' if exc.status_code == 404 else 'HTTP_ERROR'
         return error_response(exc.status_code, ErrorInfo(code=code, message='The requested route is unavailable.'))
 
-    @app.exception_handler(Exception)
-    async def internal_error(request, exc):
-        return error_response(500, ErrorInfo(code='INTERNAL_ERROR', message='The request could not be completed.'))
+    @app.middleware('http')
+    async def sanitize_internal_errors(request, call_next):
+        # Catch inside ServerErrorMiddleware: its default handler re-raises exceptions
+        # after sending a response, allowing raw exception text into Uvicorn logs.
+        try:
+            return await call_next(request)
+        except Exception:
+            return error_response(500, ErrorInfo(code='INTERNAL_ERROR', message='The request could not be completed.'))
 
     @app.get('/api/v1/health', response_model=Health)
     async def health():

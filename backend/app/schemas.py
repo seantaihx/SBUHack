@@ -15,7 +15,8 @@ Intensity = Annotated[float, Field(ge=0, le=2000, allow_inf_nan=False)]
 
 
 class Model(BaseModel):
-    model_config = ConfigDict(extra='forbid', strict=True, allow_inf_nan=False)
+    model_config = ConfigDict(extra='forbid', strict=True, allow_inf_nan=False,
+                              json_schema_serialization_defaults_required=True)
 
 
 class Task(Model):

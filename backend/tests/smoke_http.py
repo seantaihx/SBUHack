@@ -84,10 +84,48 @@ def main():
             try:
                 _, _, reloaded = request(base, location)
                 assert reloaded == run
+                status, headers, interrupted = request(base, '/api/v1/runs',
+                                                       {'mode': 'demo', 'tasks': SAMPLES['tasks']})
+                assert status == 202
+                interrupted_location = next(v for k, v in headers.items() if k.lower() == 'location')
+                deadline = monotonic() + 5
+                while monotonic() < deadline:
+                    _, _, interrupted = request(base, interrupted_location)
+                    if interrupted['completed_attempts'] >= 1:
+                        break
+                    sleep(0.005)
+                assert interrupted['status'] == 'running'
+                assert interrupted['completed_attempts'] >= 1
+                process.kill()  # Only the temporary child server created by this smoke.
+                process.wait(timeout=5)
+                assert process.returncode == -signal.SIGKILL
+            finally:
+                if process.poll() is None:
+                    stop(process)
+            process = start(database, port, log)
+            try:
+                _, _, recovered = request(base, interrupted_location)
+                validate(recovered, 'Run')
+                assert recovered['status'] == 'failed'
+                assert recovered['run_error']['code'] == 'RUN_INTERRUPTED'
+                assert recovered['results'][:len(interrupted['results'])] == interrupted['results']
+                _, _, completed = request(base, location)
+                assert completed == run
+                status, headers, _ = request(base, '/api/v1/runs',
+                                             {'mode': 'demo', 'tasks': SAMPLES['tasks'][:1]})
+                assert status == 202
+                new_location = next(v for k, v in headers.items() if k.lower() == 'location')
+                deadline = monotonic() + 5
+                while monotonic() < deadline:
+                    _, _, new_run = request(base, new_location)
+                    if new_run['status'] == 'completed':
+                        break
+                    sleep(0.02)
+                assert new_run['status'] == 'completed'
             finally:
                 stop(process)
         assert (Path(directory) / 'server.log').read_text().count('Application shutdown complete.') == 2
-    print('PASS: real Uvicorn HTTP metadata + 202/GET completed (2 billing outputs) + SQLite restart persistence; cwd=/tmp.')
+    print('PASS: real Uvicorn HTTP metadata + 202/GET completed (2 billing outputs) + SQLite persistence + abrupt-process restart recovery + new run after recovery; cwd=/tmp.')
     print('Demo fixture inference only; no external provider integration tested.')
 
 

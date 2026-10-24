@@ -4,7 +4,8 @@ from pathlib import Path
 import sqlite3
 import threading
 
-from .schemas import Run
+from .schemas import ErrorInfo, Run
+from .timestamps import now
 
 
 class RunActive(Exception):
@@ -46,3 +47,16 @@ class Store:
             db.execute("UPDATE runs SET status = ?, snapshot = ? WHERE id = ? "
                        "AND status IN ('queued', 'running')",
                        (run.status, run.model_dump_json(), str(run.id)))
+
+    def recover(self):
+        """Fail unfinished snapshots on startup; never resume or alter terminal jobs."""
+        with self._lock, closing(self._connect()) as db, db:
+            db.execute('BEGIN IMMEDIATE')
+            rows = db.execute("SELECT snapshot FROM runs WHERE status IN ('queued', 'running')").fetchall()
+            for row in rows:
+                run = Run.model_validate_json(row[0])
+                run.status = 'failed'
+                run.finished_at = now()
+                run.run_error = ErrorInfo(code='RUN_INTERRUPTED', message='The application stopped before this comparison finished.')
+                db.execute('UPDATE runs SET status = ?, snapshot = ? WHERE id = ?',
+                           (run.status, run.model_dump_json(), str(run.id)))
