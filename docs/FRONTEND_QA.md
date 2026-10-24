@@ -37,3 +37,7 @@ The 18 Vitest component tests exercise the comparison flow plus benchmark datase
 2. Walk the page with keyboard-only navigation and a screen reader; verify focus order and announcements for loading, errors, and run status.
 
 GitHub issue links: not filed from this checkout. The connected GitHub integration did not grant issue-write access in the previous attempt; create separate Functional and Visual issues when write access is available.
+
+## Backend integration follow-up — October 24, 2026
+
+On Sean_branch after merging main a7e3767, Node 24 was used on macOS: `npm ci`, typecheck, 18 frontend tests and the production build passed without frontend source changes. A real browser walkthrough through Vite and the FastAPI-served build verified original comparison completion/refresh, benchmark catalog/submission/polling/cases/history, simulated labels, and a real HTTP 502 connection error with no mock fallback. See backend-handoff.md for exact commands and backend checks. This does not claim a complete responsive/accessibility audit or real Groq verification.

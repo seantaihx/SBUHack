@@ -1,0 +1,48 @@
+{
+  "run_id": "e8438ced-62cd-4484-b74e-e76e60382899",
+  "status": "completed",
+  "dataset_id": "starter-v1",
+  "progress": {
+    "completed": 5,
+    "total": 5
+  },
+  "baseline": {
+    "model_id": "openai/gpt-oss-120b",
+    "optimization_enabled": false
+  },
+  "candidate": {
+    "model_id": "eco-auto",
+    "optimization_enabled": true
+  },
+  "max_cases": 5,
+  "measurement_source": "simulated",
+  "evaluation_method": "exact_match_or_deterministic_check",
+  "baseline_metrics": {
+    "total_cases": 5,
+    "passed_cases": 5,
+    "pass_rate": 1.0,
+    "failed_cases": 0,
+    "total_cost_usd": 0.00010499999999999999,
+    "mean_latency_ms": 1200.0,
+    "input_tokens": 300,
+    "output_tokens": 100,
+    "total_requests": 5,
+    "error_count": 0
+  },
+  "candidate_metrics": {
+    "total_cases": 5,
+    "passed_cases": 5,
+    "pass_rate": 1.0,
+    "failed_cases": 0,
+    "total_cost_usd": 7.35e-05,
+    "mean_latency_ms": 780.0,
+    "input_tokens": 300,
+    "output_tokens": 100,
+    "total_requests": 5,
+    "error_count": 0
+  },
+  "created_at": "2026-10-24T17:23:41.431618Z",
+  "started_at": "2026-10-24T17:23:41.432781Z",
+  "finished_at": "2026-10-24T17:23:42.956027Z",
+  "error": null
+}

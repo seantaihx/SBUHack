@@ -1,0 +1,37 @@
+{
+  "items": [
+    {
+      "case_id": "classify-support-001",
+      "category": "classification",
+      "status": "error",
+      "evaluation_method": "exact_match",
+      "expected": "billing",
+      "baseline": {
+        "model_id": "openai/gpt-oss-120b",
+        "routing_reason": "fixed_baseline",
+        "output": "billing",
+        "latency_ms": 1200.0,
+        "input_tokens": 60,
+        "output_tokens": 20,
+        "cost_usd": 2.1e-05,
+        "error": null
+      },
+      "candidate": {
+        "model_id": "openai/gpt-oss-20b",
+        "routing_reason": "simple_task_small",
+        "output": null,
+        "latency_ms": null,
+        "input_tokens": null,
+        "output_tokens": null,
+        "cost_usd": null,
+        "error": {
+          "code": "PROVIDER_TIMEOUT",
+          "message": "The inference attempt exceeded its deadline.",
+          "details": {}
+        }
+      },
+      "evaluation_details": "Deterministic lexical/JSON checks only; not semantic quality equivalence."
+    }
+  ],
+  "next_cursor": null
+}

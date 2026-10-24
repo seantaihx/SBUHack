@@ -1,0 +1,145 @@
+{
+  "items": [
+    {
+      "case_id": "classify-support-001",
+      "category": "classification",
+      "status": "passed",
+      "evaluation_method": "exact_match",
+      "expected": "billing",
+      "baseline": {
+        "model_id": "openai/gpt-oss-120b",
+        "routing_reason": "fixed_baseline",
+        "output": "billing",
+        "latency_ms": 1200.0,
+        "input_tokens": 60,
+        "output_tokens": 20,
+        "cost_usd": 2.1e-05,
+        "error": null
+      },
+      "candidate": {
+        "model_id": "openai/gpt-oss-20b",
+        "routing_reason": "simple_task_small",
+        "output": "billing",
+        "latency_ms": 500.0,
+        "input_tokens": 60,
+        "output_tokens": 20,
+        "cost_usd": 1.05e-05,
+        "error": null
+      },
+      "evaluation_details": "Deterministic lexical/JSON checks only; not semantic quality equivalence."
+    },
+    {
+      "case_id": "summarize-policy-001",
+      "category": "summarization",
+      "status": "passed",
+      "evaluation_method": "required_facts",
+      "expected": "Simple classification uses a smaller model while summaries retain a larger model pending quality review.",
+      "baseline": {
+        "model_id": "openai/gpt-oss-120b",
+        "routing_reason": "fixed_baseline",
+        "output": "Simple classification uses a smaller model while summaries retain a larger model pending quality review.",
+        "latency_ms": 1200.0,
+        "input_tokens": 60,
+        "output_tokens": 20,
+        "cost_usd": 2.1e-05,
+        "error": null
+      },
+      "candidate": {
+        "model_id": "openai/gpt-oss-120b",
+        "routing_reason": "complex_task_large",
+        "output": "Simple classification uses a smaller model while summaries retain a larger model pending quality review.",
+        "latency_ms": 1200.0,
+        "input_tokens": 60,
+        "output_tokens": 20,
+        "cost_usd": 2.1e-05,
+        "error": null
+      },
+      "evaluation_details": "Deterministic lexical/JSON checks only; not semantic quality equivalence."
+    },
+    {
+      "case_id": "arithmetic-001",
+      "category": "arithmetic",
+      "status": "passed",
+      "evaluation_method": "exact_match",
+      "expected": "144",
+      "baseline": {
+        "model_id": "openai/gpt-oss-120b",
+        "routing_reason": "fixed_baseline",
+        "output": "144",
+        "latency_ms": 1200.0,
+        "input_tokens": 60,
+        "output_tokens": 20,
+        "cost_usd": 2.1e-05,
+        "error": null
+      },
+      "candidate": {
+        "model_id": "openai/gpt-oss-20b",
+        "routing_reason": "simple_task_small",
+        "output": "144",
+        "latency_ms": 500.0,
+        "input_tokens": 60,
+        "output_tokens": 20,
+        "cost_usd": 1.05e-05,
+        "error": null
+      },
+      "evaluation_details": "Deterministic lexical/JSON checks only; not semantic quality equivalence."
+    },
+    {
+      "case_id": "extract-order-001",
+      "category": "extraction",
+      "status": "passed",
+      "evaluation_method": "json_schema_and_values",
+      "expected": "{\"order_id\":\"ECO-1042\",\"total_usd\":42.5}",
+      "baseline": {
+        "model_id": "openai/gpt-oss-120b",
+        "routing_reason": "fixed_baseline",
+        "output": "{\"order_id\":\"ECO-1042\",\"total_usd\":42.5}",
+        "latency_ms": 1200.0,
+        "input_tokens": 60,
+        "output_tokens": 20,
+        "cost_usd": 2.1e-05,
+        "error": null
+      },
+      "candidate": {
+        "model_id": "openai/gpt-oss-20b",
+        "routing_reason": "simple_task_small",
+        "output": "{\"order_id\":\"ECO-1042\",\"total_usd\":42.5}",
+        "latency_ms": 500.0,
+        "input_tokens": 60,
+        "output_tokens": 20,
+        "cost_usd": 1.05e-05,
+        "error": null
+      },
+      "evaluation_details": "Deterministic lexical/JSON checks only; not semantic quality equivalence."
+    },
+    {
+      "case_id": "reasoning-schedule-001",
+      "category": "reasoning",
+      "status": "passed",
+      "evaluation_method": "exact_match",
+      "expected": "3",
+      "baseline": {
+        "model_id": "openai/gpt-oss-120b",
+        "routing_reason": "fixed_baseline",
+        "output": "3",
+        "latency_ms": 1200.0,
+        "input_tokens": 60,
+        "output_tokens": 20,
+        "cost_usd": 2.1e-05,
+        "error": null
+      },
+      "candidate": {
+        "model_id": "openai/gpt-oss-120b",
+        "routing_reason": "complex_task_large",
+        "output": "3",
+        "latency_ms": 1200.0,
+        "input_tokens": 60,
+        "output_tokens": 20,
+        "cost_usd": 2.1e-05,
+        "error": null
+      },
+      "evaluation_details": "Deterministic lexical/JSON checks only; not semantic quality equivalence."
+    }
+  ],
+  "next_cursor": null
+}
