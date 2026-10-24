@@ -49,4 +49,4 @@ For a loaded comparison run, **Export JSON** downloads the full available snapsh
 
 Downloads contain supplied prompts and model outputs and may contain user-provided data. Never share them without reviewing their contents.
 
-Source import and URL retrieval are not implemented in this frontend milestone. The proposed source API is [`../docs/proposals/source-import-export.md`](../docs/proposals/source-import-export.md); existing v1 remains text only.
+The source-selection shell is present, but actual PDF/CSV parsing, webpage retrieval, and source-backed inference are not implemented. Pasted text preview stays local; file selection does not read/upload its contents; URL entry never fetches. Optional PDF/CSV preview examples in explicit fixture mode are synthetic and not derived from the selected file. Selecting any source blocks Compare until cleared, so the existing text-only request cannot silently omit it. The proposed source API is [`../docs/proposals/source-import-export.md`](../docs/proposals/source-import-export.md); existing v1 remains text only.

@@ -12,7 +12,7 @@ npm.cmd run typecheck
 npm.cmd run build
 ```
 
-On October 24, 2026, all 36 Vitest tests passed, TypeScript typechecking passed, and the production build passed with `VITE_USE_FRONTEND_MOCK=false`. The tests cover comparison submission/polling and duplicate prevention, error states, latency direction for negative/positive/zero/null values, local review persistence and storage failure, JSON/CSV export structure, CSV quoting/formula protection/Unicode/nulls, JSON/CSV UI download actions, the print-dialog action, URL warnings, benchmark restoration, and typed 409 navigation.
+On October 24, 2026, all 42 Vitest tests passed. TypeScript typechecking also passed with the current source UI; the final production build is pending. Tests cover comparison submission/polling and duplicate prevention, errors, latency direction for negative/positive/zero/null values, local review persistence/storage failures, JSON/CSV export structure, CSV quoting/formula protection/Unicode/nulls, download/print actions, URL warnings, benchmark restoration, typed 409 navigation, local source previews, and safe blocking of unsupported source submissions.
 
 ## Results export milestone
 
@@ -40,6 +40,7 @@ Benchmark mode was not specified in the private root `.env`; backend settings de
 ## Verification boundaries
 
 - A browser UI surface was not available to the automation tool, so no visual browser walkthrough/screenshots or browser-generated PDF were captured.
+- Source UI is deliberately incomplete: pasted text can be previewed locally; file selection only reports filename/size; PDF/CSV parser fixtures are synthetic and unrelated to selected files; URL input never fetches. Source-enabled comparisons stay disabled because accepted API v1 has no source routes. No source file was uploaded.
 - Desktop, tablet, and phone viewport review remains outstanding. Keep provenance and simulation labels visible at each size.
 - Keyboard-only and screen-reader behavior still needs a manual browser pass. Automated DOM tests do not measure contrast or confirm announcements in real assistive technology.
 - No GitHub issues were filed from this checkout.
@@ -48,16 +49,17 @@ Benchmark mode was not specified in the private root `.env`; backend settings de
 
 ### Functional
 
-1. In a real browser, save the print report to PDF, reopen it, and inspect page breaks, long/wide content, and Unicode; decide whether to keep this print workflow or add a true PDF file generator.
-2. Walk through Demo/Live labels, URL restoration, JSON/CSV downloads, review persistence/reset, network retry, benchmark dataset/history/cases, and narrow-screen behavior.
-3. Exercise a provider failure only in an explicitly authorized Live environment; this session sent no Live requests.
-4. Confirm the production frontend is served by the backend at the expected same-origin path.
+1. Complete this final test/typecheck/build pass after the source UI changes.
+2. In a real browser, save the print report to PDF, reopen it, and inspect page breaks, long/wide content, and Unicode; decide whether to keep this print workflow or add a true PDF file generator.
+3. Walk through Demo/Live labels, URL restoration, JSON/CSV downloads, review persistence/reset, network retry, benchmark dataset/history/cases, and narrow-screen behavior.
+4. After Sean accepts and implements the proposal, add actual PDF/CSV parsing, safe URL retrieval, source references, explicit submission confirmation, and end-to-end source-run verification.
+5. Exercise a provider failure only in an explicitly authorized Live environment; this session sent no Live requests. Confirm the production frontend is served by the backend at the expected same-origin path.
 
 ### API coordination
 
 The shared active-run gate can reject a comparison submission while a benchmark is active. Benchmark 409 responses include `details.active_run_id` and `details.active_run_kind`; comparison 409 responses currently include only `details.active_run_id`. The comparison client therefore cannot safely know whether to restore a comparison or navigate to Benchmarks. Proposal for Sean: add `active_run_kind: "comparison" | "benchmark"` to comparison 409 details, matching the benchmark response. No backend or shared contract was changed here.
 
-Source import/export API proposal: [`proposals/source-import-export.md`](proposals/source-import-export.md). It is pending Sean's review; no source UI/routes, backend code, or accepted OpenAPI changes were made. Exact open decisions are listed in that proposal.
+Source import/export API proposal: [`proposals/source-import-export.md`](proposals/source-import-export.md). It is pending Sean's review; only the frontend's guarded source-selection/preview shell exists. No parser, source routes, backend code, or accepted OpenAPI changes were added. Exact open decisions are listed in that proposal.
 
 ### Visual and accessibility review
 

@@ -192,12 +192,34 @@ describe('EcoAgent frontend contract flows', () => {
     await user.type(screen.getByRole('textbox', { name: /Prompt/ }), prompt);
 
     expect(screen.getByText(/Paste the source text\. URLs are not fetched\./)).toBeInTheDocument();
-    expect(screen.getByRole('status')).toHaveTextContent(/page will not be retrieved/i);
+    expect(screen.getByText(/page will not be retrieved/i)).toBeInTheDocument();
     const submit = screen.getByRole('button', { name: /Compare policies/ });
     expect(submit).toBeEnabled();
     await user.click(submit);
     await screen.findByText('Queued');
     expect(posted?.tasks[0].prompt).toBe(prompt);
+  });
+
+  it('blocks a run when an unavailable source is selected, then preserves text-only comparison after clearing it', async () => {
+    const fetchMock = mockApi();
+    const user = userEvent.setup();
+    await loadApp();
+    await user.selectOptions(screen.getByLabelText('Source type'), 'text');
+    await user.type(screen.getByLabelText('Pasted source text'), 'Synthetic source that must not be ignored.');
+    const blockedSubmit = screen.getByRole('button', { name: 'Clear source to compare' });
+    await waitFor(() => expect(blockedSubmit).toBeDisabled());
+    expect(screen.getByText(/comparison button is disabled/i)).toBeInTheDocument();
+    expect(fetchMock.mock.calls.some(([url]) => String(url).includes('/sources'))).toBe(false);
+    expect(fetchMock.mock.calls.filter(([, init]) => init?.method === 'POST')).toHaveLength(0);
+
+    await user.selectOptions(screen.getByLabelText('Source type'), 'none');
+    const textOnlySubmit = screen.getByRole('button', { name: 'Compare policies' });
+    await waitFor(() => expect(textOnlySubmit).toBeEnabled());
+    await user.click(textOnlySubmit);
+    expect(await screen.findByText('Queued')).toBeInTheDocument();
+    const request = fetchMock.mock.calls.find(([url, init]) => String(url).endsWith('/runs') && init?.method === 'POST');
+    expect(request).toBeDefined();
+    expect(String(request?.[1]?.body)).not.toContain('Synthetic source that must not be ignored.');
   });
 
   it('saves manual reviews per run, restores them, and resets to not reviewed', async () => {
@@ -226,7 +248,7 @@ describe('EcoAgent frontend contract flows', () => {
     const user = userEvent.setup();
     await loadApp();
     await user.click(screen.getByRole('button', { name: /Live/ }));
-    await user.selectOptions(screen.getByRole('combobox'), 'extract');
+    await user.selectOptions(screen.getByLabelText(/Task 1 type/), 'extract');
     await user.type(screen.getByRole('textbox', { name: /Prompt/ }), 'Classify this synthetic support message.');
     await user.click(screen.getByRole('button', { name: /Add task/ }));
     expect(screen.getByText('2/10')).toBeInTheDocument();
@@ -353,7 +375,7 @@ describe('EcoAgent frontend contract flows', () => {
 
       await user.click(screen.getByRole('button', { name: /Print \/ Save PDF/ }));
       expect(window.print).toHaveBeenCalledOnce();
-      expect(screen.getByRole('status')).toHaveTextContent(/not a direct PDF download/i);
+    expect(screen.getByText(/not a direct PDF download/i)).toBeInTheDocument();
     } finally {
       clickSpy.mockRestore();
       if (createObjectUrlDescriptor) Object.defineProperty(window.URL, 'createObjectURL', createObjectUrlDescriptor);
