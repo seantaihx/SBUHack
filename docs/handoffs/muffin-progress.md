@@ -32,12 +32,12 @@
 - `frontend/README.md`, `docs/FRONTEND_QA.md`, `docs/MOCK_DATA_INVENTORY.md` — format, source UI, and fixture verification notes.
 - Commands run with `VITE_USE_FRONTEND_MOCK=false`: `npm.cmd run test` (42 passed), `npm.cmd run typecheck` (passed), and `npm.cmd run build` (passed).
 - PDF output remains unverified; the implemented browser print flow is not a direct PDF download.
-- Proposal checkpoint commit `d2d0e1b` was pushed to `origin/Muffin_branch`.
-- Export milestone commit `46b367c` was pushed to `origin/Muffin_branch`; branch was clean after push before this handoff edit.
+- Proposal checkpoint commit `d2d0e1b`, export milestone commit `46b367c`, checkpoint record `498dbaa`, and WIP source UI commit `7c69936` are pushed to `origin/Muffin_branch`.
+- `Muffin_branch` is clean and up to date with its remote after `7c69936`.
 
 ## Unfinished work
 
-1. Commit and push this clearly labeled WIP source-selection shell; keep `main` unchanged.
+1. Send Sean the proposed API document through the team's normal review path and collect decisions on source routes, limits, retention, and citation/run fields.
 2. Open/reopen a browser-generated print report and visually check pagination when browser UI automation is available.
 3. Continue not calling proposed source routes or changing backend/OpenAPI until Sean confirms the proposal.
 4. After agreement, implement actual PDF/CSV parsing and source-backed API integration in a separate milestone.
@@ -51,4 +51,4 @@
 
 ## Exact next action
 
-Commit the source-selection shell as WIP, then wait for Sean's contract decisions before implementing any source parsing or retrieval request.
+Ask Sean to review `docs/proposals/source-import-export.md`; preserve the current explicit API-unavailable guard until those decisions are agreed.
