@@ -1,0 +1,7 @@
+{
+  "error": {
+    "code": "RATE_LIMITED",
+    "message": "The server benchmark submission limit was reached.",
+    "details": {}
+  }
+}

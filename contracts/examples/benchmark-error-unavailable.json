@@ -1,0 +1,7 @@
+{
+  "error": {
+    "code": "PROVIDER_UNAVAILABLE",
+    "message": "Groq requires HTTPS and a backend GROQ_API_KEY.",
+    "details": {}
+  }
+}

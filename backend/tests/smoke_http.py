@@ -22,7 +22,8 @@ def request(base, path, payload=None):
 
 
 def start(database, port, log):
-    env = {**os.environ, 'DATABASE_PATH': str(database)}
+    env = {**os.environ, 'DATABASE_PATH': str(database), 'LIVE_ENABLED': 'false',
+           'BENCHMARK_INFERENCE_MODE': 'simulated'}
     process = subprocess.Popen([sys.executable, '-m', 'uvicorn', 'backend.app.main:app',
                                 '--app-dir', str(ROOT), '--host', '127.0.0.1',
                                 '--port', str(port), '--workers', '1'],

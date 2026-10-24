@@ -15,7 +15,7 @@ class InferenceResult:
 _MESSAGES = {
     'PROVIDER_TIMEOUT': 'The inference attempt exceeded its deadline.',
     'PROVIDER_AUTH_ERROR': 'The inference provider rejected authentication.',
-    'PROVIDER_RATE_LIMITED': 'The inference provider rate-limited this attempt.',
+    'PROVIDER_RATE_LIMITED': 'The provider or configured server request/spending limits blocked this attempt.',
     'PROVIDER_UNAVAILABLE': 'The inference provider is unavailable.',
     'PROVIDER_BAD_RESPONSE': 'The inference provider returned an invalid response.',
 }

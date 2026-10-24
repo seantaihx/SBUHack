@@ -185,11 +185,13 @@ def test_fixtures_resolve_independently_of_cwd(tmp_path, monkeypatch):
 
 def test_generated_response_schema_requires_every_shared_response_field():
     import backend.app.schemas as schemas
+    import backend.app.benchmarks.schemas as benchmark_schemas
     from conftest import CONTRACT
     for name, shared in CONTRACT['components']['schemas'].items():
         if name in ('CreateRun', 'Task'):
             continue
-        generated = getattr(schemas, name).model_json_schema(mode='serialization')
+        model = getattr(schemas, name, None) or getattr(benchmark_schemas, name)
+        generated = model.model_json_schema(mode='serialization')
         assert set(generated['required']) == set(shared['required']), name
         assert set(generated['properties']) == set(shared['properties']), name
         assert generated['additionalProperties'] is False, name

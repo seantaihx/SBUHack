@@ -6,6 +6,8 @@ from uuid import uuid4
 from .metrics import compare, estimate
 from .policy import route
 from .providers.base import ProviderError
+from .providers.live import LiveProvider
+from .settings import Settings
 from .providers.demo import DemoProvider
 from .schemas import CreateRun, ErrorInfo, Result, Run, Task
 from .store import Store
@@ -16,13 +18,15 @@ logger = logging.getLogger(__name__)
 
 
 class Runner:
-    def __init__(self, store: Store, provider: DemoProvider):
+    def __init__(self, store: Store, provider: DemoProvider, settings: Settings | None = None):
         self.store = store
         self.provider = provider
+        self.settings = settings or Settings()
+        self.live = LiveProvider(self.settings, store)
         self._worker: asyncio.Task | None = None
 
     def submit(self, request: CreateRun) -> Run:
-        run = Run(id=uuid4(), status='queued', mode=request.mode, measurement_source='simulated',
+        run = Run(id=uuid4(), status='queued', mode=request.mode, measurement_source='simulated' if request.mode == 'demo' else 'provider_usage_and_client_timing',
                   carbon_intensity_g_per_kwh=request.carbon_intensity_g_per_kwh,
                   tasks=request.tasks, created_at=now(), total_attempts=2 * len(request.tasks))
         self.store.create(run)
@@ -32,12 +36,13 @@ class Runner:
     async def _attempt(self, run: Run, task: Task, policy: str) -> Result:
         role, reason = route(task, policy)
         identity = dict(task_id=task.id, policy=policy, model_role=role,
-                        model_id=f'demo-{role}', routing_reason=reason)
+                        model_id=f'demo-{role}' if run.mode == 'demo' else getattr(self.settings, role + '_model_id'), routing_reason=reason)
         try:
             try:
                 # This is one overall deadline, not a timeout restarted per read.
                 async with asyncio.timeout(ATTEMPT_TIMEOUT_SECONDS):
-                    output = await self.provider.execute(task, policy, role)
+                    output = (await self.provider.execute(task, policy, role) if run.mode == 'demo' else
+                              await self.live.infer(task.prompt, identity['model_id'], str(run.id)))
             except TimeoutError:
                 raise ProviderError('PROVIDER_TIMEOUT') from None
             energy, carbon = estimate(self.provider.profile, role, output.input_tokens,

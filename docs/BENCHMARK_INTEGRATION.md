@@ -1,31 +1,31 @@
 # Benchmark frontend integration
 
-## Current state
+The proposed frontend contract was accepted by Sean on October 24, 2026 and implemented under `/api/v1/benchmarks`. See [API_CONTRACT.md](API_CONTRACT.md#accepted-benchmark-api-october-24-2026), [OpenAPI](../contracts/openapi.json), and [backend handoff](backend-handoff.md). Existing frontend source and package files are unchanged from main a7e3767.
 
-The benchmark view is a frontend integration scaffold. It uses a centralized `benchmarkApi`, TypeScript response types, and an explicit fixture mode. It does not call Groq and makes no claim that the proposed API is implemented. The benchmark endpoints/schemas in [`API_CONTRACT.md`](API_CONTRACT.md#proposed-benchmark-api-not-yet-agreed-or-implemented) need Sean's review before backend implementation.
+## Real transport, simulated inference
 
-## Proposed request flow
+`VITE_USE_FRONTEND_MOCK=false` selects the real API (also the frontend's default). `BENCHMARK_INFERENCE_MODE=simulated` selects the backend's deterministic inference adapter independently. The browser loads datasets and history, POSTs once, polls the run, and fetches cases when terminal. Pagination uses the existing Load more controls; cursors are scoped and validated by the backend.
 
-1. The view loads dataset catalog and the first page of prior runs.
-2. The user picks a dataset, supported baseline model, candidate model or `eco-auto` policy, and case cap.
-3. Submit exactly once to `POST /api/v1/benchmarks/runs`. The backend owns limits, Groq calls, evaluation, and stored run data.
-4. Retain the returned `run_id`; poll `GET /api/v1/benchmarks/runs/{run_id}` every two seconds while active. Polling stops on terminal state or component unmount and exposes a manual retry after network errors.
-5. On terminal status, request `GET /api/v1/benchmarks/runs/{run_id}/cases` and render returned cases as text.
-6. Read history from `GET /api/v1/benchmarks/runs?limit=20`; cursor pagination is part of the proposal and needs UI follow-through before server pagination is enabled.
+On macOS with Node 24 on PATH:
 
-The current service inherits `VITE_API_BASE_URL` (default `/api/v1`) and `VITE_USE_FRONTEND_MOCK`. Mock mode is explicit and visibly labeled. Its progress changes only when the UI polls fixture-backed mock responses; no timer claims to perform inference. In API mode, errors never switch transport to mock. Frontend environment variables must contain only public backend location/configuration, never `GROQ_API_KEY`.
+```sh
+# Repository root, first terminal
+.venv/bin/python -m uvicorn backend.app.main:app --host 127.0.0.1 --port 8000 --workers 1
+# Second terminal
+cd frontend
+VITE_USE_FRONTEND_MOCK=false VITE_API_PROXY_TARGET=http://127.0.0.1:8000 npm run dev -- --host 127.0.0.1 --port 5173 --strictPort
+```
 
-## Backend checklist for Sean
+Production same-origin: `VITE_USE_FRONTEND_MOCK=false npm run build --prefix frontend`, then open port 8000 directly. No CORS changes or frontend keys are required.
 
-- Confirm proposed routes use `/api/v1/benchmarks` or provide the agreed prefix (the attached brief initially says `/api/benchmarks`).
-- Confirm all schemas, model IDs, whether `eco-auto` is a supported candidate, and dataset catalog format.
-- Confirm run states, cancellation behavior, conflict handling, error codes/envelope, pagination, and authentication.
-- Define evaluator types and exact meanings for pass rate, total cases, cost, average latency, tokens, requests, and errors; return null when unavailable.
-- Return measurement provenance and sanitized per-case provider errors/outputs.
-- Enforce task caps, rate limits, and budget controls on the server. Frontend controls are convenience only.
-- Keep Groq credentials in private backend configuration, not this frontend or the shared root `api.env` placeholder. Configure the backend's actual local secret file in its own ignored location.
-- Add agreed routes/schemas to shared OpenAPI and provide success, partial, rate-limit, timeout, unavailable, and validation examples.
+## Verified walkthrough
 
-## Try fixture mode
+Against real FastAPI/SQLite with simulated backend inference: original comparison completed and restored after refresh; benchmark catalog loaded; submission and polling reached Completed; all five case outputs/routes/evaluations rendered; history survived refresh and backend restart. A deliberately stopped temporary backend produced a visible HTTP 502 through the Vite proxy without fixture fallback. The built frontend also submitted a benchmark on the backend origin. These are integration checks, not measured Groq performance.
 
-From `frontend/`, create `.env.local` from `.env.example` and set `VITE_USE_FRONTEND_MOCK=true`, then run `npm.cmd run dev`. Select **Benchmarks**, submit a fixture run, and inspect its simulated progress and case results. Stop and restart Vite with the flag false for real API mode. The fixture numbers are illustrative and are not measured Groq/EcoAgent performance.
+## Limits and follow-up
+
+- Live adapter tests use mocked HTTP responses. No Groq key is configured, and no billable inference was run.
+- Root `.env` is loaded by the backend; `api.env` is not loaded. GROQ_API_KEY must never appear in any VITE_* setting.
+- The current wire request lacks mode; backend mode is an explicit server setting and the run's simulated/observed field is authoritative. Before submission the current UI says SOURCE PENDING.
+- Comparison and benchmark endpoints share one active slot. The comparison view currently treats active_run_id from 409 as a comparison ID; it cannot automatically reopen a benchmark. Switch to Benchmarks/history; coordinate a future active_run_kind-aware frontend improvement.
+- Required-facts evaluation is explicitly lexical, not an LLM judge or semantic correctness guarantee. Simulated outputs equal expected answers by construction.

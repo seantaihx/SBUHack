@@ -3,7 +3,7 @@ from uuid import UUID
 
 from fastapi import FastAPI, Request, Response
 from fastapi.exceptions import RequestValidationError
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, FileResponse
 from starlette.exceptions import HTTPException
 
 from .providers.demo import DemoProvider
@@ -11,15 +11,9 @@ from .runner import Runner
 from .schemas import Capabilities, CreateRun, ErrorEnvelope, ErrorInfo, Health, ModelInfo, Run, SampleTasks
 from .settings import Settings
 from .store import RunActive, Store
-
-LIVE_DISABLED = 'Live inference is not available in this demo milestone. Use Demo mode.'
-
-
-class APIError(Exception):
-    def __init__(self, status: int, code: str, message: str, details: dict | None = None):
-        self.status = status
-        self.error = ErrorInfo(code=code, message=message, details=details or {})
-
+from .errors import APIError
+from .benchmarks.service import BenchmarkService
+from .benchmarks.routes import router as benchmark_router
 
 def error_response(status: int, error: ErrorInfo) -> JSONResponse:
     return JSONResponse(status_code=status, content=ErrorEnvelope(error=error).model_dump(mode='json'))
@@ -33,11 +27,13 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     async def lifespan(app: FastAPI):
         app.state.store = Store(settings.database_path)
         app.state.store.recover()
-        app.state.runner = Runner(app.state.store, demo)
+        app.state.runner = Runner(app.state.store, demo, settings)
+        app.state.benchmarks = BenchmarkService(app.state.store, settings)
         try:
             yield
         finally:
             await app.state.runner.close()
+            await app.state.benchmarks.close()
 
     app = FastAPI(title='EcoAgent API', version='1.0.0', lifespan=lifespan,
                   docs_url=None, redoc_url=None, openapi_url=None)
@@ -71,8 +67,9 @@ def create_app(settings: Settings | None = None) -> FastAPI:
 
     @app.get('/api/v1/capabilities', response_model=Capabilities)
     async def capabilities():
-        return Capabilities(live_enabled=False, live_disabled_reason=LIVE_DISABLED,
-                            models=[ModelInfo(role='small'), ModelInfo(role='large')], energy_profile=demo.profile)
+        return Capabilities(live_enabled=settings.live_disabled_reason is None, live_disabled_reason=settings.live_disabled_reason,
+                            models=[ModelInfo(role='small', live_model_id=settings.small_model_id),
+                                    ModelInfo(role='large', live_model_id=settings.large_model_id)], energy_profile=demo.profile)
 
     @app.get('/api/v1/sample-tasks', response_model=SampleTasks)
     async def samples():
@@ -83,9 +80,11 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     async def create_run(body: CreateRun, request: Request, response: Response):
         if len({task.id for task in body.tasks}) != len(body.tasks):
             raise APIError(422, 'DUPLICATE_TASK_ID', 'Task IDs must be unique.')
-        if body.mode == 'live':
-            raise APIError(503, 'LIVE_UNAVAILABLE', LIVE_DISABLED)
-        if not demo.accepts(body.tasks):
+        if body.mode == 'live' and settings.live_disabled_reason:
+            raise APIError(503, 'LIVE_UNAVAILABLE', settings.live_disabled_reason)
+        if len(body.tasks) * 2 > settings.max_requests_per_run:
+            raise APIError(422, 'VALIDATION_ERROR', 'The comparison exceeds the configured request cap.')
+        if body.mode == 'demo' and not demo.accepts(body.tasks):
             raise APIError(422, 'INVALID_DEMO_TASK', 'Demo tasks must match the sample workload.')
         try:
             run = request.app.state.runner.submit(body)
@@ -102,6 +101,23 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         if run is None:
             raise APIError(404, 'RUN_NOT_FOUND', 'This comparison was not found.')
         return run
+
+    app.include_router(benchmark_router)
+
+    @app.get('/{path:path}', include_in_schema=False)
+    async def frontend(path: str):
+        if path == 'api' or path.startswith('api/'):
+            raise APIError(404, 'NOT_FOUND', 'The requested API route was not found.')
+        dist = settings.frontend_dist.resolve()
+        target = (dist / path).resolve()
+        if not target.is_relative_to(dist):
+            raise APIError(404, 'NOT_FOUND', 'The requested file was not found.')
+        if target.is_file():
+            return FileResponse(target)
+        index = dist / 'index.html'
+        if not target.suffix and index.is_file():
+            return FileResponse(index)
+        raise APIError(404, 'NOT_FOUND', 'The frontend build or requested file was not found.')
 
     return app
 
