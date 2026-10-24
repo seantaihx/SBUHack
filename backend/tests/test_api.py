@@ -186,6 +186,7 @@ def test_fixtures_resolve_independently_of_cwd(tmp_path, monkeypatch):
 
 def test_generated_response_schema_requires_every_shared_response_field():
     import backend.app.schemas as schemas
+    import backend.app.agent_schemas as agent_schemas
     import backend.app.benchmarks.schemas as benchmark_schemas
     from conftest import CONTRACT
     for name, shared in CONTRACT['components']['schemas'].items():
@@ -194,10 +195,10 @@ def test_generated_response_schema_requires_every_shared_response_field():
         # schemas omit optional defaults differently in OpenAPI.
         if name in (
             'CreateRun', 'CreateTextSource', 'CreateWebpageSource',
-            'StartBenchmarkRequest', 'Task',
-        ) or name.startswith('Body_'):
+            'StartBenchmarkRequest', 'AgentStartRequest', 'AgentApprovalRequest',
+        ) or name.startswith(('Task', 'Body_')):
             continue
-        model = getattr(schemas, name, None) or getattr(benchmark_schemas, name)
+        model = getattr(schemas, name, None) or getattr(benchmark_schemas, name, None) or getattr(agent_schemas, name)
         generated = model.model_json_schema(mode='serialization')
         assert set(generated['required']) == set(shared['required']), name
         assert set(generated['properties']) == set(shared['properties']), name

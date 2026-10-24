@@ -9,6 +9,7 @@ from ..providers.base import InferenceResult, ProviderError
 from ..providers.live import LiveProvider
 from ..schemas import ErrorInfo
 from ..timestamps import now
+from ..task_quality import benchmark_system_instruction
 from .catalog import dataset, evaluate, expected_text
 from .schemas import (BenchmarkRecord, BenchmarkRun, BenchmarkProgress, BenchmarkDataset,
                       BenchmarkCase, BenchmarkCaseSide, BenchmarkMetricSet, StartBenchmarkResponse)
@@ -89,7 +90,8 @@ class BenchmarkService:
 
     async def infer(self, case, model, run_id):
         if self.settings.benchmark_mode == 'groq':
-            return await self.live.infer(case['input'], model, run_id, allowed_models=self.model_ids())
+            return await self.live.infer(case['input'], model, run_id, allowed_models=self.model_ids(),
+                                         system_message=benchmark_system_instruction(case['category']))
         # These are deliberately synthetic counts and latencies; not a model-quality experiment.
         await asyncio.sleep(0.15)
         return InferenceResult(expected_text(case), 500 if model == self.settings.small_model_id else 1200, 60, 20, None, False)

@@ -2,7 +2,7 @@
   "openapi": "3.1.0",
   "info": {
     "title": "EcoAgent API",
-    "version": "1.0.0"
+    "version": "1.1.0"
   },
   "paths": {
     "/api/v1/health": {
@@ -37,6 +37,512 @@
                 }
               }
             }
+          }
+        }
+      }
+    },
+    "/api/v1/agent/capabilities": {
+      "get": {
+        "summary": "Agent Capabilities",
+        "operationId": "agent_capabilities_api_v1_agent_capabilities_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AgentCapabilities"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/agent-runs": {
+      "post": {
+        "summary": "Create Agent Run",
+        "operationId": "create_agent_run_api_v1_agent_runs_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AgentStartRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AgentRun"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Content",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Service Unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/agent-runs/{run_id}": {
+      "get": {
+        "summary": "Get Agent Run",
+        "operationId": "get_agent_run_api_v1_agent_runs__run_id__get",
+        "parameters": [
+          {
+            "name": "run_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Run Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AgentRun"
+                }
+              }
+            }
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        }
+      }
+    },
+    "/api/v1/agent-runs/{run_id}/events": {
+      "get": {
+        "summary": "Get Agent Events",
+        "operationId": "get_agent_events_api_v1_agent_runs__run_id__events_get",
+        "parameters": [
+          {
+            "name": "run_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Run Id"
+            }
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "default": 0,
+              "title": "Cursor"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "default": 50,
+              "title": "Limit"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AgentEventsResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        }
+      }
+    },
+    "/api/v1/agent-runs/{run_id}/approvals": {
+      "post": {
+        "summary": "Approve Agent Action",
+        "operationId": "approve_agent_action_api_v1_agent_runs__run_id__approvals_post",
+        "parameters": [
+          {
+            "name": "run_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Run Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AgentApprovalRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AgentRun"
+                }
+              }
+            }
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        }
+      }
+    },
+    "/api/v1/agent-runs/{run_id}/continue": {
+      "post": {
+        "summary": "Continue Agent Run",
+        "operationId": "continue_agent_run_api_v1_agent_runs__run_id__continue_post",
+        "parameters": [
+          {
+            "name": "run_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Run Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AgentRun"
+                }
+              }
+            }
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          }
+        }
+      }
+    },
+    "/api/v1/agent-runs/{run_id}/stop": {
+      "post": {
+        "summary": "Stop Agent Run",
+        "operationId": "stop_agent_run_api_v1_agent_runs__run_id__stop_post",
+        "parameters": [
+          {
+            "name": "run_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Run Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AgentRun"
+                }
+              }
+            }
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Internal Server Error"
           }
         }
       }
@@ -994,6 +1500,553 @@
   },
   "components": {
     "schemas": {
+      "AgentApprovalRequest": {
+        "properties": {
+          "action_id": {
+            "type": "string",
+            "pattern": "^[0-9a-fA-F-]{36}$",
+            "title": "Action Id"
+          },
+          "action_hash": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Action Hash"
+          },
+          "approved": {
+            "type": "boolean",
+            "title": "Approved"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "action_id",
+          "action_hash",
+          "approved"
+        ],
+        "title": "AgentApprovalRequest"
+      },
+      "AgentCapabilities": {
+        "properties": {
+          "enabled": {
+            "type": "boolean",
+            "title": "Enabled"
+          },
+          "disabled_reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Disabled Reason"
+          },
+          "workspace_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Workspace Name"
+          },
+          "task_types": {
+            "items": {
+              "type": "string",
+              "enum": [
+                "write",
+                "code"
+              ]
+            },
+            "type": "array",
+            "title": "Task Types",
+            "default": [
+              "write",
+              "code"
+            ]
+          },
+          "operations": {
+            "items": {
+              "type": "string",
+              "enum": [
+                "read_file",
+                "write_file"
+              ]
+            },
+            "type": "array",
+            "title": "Operations",
+            "default": [
+              "read_file",
+              "write_file"
+            ]
+          },
+          "approval_required_for_each_operation": {
+            "type": "boolean",
+            "const": true,
+            "title": "Approval Required For Each Operation",
+            "default": true
+          },
+          "shell_execution_enabled": {
+            "type": "boolean",
+            "const": false,
+            "title": "Shell Execution Enabled",
+            "default": false
+          },
+          "network_tools_enabled": {
+            "type": "boolean",
+            "const": false,
+            "title": "Network Tools Enabled",
+            "default": false
+          },
+          "max_steps": {
+            "type": "integer",
+            "title": "Max Steps",
+            "default": 12
+          },
+          "max_file_chars": {
+            "type": "integer",
+            "title": "Max File Chars",
+            "default": 50000
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "enabled",
+          "disabled_reason",
+          "workspace_name",
+          "task_types",
+          "operations",
+          "approval_required_for_each_operation",
+          "shell_execution_enabled",
+          "network_tools_enabled",
+          "max_steps",
+          "max_file_chars"
+        ],
+        "title": "AgentCapabilities"
+      },
+      "AgentEvent": {
+        "properties": {
+          "sequence": {
+            "type": "integer",
+            "minimum": 1.0,
+            "title": "Sequence"
+          },
+          "occurred_at": {
+            "type": "string",
+            "title": "Occurred At"
+          },
+          "actor": {
+            "type": "string",
+            "enum": [
+              "agent",
+              "operator",
+              "policy",
+              "tool"
+            ],
+            "title": "Actor"
+          },
+          "operation": {
+            "type": "string",
+            "maxLength": 80,
+            "title": "Operation"
+          },
+          "target": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 500
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Target"
+          },
+          "decision": {
+            "type": "string",
+            "enum": [
+              "proposed",
+              "approved",
+              "denied",
+              "denied_out_of_scope",
+              "denied_duplicate",
+              "completed",
+              "failed",
+              "stopped"
+            ],
+            "title": "Decision"
+          },
+          "summary": {
+            "type": "string",
+            "maxLength": 300,
+            "title": "Summary"
+          },
+          "action_hash": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Action Hash"
+          },
+          "details": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 50000
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Details"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "sequence",
+          "occurred_at",
+          "actor",
+          "operation",
+          "target",
+          "decision",
+          "summary",
+          "action_hash",
+          "details"
+        ],
+        "title": "AgentEvent"
+      },
+      "AgentEventsResponse": {
+        "properties": {
+          "events": {
+            "items": {
+              "$ref": "#/components/schemas/AgentEvent"
+            },
+            "type": "array",
+            "title": "Events"
+          },
+          "next_cursor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next Cursor"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "events",
+          "next_cursor"
+        ],
+        "title": "AgentEventsResponse"
+      },
+      "AgentPendingAction": {
+        "properties": {
+          "action_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Action Id"
+          },
+          "action_hash": {
+            "type": "string",
+            "title": "Action Hash"
+          },
+          "operation": {
+            "type": "string",
+            "enum": [
+              "read_file",
+              "write_file"
+            ],
+            "title": "Operation"
+          },
+          "path": {
+            "type": "string",
+            "title": "Path"
+          },
+          "summary": {
+            "type": "string",
+            "maxLength": 240,
+            "title": "Summary"
+          },
+          "content": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Content"
+          },
+          "before_text": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Before Text"
+          },
+          "base_sha256": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Base Sha256"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "action_id",
+          "action_hash",
+          "operation",
+          "path",
+          "summary",
+          "content",
+          "before_text",
+          "base_sha256"
+        ],
+        "title": "AgentPendingAction"
+      },
+      "AgentRun": {
+        "properties": {
+          "run_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Run Id"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "queued",
+              "running",
+              "completed",
+              "failed",
+              "cancelled"
+            ],
+            "title": "Status"
+          },
+          "phase": {
+            "type": "string",
+            "enum": [
+              "planning",
+              "awaiting_approval",
+              "paused",
+              "completed",
+              "failed"
+            ],
+            "title": "Phase"
+          },
+          "task_type": {
+            "type": "string",
+            "enum": [
+              "write",
+              "code"
+            ],
+            "title": "Task Type"
+          },
+          "workspace_name": {
+            "type": "string",
+            "title": "Workspace Name"
+          },
+          "instruction": {
+            "type": "string",
+            "title": "Instruction"
+          },
+          "read_paths": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Read Paths"
+          },
+          "write_paths": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Write Paths"
+          },
+          "max_steps": {
+            "type": "integer",
+            "title": "Max Steps"
+          },
+          "model_calls": {
+            "type": "integer",
+            "title": "Model Calls",
+            "default": 0
+          },
+          "steps_completed": {
+            "type": "integer",
+            "title": "Steps Completed",
+            "default": 0
+          },
+          "pending_action": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/AgentPendingAction"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "events": {
+            "items": {
+              "$ref": "#/components/schemas/AgentEvent"
+            },
+            "type": "array",
+            "title": "Events"
+          },
+          "final_text": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Final Text"
+          },
+          "stop_reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Stop Reason"
+          },
+          "created_at": {
+            "type": "string",
+            "title": "Created At"
+          },
+          "started_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Started At"
+          },
+          "finished_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Finished At"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "run_id",
+          "status",
+          "phase",
+          "task_type",
+          "workspace_name",
+          "instruction",
+          "read_paths",
+          "write_paths",
+          "max_steps",
+          "model_calls",
+          "steps_completed",
+          "pending_action",
+          "events",
+          "final_text",
+          "stop_reason",
+          "created_at",
+          "started_at",
+          "finished_at"
+        ],
+        "title": "AgentRun"
+      },
+      "AgentStartRequest": {
+        "properties": {
+          "task_type": {
+            "type": "string",
+            "enum": [
+              "write",
+              "code"
+            ],
+            "title": "Task Type"
+          },
+          "instruction": {
+            "type": "string",
+            "maxLength": 5000,
+            "minLength": 1,
+            "title": "Instruction"
+          },
+          "confirm_provider_submission": {
+            "type": "boolean",
+            "const": true,
+            "title": "Confirm Provider Submission"
+          },
+          "read_paths": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "maxItems": 20,
+            "title": "Read Paths"
+          },
+          "write_paths": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "maxItems": 20,
+            "title": "Write Paths"
+          },
+          "max_steps": {
+            "type": "integer",
+            "maximum": 12.0,
+            "minimum": 1.0,
+            "title": "Max Steps",
+            "default": 8
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "task_type",
+          "instruction",
+          "confirm_provider_submission"
+        ],
+        "title": "AgentStartRequest"
+      },
       "BenchmarkCase": {
         "properties": {
           "case_id": {
@@ -1868,9 +2921,9 @@
         "properties": {
           "api_version": {
             "type": "string",
-            "const": "1.0.0",
+            "const": "1.1.0",
             "title": "Api Version",
-            "default": "1.0.0"
+            "default": "1.1.0"
           },
           "demo_enabled": {
             "type": "boolean",
@@ -1907,9 +2960,27 @@
           },
           "policy_version": {
             "type": "string",
-            "const": "task-routing-v1",
             "title": "Policy Version",
             "default": "task-routing-v1"
+          },
+          "task_profile_version": {
+            "type": "string",
+            "title": "Task Profile Version",
+            "default": "task-instructions-v1"
+          },
+          "supported_task_types": {
+            "items": {
+              "type": "string",
+              "enum": [
+                "classify",
+                "extract",
+                "summarize",
+                "write",
+                "code"
+              ]
+            },
+            "type": "array",
+            "title": "Supported Task Types"
           },
           "models": {
             "items": {
@@ -1934,6 +3005,8 @@
           "max_tasks",
           "max_prompt_chars",
           "policy_version",
+          "task_profile_version",
+          "supported_task_types",
           "models",
           "energy_profile"
         ],
@@ -2073,7 +3146,7 @@
           },
           "tasks": {
             "items": {
-              "$ref": "#/components/schemas/Task"
+              "$ref": "#/components/schemas/Task-Input"
             },
             "type": "array",
             "maxItems": 10,
@@ -2109,6 +3182,11 @@
               }
             ],
             "title": "Confirm Source Submission"
+          },
+          "quality_fallback": {
+            "type": "boolean",
+            "title": "Quality Fallback",
+            "default": false
           }
         },
         "additionalProperties": false,
@@ -2243,6 +3321,173 @@
         ],
         "title": "ErrorInfo"
       },
+      "FallbackAttempt": {
+        "properties": {
+          "model_role": {
+            "type": "string",
+            "enum": [
+              "small",
+              "large"
+            ],
+            "title": "Model Role"
+          },
+          "model_id": {
+            "type": "string",
+            "title": "Model Id"
+          },
+          "output_text": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Output Text"
+          },
+          "latency_ms": {
+            "anyOf": [
+              {
+                "type": "number",
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Latency Ms"
+          },
+          "input_tokens": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Input Tokens"
+          },
+          "output_tokens": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Output Tokens"
+          },
+          "cost_usd": {
+            "anyOf": [
+              {
+                "type": "number",
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cost Usd"
+          },
+          "estimated_energy_wh": {
+            "anyOf": [
+              {
+                "type": "number",
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Estimated Energy Wh"
+          },
+          "estimated_carbon_g": {
+            "anyOf": [
+              {
+                "type": "number",
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Estimated Carbon G"
+          },
+          "error": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ErrorInfo"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "provider_finish_reason": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 64
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Provider Finish Reason"
+          },
+          "output_truncated": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Output Truncated"
+          },
+          "output_validation": {
+            "type": "string",
+            "enum": [
+              "passed",
+              "failed",
+              "not_configured"
+            ],
+            "title": "Output Validation"
+          },
+          "validation_notes": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Validation Notes"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "model_role",
+          "model_id",
+          "output_text",
+          "latency_ms",
+          "input_tokens",
+          "output_tokens",
+          "cost_usd",
+          "estimated_energy_wh",
+          "estimated_carbon_g",
+          "error",
+          "provider_finish_reason",
+          "output_truncated",
+          "output_validation",
+          "validation_notes"
+        ],
+        "title": "FallbackAttempt"
+      },
       "Health": {
         "properties": {
           "status": {
@@ -2253,9 +3498,9 @@
           },
           "api_version": {
             "type": "string",
-            "const": "1.0.0",
+            "const": "1.1.0",
             "title": "Api Version",
-            "default": "1.0.0"
+            "default": "1.1.0"
           }
         },
         "additionalProperties": false,
@@ -2327,7 +3572,10 @@
             "enum": [
               "baseline_large",
               "simple_task_small",
-              "summary_large"
+              "summary_large",
+              "writing_large",
+              "coding_large",
+              "validation_fallback_large"
             ],
             "title": "Routing Reason"
           },
@@ -2442,6 +3690,88 @@
               }
             ],
             "title": "Output Truncated"
+          },
+          "output_validation": {
+            "type": "string",
+            "enum": [
+              "passed",
+              "failed",
+              "not_configured"
+            ],
+            "title": "Output Validation",
+            "default": "not_configured"
+          },
+          "validation_notes": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Validation Notes"
+          },
+          "fallback_used": {
+            "type": "boolean",
+            "title": "Fallback Used",
+            "default": false
+          },
+          "fallback_reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Fallback Reason"
+          },
+          "fallback_model_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Fallback Model Id"
+          },
+          "initial_attempt": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FallbackAttempt"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "fallback_attempt": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FallbackAttempt"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "attempt_count": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Attempt Count",
+            "default": 1
+          },
+          "cost_usd": {
+            "anyOf": [
+              {
+                "type": "number",
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cost Usd"
           }
         },
         "additionalProperties": false,
@@ -2461,7 +3791,16 @@
           "estimated_carbon_g",
           "error",
           "provider_finish_reason",
-          "output_truncated"
+          "output_truncated",
+          "output_validation",
+          "validation_notes",
+          "fallback_used",
+          "fallback_reason",
+          "fallback_model_id",
+          "initial_attempt",
+          "fallback_attempt",
+          "attempt_count",
+          "cost_usd"
         ],
         "title": "Result"
       },
@@ -2501,9 +3840,18 @@
           },
           "policy_version": {
             "type": "string",
-            "const": "task-routing-v1",
             "title": "Policy Version",
             "default": "task-routing-v1"
+          },
+          "task_profile_version": {
+            "type": "string",
+            "title": "Task Profile Version",
+            "default": "task-instructions-v1"
+          },
+          "quality_fallback": {
+            "type": "boolean",
+            "title": "Quality Fallback",
+            "default": false
           },
           "energy_estimation_profile": {
             "type": "string",
@@ -2519,7 +3867,7 @@
           },
           "tasks": {
             "items": {
-              "$ref": "#/components/schemas/Task"
+              "$ref": "#/components/schemas/Task-Output"
             },
             "type": "array",
             "maxItems": 10,
@@ -2610,6 +3958,8 @@
           "mode",
           "measurement_source",
           "policy_version",
+          "task_profile_version",
+          "quality_fallback",
           "energy_estimation_profile",
           "carbon_intensity_g_per_kwh",
           "tasks",
@@ -2635,7 +3985,7 @@
           },
           "tasks": {
             "items": {
-              "$ref": "#/components/schemas/Task"
+              "$ref": "#/components/schemas/Task-Output"
             },
             "type": "array",
             "title": "Tasks"
@@ -3075,7 +4425,7 @@
         ],
         "title": "StartBenchmarkResponse"
       },
-      "Task": {
+      "Task-Input": {
         "properties": {
           "id": {
             "type": "string",
@@ -3087,7 +4437,9 @@
             "enum": [
               "classify",
               "extract",
-              "summarize"
+              "summarize",
+              "write",
+              "code"
             ],
             "title": "Type"
           },
@@ -3096,6 +4448,16 @@
             "maxLength": 2000,
             "minLength": 1,
             "title": "Prompt"
+          },
+          "constraints": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TaskConstraints-Input"
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         },
         "additionalProperties": false,
@@ -3106,6 +4468,133 @@
           "prompt"
         ],
         "title": "Task"
+      },
+      "Task-Output": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9_-]{1,64}$",
+            "title": "Id"
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "classify",
+              "extract",
+              "summarize",
+              "write",
+              "code"
+            ],
+            "title": "Type"
+          },
+          "prompt": {
+            "type": "string",
+            "maxLength": 2000,
+            "minLength": 1,
+            "title": "Prompt"
+          },
+          "constraints": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TaskConstraints-Output"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "id",
+          "type",
+          "prompt",
+          "constraints"
+        ],
+        "title": "Task"
+      },
+      "TaskConstraints-Input": {
+        "properties": {
+          "allowed_labels": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array",
+                "maxItems": 30,
+                "minItems": 1
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Allowed Labels"
+          },
+          "required_json_fields": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array",
+                "maxItems": 30,
+                "minItems": 1
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Required Json Fields"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "TaskConstraints"
+      },
+      "TaskConstraints-Output": {
+        "properties": {
+          "allowed_labels": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array",
+                "maxItems": 30,
+                "minItems": 1
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Allowed Labels"
+          },
+          "required_json_fields": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array",
+                "maxItems": 30,
+                "minItems": 1
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Required Json Fields"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "allowed_labels",
+          "required_json_fields"
+        ],
+        "title": "TaskConstraints"
       }
     }
   }

@@ -137,8 +137,9 @@ def test_confirmed_source_is_bound_and_sent_to_both_live_policies_without_provid
     from backend.app.providers.base import InferenceResult
     from backend.app.schemas import Run
     seen_prompts = []
-    async def fake_infer(prompt, model_id, run_id, allowed_models=None):
+    async def fake_infer(prompt, model_id, run_id, allowed_models=None, system_message=None):
         seen_prompts.append(prompt)
+        assert system_message and 'Extract only facts' in system_message
         return InferenceResult('synthetic answer', 12, 90, 5, 'stop', False)
     settings = Settings(database_path=tmp_path / 'source-run.sqlite3', live_enabled=True, api_key='test-only-placeholder')
     with TestClient(create_app(settings)) as app_client:

@@ -42,7 +42,7 @@ def test_benchmark_catalog_creation_progress_results(client):
     assert catalog[0]['supported_models'] == ['openai/gpt-oss-20b', 'openai/gpt-oss-120b', 'qwen/qwen3.8-27b']
     assert catalog[0]['provenance'] == 'synthetic'
     expanded = catalog[1]
-    assert expanded['case_count'] == 24
+    assert expanded['case_count'] == 26
     assert expanded['max_cases_per_run'] == 10
     assert expanded['preview_models'] == ['qwen/qwen3.8-27b']
     path = start(client)
@@ -74,7 +74,7 @@ def test_benchmark_catalog_creation_progress_results(client):
 def test_expanded_dataset_and_export_are_self_contained(client):
     definition = client.get(BASE + '/datasets/starter-v2')
     validate(definition.json(), 'BenchmarkDatasetDefinition')
-    assert len(definition.json()['cases']) == 24
+    assert len(definition.json()['cases']) == 26
     path = start(client, dataset_id='starter-v2', baseline={'model_id': 'qwen/qwen3.8-27b', 'optimization_enabled': False}, max_cases=10)
     run = wait(client, path)
     assert run['status'] == 'completed'
@@ -82,7 +82,7 @@ def test_expanded_dataset_and_export_are_self_contained(client):
     validate(export_response.json(), 'BenchmarkExport')
     export = export_response.json()
     assert export['data_completeness'] == 'partial'
-    assert len(export['dataset']['cases']) == 24
+    assert len(export['dataset']['cases']) == 26
     assert len(export['cases']) == 10
     assert export['cases'][0]['definition']['input']
     assert export['cases'][0]['result']['baseline']['provider_id'] == 'synthetic_fixture'

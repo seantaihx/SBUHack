@@ -1,4 +1,4 @@
-import type { BenchmarkCasesResponse, BenchmarkDatasetsResponse, BenchmarkExport, BenchmarkRun, BenchmarkRunsResponse, Capabilities, CreateRun, Run, SampleTasks, SourceSnapshot, StartBenchmarkRequest, StartBenchmarkResponse } from './types';
+import type { AgentCapabilities, AgentEventsResponse, AgentRun, AgentStartRequest, BenchmarkCasesResponse, BenchmarkDatasetsResponse, BenchmarkExport, BenchmarkRun, BenchmarkRunsResponse, Capabilities, CreateRun, Run, SampleTasks, SourceSnapshot, StartBenchmarkRequest, StartBenchmarkResponse } from './types';
 
 const mockMode = import.meta.env.VITE_USE_FRONTEND_MOCK === 'true';
 const apiBaseUrl = (import.meta.env.VITE_API_BASE_URL || '/api/v1').replace(/\/+$/, '');
@@ -63,6 +63,24 @@ export const sourceApi = {
     requireSourceApi();
     await request<null>(`/sources/${encodeURIComponent(id)}`, { method: 'DELETE' });
   },
+};
+
+function requireAgentApi() {
+  if (mockMode) throw new ApiError('Workspace agent APIs require the real backend; fixture mode cannot execute workspace actions.', 503, 'AGENT_API_MOCK');
+}
+
+export const agentApi = {
+  capabilities: () => request<AgentCapabilities>('/agent/capabilities'),
+  start: (payload: AgentStartRequest) => { requireAgentApi(); return request<AgentRun>('/agent-runs', { method: 'POST', body: JSON.stringify(payload) }); },
+  get: (id: string, signal?: AbortSignal) => { requireAgentApi(); return request<AgentRun>(`/agent-runs/${encodeURIComponent(id)}`, { signal }); },
+  events: (id: string, cursor = 0, signal?: AbortSignal) => { requireAgentApi(); return request<AgentEventsResponse>(`/agent-runs/${encodeURIComponent(id)}/events?cursor=${cursor}`, { signal }); },
+  approve: (id: string, actionId: string, actionHash: string, approved: boolean) => {
+    requireAgentApi(); return request<AgentRun>(`/agent-runs/${encodeURIComponent(id)}/approvals`, {
+      method: 'POST', body: JSON.stringify({ action_id: actionId, action_hash: actionHash, approved }),
+    });
+  },
+  continue: (id: string) => { requireAgentApi(); return request<AgentRun>(`/agent-runs/${encodeURIComponent(id)}/continue`, { method: 'POST' }); },
+  stop: (id: string) => { requireAgentApi(); return request<AgentRun>(`/agent-runs/${encodeURIComponent(id)}/stop`, { method: 'POST' }); },
 };
 
 const mockBenchmarks = new Map<string, { run: BenchmarkRun; polls: number }>();

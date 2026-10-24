@@ -2,6 +2,8 @@
 
 These fixtures describe reproducible checks for the v1 comparison API. They are test inputs and acceptance criteria, not evidence that a backend benchmark has run. Execute them against an isolated development service and preserve the run snapshots with the API version, policy version, and fixture version. Do not use fixture-derived carbon estimates as measured emissions. The shared kit has example request/run snapshots but no standalone `sample-tasks` JSON; fetch the task definitions from the API before creating the run.
 
+`starter-v2` version 2.1.0 has 26 synthetic cases, including coding and writing prompts. Their current `required_facts` evaluator is lexical only; the coding case does not execute or test generated code, and neither category establishes semantic quality. Use isolated, resource-limited evaluators and held-out cases before making quality claims.
+
 ## Running the v1 scenarios
 
 1. Start the backend with its deterministic demo implementation and fetch `GET /api/v1/capabilities` and `GET /api/v1/sample-tasks`.
@@ -12,8 +14,8 @@ These fixtures describe reproducible checks for the v1 comparison API. They are 
 
 Baseline-versus-optimized routing checks should confirm the backend's selected role and `route_reason` for each attempt. Compare numeric metrics only where the response supplies complete comparable cohorts; null means unavailable. `saved` can be negative (an increase). Latency, token counts, and outputs from demo fixtures are simulated.
 
-## Deliberately out of the v1 fixture set
+## Deliberately out of the benchmark fixture set
 
-Agent loop/duplicate-operation detection and a Permission Firewall (allow, deny, require approval) are not defined by the shared v1 API or current product scope. `proposed-out-of-scope.json` captures candidate cases for discussion only. These cases are not executable against v1, do not imply implemented product functionality, and need product/API agreement before implementation.
+The workspace-agent API now implements a bounded local action loop, exact-path read/write approval, duplicate-operation rejection, and denial of unknown/out-of-scope operations. These agent-specific benchmark files have not yet been adapted to the implemented run/event schemas and are still proposal data, not executable tests. They must not be described as measured agent pass rates.
 
-`proposed-agent-firewall-v1.json` expands those proposed discussion cases to include repeated operations, legitimate repeats, allow/deny/approval, and unknown operations. All expected decisions are marked pending policy agreement and the data is not an executable starter dataset.
+`proposed-agent-firewall-v1.json` covers repeated operations, legitimate repeats, allow/deny/approval, and unknown operations. Its expected decisions remain pending explicit dataset acceptance and the data is not an executable starter dataset.

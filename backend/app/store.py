@@ -118,6 +118,17 @@ class Store:
     def create_benchmark(self, record, rate_limit=None):
         self._create(record.run.run_id, record.run.status, record.run.created_at, record.model_dump_json(), 'benchmark', rate_limit)
 
+    def create_agent(self, run):
+        self._create(str(run.run_id), run.status, run.created_at, run.model_dump_json(), 'agent')
+
+    def get_agent(self, run_id):
+        from .agent_schemas import AgentRun
+        snapshot = self._get(run_id, 'agent')
+        return AgentRun.model_validate_json(snapshot) if snapshot else None
+
+    def save_agent(self, run):
+        self._save(str(run.run_id), run.status, run.model_dump_json())
+
     def get_benchmark(self, run_id):
         from .benchmarks.schemas import BenchmarkRecord
         snapshot = self._get(run_id, 'benchmark')
@@ -145,6 +156,18 @@ class Store:
             db.execute('BEGIN IMMEDIATE')
             rows = db.execute("SELECT id, kind, snapshot FROM runs WHERE status IN ('queued', 'running')").fetchall()
             for run_id, kind, snapshot in rows:
+                if kind == 'agent':
+                    from .agent_schemas import AgentEvent, AgentRun
+                    agent = AgentRun.model_validate_json(snapshot)
+                    agent.status = 'running'
+                    agent.phase = 'paused'
+                    agent.stop_reason = 'APPLICATION_RESTARTED_REVIEW_REQUIRED'
+                    agent.events.append(AgentEvent(sequence=len(agent.events) + 1, occurred_at=now(), actor='policy',
+                                                   operation='pause', target=None, decision='stopped',
+                                                   summary='Application restarted; no action resumed automatically.'))
+                    db.execute('UPDATE runs SET status = ?, snapshot = ? WHERE id = ?',
+                               ('running', agent.model_dump_json(), run_id))
+                    continue
                 record = BenchmarkRecord.model_validate_json(snapshot) if kind == 'benchmark' else Run.model_validate_json(snapshot)
                 run = record.run if kind == 'benchmark' else record
                 run.status = 'failed'

@@ -1,31 +1,306 @@
 {
   "dataset_id": "starter-v2",
-  "version": "2.0.0",
+  "version": "2.1.0",
   "provenance": "synthetic",
   "cases": [
-    {"case_id":"classify-billing-001","category":"classification","input":"Classify as billing, technical, or general. Message: I was charged twice.","expected":"billing","evaluation":{"method":"exact_match","case_sensitive":false}},
-    {"case_id":"classify-technical-001","category":"classification","input":"Classify as billing, technical, or general. Message: The app crashes when I sign in.","expected":"technical","evaluation":{"method":"exact_match","case_sensitive":false}},
-    {"case_id":"classify-general-001","category":"classification","input":"Classify as billing, technical, or general. Message: What are your weekend hours?","expected":"general","evaluation":{"method":"exact_match","case_sensitive":false}},
-    {"case_id":"classify-refund-001","category":"classification","input":"Classify as billing, technical, or general. Message: Please refund the duplicate invoice.","expected":"billing","evaluation":{"method":"exact_match","case_sensitive":false}},
-    {"case_id":"arithmetic-multiply-001","category":"arithmetic","input":"What is 12 times 12? Return only the integer.","expected":"144","evaluation":{"method":"exact_match","case_sensitive":true}},
-    {"case_id":"arithmetic-percent-001","category":"arithmetic","input":"What is 15% of 200? Return only the number.","expected":"30","evaluation":{"method":"exact_match","case_sensitive":true}},
-    {"case_id":"arithmetic-subtract-001","category":"arithmetic","input":"A budget is $950 and $275 is spent. Return the remaining amount as an integer.","expected":"675","evaluation":{"method":"exact_match","case_sensitive":true}},
-    {"case_id":"arithmetic-hours-001","category":"arithmetic","input":"A task takes 2.5 hours. Return the duration in minutes as an integer.","expected":"150","evaluation":{"method":"exact_match","case_sensitive":true}},
-    {"case_id":"extract-order-001","category":"extraction","input":"Return JSON with order_id and total_usd. Text: Order ECO-1042. Total $42.50.","expected":{"order_id":"ECO-1042","total_usd":42.5},"evaluation":{"method":"json_schema_and_values","additional_properties":false}},
-    {"case_id":"extract-contact-001","category":"extraction","input":"Return JSON with name and email. Text: Contact Maya Chen at maya@example.org.","expected":{"name":"Maya Chen","email":"maya@example.org"},"evaluation":{"method":"json_schema_and_values","additional_properties":false}},
-    {"case_id":"extract-date-001","category":"extraction","input":"Return JSON with event and date. Text: The review meeting is on 2026-11-03.","expected":{"event":"review meeting","date":"2026-11-03"},"evaluation":{"method":"json_schema_and_values","additional_properties":false}},
-    {"case_id":"extract-quantity-001","category":"extraction","input":"Return JSON with item and quantity. Text: Ship 18 filter cartridges.","expected":{"item":"filter cartridges","quantity":18},"evaluation":{"method":"json_schema_and_values","additional_properties":false}},
-    {"case_id":"summarize-routing-001","category":"summarization","input":"Summarize: Simple classification moves to a smaller model; summaries remain on a larger model pending quality review.","expected":"Simple classification uses a smaller model while summaries retain a larger model pending quality review.","evaluation":{"method":"required_facts","required_facts":["classification uses smaller model","summaries retain larger model","quality review pending"]}},
-    {"case_id":"summarize-meeting-001","category":"summarization","input":"Summarize: The team approved a pilot for May. Priya owns setup, and the next review is April 20.","expected":"The team approved a May pilot; Priya owns setup, and the next review is April 20.","evaluation":{"method":"required_facts","required_facts":["May pilot","Priya owns setup","April 20"]}},
-    {"case_id":"summarize-incident-001","category":"summarization","input":"Summarize: The outage began at 09:10, affected report exports, and ended at 09:42 after a database connection pool restart.","expected":"Report exports were unavailable from 09:10 to 09:42; restarting the database connection pool resolved the outage.","evaluation":{"method":"required_facts","required_facts":["09:10","09:42","report exports","connection pool"]}},
-    {"case_id":"reasoning-schedule-001","category":"reasoning","input":"Tasks A and B must precede C. A takes 2h and B takes 3h in parallel. What is the earliest time C can start? Return hours.","expected":"3","evaluation":{"method":"exact_match","case_sensitive":true}},
-    {"case_id":"reasoning-sequence-001","category":"reasoning","input":"A must finish before B starts. A takes 4 hours and B takes 3 hours. What is the earliest finish time? Return hours.","expected":"7","evaluation":{"method":"exact_match","case_sensitive":true}},
-    {"case_id":"format-json-001","category":"formatting","input":"Return exactly this JSON object with keys status and count: status is ready, count is 3.","expected":{"status":"ready","count":3},"evaluation":{"method":"json_schema_and_values","additional_properties":false}},
-    {"case_id":"format-one-word-001","category":"formatting","input":"Return exactly one lowercase word, either pass or fail. The check succeeded.","expected":"pass","evaluation":{"method":"exact_match","case_sensitive":true}},
-    {"case_id":"facts-location-001","category":"fact_retrieval","input":"Answer with the city only. The shipment departed from Albany and arrived in Buffalo.","expected":"Buffalo","evaluation":{"method":"exact_match","case_sensitive":false}},
-    {"case_id":"facts-owner-001","category":"fact_retrieval","input":"Who owns the migration? Answer with the name only. The migration owner is Jordan Lee.","expected":"Jordan Lee","evaluation":{"method":"exact_match","case_sensitive":false}},
-    {"case_id":"extract-notes-001","category":"extraction","input":"Return JSON with project and owner. Text: Project Cedar is owned by Lin.","expected":{"project":"Cedar","owner":"Lin"},"evaluation":{"method":"json_schema_and_values","additional_properties":false}},
-    {"case_id":"classify-urgent-001","category":"classification","input":"Classify as urgent or routine. Message: Production checkout is unavailable for every customer.","expected":"urgent","evaluation":{"method":"exact_match","case_sensitive":false}},
-    {"case_id":"arithmetic-average-001","category":"arithmetic","input":"Return the average of 8, 10, and 12 as an integer.","expected":"10","evaluation":{"method":"exact_match","case_sensitive":true}}
+    {
+      "case_id": "classify-billing-001",
+      "category": "classification",
+      "input": "Classify as billing, technical, or general. Message: I was charged twice.",
+      "expected": "billing",
+      "evaluation": {
+        "method": "exact_match",
+        "case_sensitive": false
+      }
+    },
+    {
+      "case_id": "classify-technical-001",
+      "category": "classification",
+      "input": "Classify as billing, technical, or general. Message: The app crashes when I sign in.",
+      "expected": "technical",
+      "evaluation": {
+        "method": "exact_match",
+        "case_sensitive": false
+      }
+    },
+    {
+      "case_id": "classify-general-001",
+      "category": "classification",
+      "input": "Classify as billing, technical, or general. Message: What are your weekend hours?",
+      "expected": "general",
+      "evaluation": {
+        "method": "exact_match",
+        "case_sensitive": false
+      }
+    },
+    {
+      "case_id": "classify-refund-001",
+      "category": "classification",
+      "input": "Classify as billing, technical, or general. Message: Please refund the duplicate invoice.",
+      "expected": "billing",
+      "evaluation": {
+        "method": "exact_match",
+        "case_sensitive": false
+      }
+    },
+    {
+      "case_id": "arithmetic-multiply-001",
+      "category": "arithmetic",
+      "input": "What is 12 times 12? Return only the integer.",
+      "expected": "144",
+      "evaluation": {
+        "method": "exact_match",
+        "case_sensitive": true
+      }
+    },
+    {
+      "case_id": "arithmetic-percent-001",
+      "category": "arithmetic",
+      "input": "What is 15% of 200? Return only the number.",
+      "expected": "30",
+      "evaluation": {
+        "method": "exact_match",
+        "case_sensitive": true
+      }
+    },
+    {
+      "case_id": "arithmetic-subtract-001",
+      "category": "arithmetic",
+      "input": "A budget is $950 and $275 is spent. Return the remaining amount as an integer.",
+      "expected": "675",
+      "evaluation": {
+        "method": "exact_match",
+        "case_sensitive": true
+      }
+    },
+    {
+      "case_id": "arithmetic-hours-001",
+      "category": "arithmetic",
+      "input": "A task takes 2.5 hours. Return the duration in minutes as an integer.",
+      "expected": "150",
+      "evaluation": {
+        "method": "exact_match",
+        "case_sensitive": true
+      }
+    },
+    {
+      "case_id": "extract-order-001",
+      "category": "extraction",
+      "input": "Return JSON with order_id and total_usd. Text: Order ECO-1042. Total $42.50.",
+      "expected": {
+        "order_id": "ECO-1042",
+        "total_usd": 42.5
+      },
+      "evaluation": {
+        "method": "json_schema_and_values",
+        "additional_properties": false
+      }
+    },
+    {
+      "case_id": "extract-contact-001",
+      "category": "extraction",
+      "input": "Return JSON with name and email. Text: Contact Maya Chen at maya@example.org.",
+      "expected": {
+        "name": "Maya Chen",
+        "email": "maya@example.org"
+      },
+      "evaluation": {
+        "method": "json_schema_and_values",
+        "additional_properties": false
+      }
+    },
+    {
+      "case_id": "extract-date-001",
+      "category": "extraction",
+      "input": "Return JSON with event and date. Text: The review meeting is on 2026-11-03.",
+      "expected": {
+        "event": "review meeting",
+        "date": "2026-11-03"
+      },
+      "evaluation": {
+        "method": "json_schema_and_values",
+        "additional_properties": false
+      }
+    },
+    {
+      "case_id": "extract-quantity-001",
+      "category": "extraction",
+      "input": "Return JSON with item and quantity. Text: Ship 18 filter cartridges.",
+      "expected": {
+        "item": "filter cartridges",
+        "quantity": 18
+      },
+      "evaluation": {
+        "method": "json_schema_and_values",
+        "additional_properties": false
+      }
+    },
+    {
+      "case_id": "summarize-routing-001",
+      "category": "summarization",
+      "input": "Summarize: Simple classification moves to a smaller model; summaries remain on a larger model pending quality review.",
+      "expected": "Simple classification uses a smaller model while summaries retain a larger model pending quality review.",
+      "evaluation": {
+        "method": "required_facts",
+        "required_facts": [
+          "classification uses smaller model",
+          "summaries retain larger model",
+          "quality review pending"
+        ]
+      }
+    },
+    {
+      "case_id": "summarize-meeting-001",
+      "category": "summarization",
+      "input": "Summarize: The team approved a pilot for May. Priya owns setup, and the next review is April 20.",
+      "expected": "The team approved a May pilot; Priya owns setup, and the next review is April 20.",
+      "evaluation": {
+        "method": "required_facts",
+        "required_facts": [
+          "May pilot",
+          "Priya owns setup",
+          "April 20"
+        ]
+      }
+    },
+    {
+      "case_id": "summarize-incident-001",
+      "category": "summarization",
+      "input": "Summarize: The outage began at 09:10, affected report exports, and ended at 09:42 after a database connection pool restart.",
+      "expected": "Report exports were unavailable from 09:10 to 09:42; restarting the database connection pool resolved the outage.",
+      "evaluation": {
+        "method": "required_facts",
+        "required_facts": [
+          "09:10",
+          "09:42",
+          "report exports",
+          "connection pool"
+        ]
+      }
+    },
+    {
+      "case_id": "reasoning-schedule-001",
+      "category": "reasoning",
+      "input": "Tasks A and B must precede C. A takes 2h and B takes 3h in parallel. What is the earliest time C can start? Return hours.",
+      "expected": "3",
+      "evaluation": {
+        "method": "exact_match",
+        "case_sensitive": true
+      }
+    },
+    {
+      "case_id": "reasoning-sequence-001",
+      "category": "reasoning",
+      "input": "A must finish before B starts. A takes 4 hours and B takes 3 hours. What is the earliest finish time? Return hours.",
+      "expected": "7",
+      "evaluation": {
+        "method": "exact_match",
+        "case_sensitive": true
+      }
+    },
+    {
+      "case_id": "format-json-001",
+      "category": "formatting",
+      "input": "Return exactly this JSON object with keys status and count: status is ready, count is 3.",
+      "expected": {
+        "status": "ready",
+        "count": 3
+      },
+      "evaluation": {
+        "method": "json_schema_and_values",
+        "additional_properties": false
+      }
+    },
+    {
+      "case_id": "format-one-word-001",
+      "category": "formatting",
+      "input": "Return exactly one lowercase word, either pass or fail. The check succeeded.",
+      "expected": "pass",
+      "evaluation": {
+        "method": "exact_match",
+        "case_sensitive": true
+      }
+    },
+    {
+      "case_id": "facts-location-001",
+      "category": "fact_retrieval",
+      "input": "Answer with the city only. The shipment departed from Albany and arrived in Buffalo.",
+      "expected": "Buffalo",
+      "evaluation": {
+        "method": "exact_match",
+        "case_sensitive": false
+      }
+    },
+    {
+      "case_id": "facts-owner-001",
+      "category": "fact_retrieval",
+      "input": "Who owns the migration? Answer with the name only. The migration owner is Jordan Lee.",
+      "expected": "Jordan Lee",
+      "evaluation": {
+        "method": "exact_match",
+        "case_sensitive": false
+      }
+    },
+    {
+      "case_id": "extract-notes-001",
+      "category": "extraction",
+      "input": "Return JSON with project and owner. Text: Project Cedar is owned by Lin.",
+      "expected": {
+        "project": "Cedar",
+        "owner": "Lin"
+      },
+      "evaluation": {
+        "method": "json_schema_and_values",
+        "additional_properties": false
+      }
+    },
+    {
+      "case_id": "classify-urgent-001",
+      "category": "classification",
+      "input": "Classify as urgent or routine. Message: Production checkout is unavailable for every customer.",
+      "expected": "urgent",
+      "evaluation": {
+        "method": "exact_match",
+        "case_sensitive": false
+      }
+    },
+    {
+      "case_id": "arithmetic-average-001",
+      "category": "arithmetic",
+      "input": "Return the average of 8, 10, and 12 as an integer.",
+      "expected": "10",
+      "evaluation": {
+        "method": "exact_match",
+        "case_sensitive": true
+      }
+    },
+    {
+      "case_id": "writing-concise-001",
+      "category": "writing",
+      "input": "Write a concise status note using only these facts: The pilot starts in May. Priya owns setup. The review is April 20.",
+      "expected": "The pilot starts in May. Priya owns setup. The review is April 20.",
+      "evaluation": {
+        "method": "required_facts",
+        "required_facts": [
+          "pilot starts in May",
+          "Priya owns setup",
+          "review is April 20"
+        ]
+      }
+    },
+    {
+      "case_id": "coding-is-even-001",
+      "category": "coding",
+      "input": "Write a Python function named is_even that returns True exactly when an integer is even. Return code only.",
+      "expected": "def is_even(n):\n    return n % 2 == 0",
+      "evaluation": {
+        "method": "required_facts",
+        "required_facts": [
+          "def is_even",
+          "return",
+          "n % 2 == 0"
+        ]
+      }
+    }
   ]
 }

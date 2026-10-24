@@ -4,17 +4,20 @@
     {
       "id": "classify-1",
       "type": "classify",
-      "prompt": "Classify this support message as billing, technical, or general. Return one label only. Message: I was charged twice for my subscription."
+      "prompt": "Classify this support message as billing, technical, or general. Return one label only. Message: I was charged twice for my subscription.",
+      "constraints": null
     },
     {
       "id": "extract-1",
       "type": "extract",
-      "prompt": "Extract the order ID and total from this text. Return JSON only with keys order_id and total_usd. Text: Order ECO-1042 was confirmed. Total: $42.50."
+      "prompt": "Extract the order ID and total from this text. Return JSON only with keys order_id and total_usd. Text: Order ECO-1042 was confirmed. Total: $42.50.",
+      "constraints": null
     },
     {
       "id": "summarize-1",
       "type": "summarize",
-      "prompt": "Summarize in one sentence: The team moved simple classification requests to a smaller model, retained the larger model for summaries, and planned further quality evaluation before deployment."
+      "prompt": "Summarize in one sentence: The team moved simple classification requests to a smaller model, retained the larger model for summaries, and planned further quality evaluation before deployment.",
+      "constraints": null
     }
   ],
   "carbon_intensity_g_per_kwh": 400

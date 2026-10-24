@@ -6,11 +6,13 @@ SBUHacks inference comparison and benchmark prototype. Deterministic simulation 
 
 - Existing `/api/v1` comparison API: exact schemas, deterministic demo, SQLite snapshots, paired aggregates, one-worker gate, safe failures and restart recovery.
 - Source import APIs for pasted text, text-based PDF, UTF-8 CSV, and public webpage extraction; immutable snapshots, input references, explicit Live confirmation, and SSRF-aware URL retrieval. Scanned PDF OCR and validated answer citations are unsupported.
-- Expanded benchmark catalog: stable five-case `starter-v1`, 24-case `starter-v2`, effective case limits, completion/truncation status, and a self-contained JSON analysis export. All fixture checks are synthetic and deterministic, not semantic model evaluations.
+- Expanded benchmark catalog: stable five-case `starter-v1`, 26-case `starter-v2` (including writing and code-generation prompts), effective case limits, completion/truncation status, and a self-contained JSON analysis export. All fixture checks are synthetic and deterministic, not semantic model evaluations.
+- Task-specific Live instructions, deterministic label/JSON checks, optional one-time large-model escalation after an eligible validation failure, and attempt-level metrics. These checks do not establish semantic correctness.
+- Opt-in local workspace agent for bounded writing/code tasks. Exact-path file reads/writes each require separate approval; operations are loopback-only, manually continued, step-limited, and have no shell/network/code execution.
 - Groq-compatible HTTP adapter for GPT-OSS small/large and an explicitly marked Qwen Preview benchmark model with published pricing. Usage/timing, estimated cost, hard timeout, truncation status and sanitized errors are recorded. Tested with mocked HTTP responses; **real Groq inference and account access have not been tested**.
 - Teammate's unchanged React frontend integrated from main `a7e3767`; real HTTP browser walkthrough passed using simulated backend inference, through both Vite and the production frontend served by FastAPI.
 
-Shared specification: [original architecture](docs/01-product-and-architecture.md), [comparison semantics](docs/02-api-and-data.md), [accepted benchmark contract](docs/API_CONTRACT.md), [OpenAPI](contracts/openapi.json), [handoff and verification](docs/backend-handoff.md). Original v1 schemas/fixtures are preserved; benchmark schemas/examples are additive. The proposed agent/firewall datasets are not executable.
+Shared specification: [original architecture](docs/01-product-and-architecture.md), [comparison semantics](docs/02-api-and-data.md), [accepted benchmark contract](docs/API_CONTRACT.md), [OpenAPI](contracts/openapi.json), [handoff and verification](docs/backend-handoff.md). Original v1 schemas/fixtures are preserved; benchmark schemas/examples are additive. The workspace agent is a separate opt-in, loopback-only prototype; its execution is approval-gated and it has no shell or network tools.
 
 ## Setup and launch on Windows
 
@@ -76,6 +78,8 @@ Defaults are safe and explicit:
 
 ```dotenv
 LIVE_ENABLED=false
+AGENT_ENABLED=false
+AGENT_WORKSPACE_ROOT=
 BENCHMARK_INFERENCE_MODE=simulated
 DATABASE_PATH=backend/data/ecoagent.sqlite3
 ```
@@ -91,6 +95,8 @@ INFERENCE_BASE_URL=https://api.groq.com/openai/v1
 ```
 
 Legacy INFERENCE_API_KEY/SMALL_MODEL_ID/LARGE_MODEL_ID are fallback names when the corresponding GROQ_* variable is absent. Keys stay server-side. Capabilities only checks configuration; it never probes or proves provider connectivity. A billable smoke test still requires credentials and authorization.
+
+The local workspace agent also requires `AGENT_ENABLED=true`, `AGENT_WORKSPACE_ROOT` set to the precise local directory, and working Live inference. Keep it disabled unless you intentionally want to submit instructions and approved file contents to the configured provider. It only accepts loopback requests, and each file read/write needs a separate approval. It does not run shell commands or generated code. Do not expose it through a public deployment.
 
 Default limits: 20 requests/run, 60 provider requests/minute, 10 benchmark starts/minute, $0.50/run, $1.00/UTC day and a hard 30-second deadline per HTTP request. `INFERENCE_MAX_COMPLETION_TOKENS` defaults to 65,536 and accepts 1–65,536. The backend clamps this to known model ceilings (GPT-OSS: 65,536; Qwen 3.8 27B: 16,384) and sends `max_completion_tokens`. All knobs are in `.env.example`. Limits and conservative spending reservations persist in SQLite across restart. Each request reserves full-context maximum input plus the model-bounded completion cap; known usage reconciles the reservation. Unknown usage/failure retains it, so limits may block conservatively. Missing usage stays null in displayed metrics. Costs use the [Groq standard token rates](https://console.groq.com/docs/models) checked October 24, 2026. No automatic retry or fallback is used; a `length` finish reason stays marked incomplete. The adapter uses Groq's current `max_completion_tokens` field from [the API reference](https://console.groq.com/docs/api-reference).
 

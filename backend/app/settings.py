@@ -20,6 +20,8 @@ MODEL_MAX_COMPLETION_TOKENS = {
 class Settings:
     database_path: Path = ROOT / 'backend/data/ecoagent.sqlite3'
     frontend_dist: Path = ROOT / 'frontend/dist'
+    agent_workspace_root: Path | None = None
+    agent_enabled: bool = False
     small_model_id: str = 'openai/gpt-oss-20b'
     large_model_id: str = 'openai/gpt-oss-120b'
     benchmark_max_cases: int = 10
@@ -39,6 +41,9 @@ class Settings:
     def __post_init__(self):
         path = Path(self.database_path).expanduser()
         object.__setattr__(self, 'database_path', path if path.is_absolute() else ROOT / path)
+        if self.agent_workspace_root is not None:
+            workspace = Path(self.agent_workspace_root).expanduser()
+            object.__setattr__(self, 'agent_workspace_root', workspace if workspace.is_absolute() else ROOT / workspace)
         if self.benchmark_mode not in ('simulated', 'groq'):
             raise ValueError('BENCHMARK_INFERENCE_MODE must be simulated or groq.')
         if type(self.max_completion_tokens) is not int or not 1 <= self.max_completion_tokens <= 65536:
@@ -83,6 +88,8 @@ class Settings:
             return values.get(name) if values.get(name) is not None else default
         try:
             return cls(database_path=Path(value('DATABASE_PATH', str(cls.database_path))),
+                       agent_workspace_root=Path(value('AGENT_WORKSPACE_ROOT', '')) if value('AGENT_WORKSPACE_ROOT', '') else None,
+                       agent_enabled=value('AGENT_ENABLED', 'false').lower() == 'true',
                        small_model_id=value('GROQ_MODEL_SMALL', value('SMALL_MODEL_ID', cls.small_model_id)) or cls.small_model_id,
                        large_model_id=value('GROQ_MODEL_LARGE', value('LARGE_MODEL_ID', cls.large_model_id)) or cls.large_model_id,
                        api_key=value('GROQ_API_KEY', value('INFERENCE_API_KEY', '')) or '',

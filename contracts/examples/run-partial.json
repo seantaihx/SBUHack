@@ -10,17 +10,20 @@
     {
       "id": "classify-1",
       "type": "classify",
-      "prompt": "Classify this support message as billing, technical, or general. Return one label only. Message: I was charged twice for my subscription."
+      "prompt": "Classify this support message as billing, technical, or general. Return one label only. Message: I was charged twice for my subscription.",
+      "constraints": null
     },
     {
       "id": "extract-1",
       "type": "extract",
-      "prompt": "Extract the order ID and total from this text. Return JSON only with keys order_id and total_usd. Text: Order ECO-1042 was confirmed. Total: $42.50."
+      "prompt": "Extract the order ID and total from this text. Return JSON only with keys order_id and total_usd. Text: Order ECO-1042 was confirmed. Total: $42.50.",
+      "constraints": null
     },
     {
       "id": "summarize-1",
       "type": "summarize",
-      "prompt": "Summarize in one sentence: The team moved simple classification requests to a smaller model, retained the larger model for summaries, and planned further quality evaluation before deployment."
+      "prompt": "Summarize in one sentence: The team moved simple classification requests to a smaller model, retained the larger model for summaries, and planned further quality evaluation before deployment.",
+      "constraints": null
     }
   ],
   "created_at": "2026-10-24T16:00:00Z",
@@ -44,7 +47,16 @@
       "estimated_carbon_g": 0.00208,
       "error": null,
       "provider_finish_reason": null,
-      "output_truncated": false
+      "output_truncated": false,
+      "output_validation": "not_configured",
+      "validation_notes": [],
+      "fallback_used": false,
+      "fallback_reason": null,
+      "fallback_model_id": null,
+      "initial_attempt": null,
+      "fallback_attempt": null,
+      "attempt_count": 1,
+      "cost_usd": null
     },
     {
       "task_id": "classify-1",
@@ -65,7 +77,16 @@
         "details": {}
       },
       "provider_finish_reason": null,
-      "output_truncated": null
+      "output_truncated": null,
+      "output_validation": "not_configured",
+      "validation_notes": [],
+      "fallback_used": false,
+      "fallback_reason": null,
+      "fallback_model_id": null,
+      "initial_attempt": null,
+      "fallback_attempt": null,
+      "attempt_count": 1,
+      "cost_usd": null
     },
     {
       "task_id": "extract-1",
@@ -82,7 +103,16 @@
       "estimated_carbon_g": 0.0063999999999999994,
       "error": null,
       "provider_finish_reason": null,
-      "output_truncated": false
+      "output_truncated": false,
+      "output_validation": "not_configured",
+      "validation_notes": [],
+      "fallback_used": false,
+      "fallback_reason": null,
+      "fallback_model_id": null,
+      "initial_attempt": null,
+      "fallback_attempt": null,
+      "attempt_count": 1,
+      "cost_usd": null
     },
     {
       "task_id": "extract-1",
@@ -99,7 +129,16 @@
       "estimated_carbon_g": 0.00128,
       "error": null,
       "provider_finish_reason": null,
-      "output_truncated": false
+      "output_truncated": false,
+      "output_validation": "not_configured",
+      "validation_notes": [],
+      "fallback_used": false,
+      "fallback_reason": null,
+      "fallback_model_id": null,
+      "initial_attempt": null,
+      "fallback_attempt": null,
+      "attempt_count": 1,
+      "cost_usd": null
     },
     {
       "task_id": "summarize-1",
@@ -116,7 +155,16 @@
       "estimated_carbon_g": 0.00888,
       "error": null,
       "provider_finish_reason": null,
-      "output_truncated": false
+      "output_truncated": false,
+      "output_validation": "not_configured",
+      "validation_notes": [],
+      "fallback_used": false,
+      "fallback_reason": null,
+      "fallback_model_id": null,
+      "initial_attempt": null,
+      "fallback_attempt": null,
+      "attempt_count": 1,
+      "cost_usd": null
     },
     {
       "task_id": "summarize-1",
@@ -133,7 +181,16 @@
       "estimated_carbon_g": 0.00888,
       "error": null,
       "provider_finish_reason": null,
-      "output_truncated": false
+      "output_truncated": false,
+      "output_validation": "not_configured",
+      "validation_notes": [],
+      "fallback_used": false,
+      "fallback_reason": null,
+      "fallback_model_id": null,
+      "initial_attempt": null,
+      "fallback_attempt": null,
+      "attempt_count": 1,
+      "cost_usd": null
     }
   ],
   "comparison": {
@@ -161,5 +218,7 @@
   },
   "run_error": null,
   "source_snapshot": null,
-  "source_submission_confirmed": false
+  "source_submission_confirmed": false,
+  "task_profile_version": "task-instructions-v1",
+  "quality_fallback": false
 }

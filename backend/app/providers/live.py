@@ -16,7 +16,8 @@ class LiveProvider:
         self.store = store
         self.transport = transport
 
-    async def infer(self, prompt: str, model_id: str, run_id: str, allowed_models=None) -> InferenceResult:
+    async def infer(self, prompt: str, model_id: str, run_id: str, allowed_models=None,
+                    system_message: str = SYSTEM_MESSAGE) -> InferenceResult:
         allowed = allowed_models or (self.settings.small_model_id, self.settings.large_model_id)
         if self.settings.live_disabled_reason or model_id not in allowed:
             raise ProviderError('PROVIDER_UNAVAILABLE')
@@ -26,7 +27,7 @@ class LiveProvider:
         ceiling = cost(model_id, 131072, completion_limit)
         reservation = self.store.reserve_inference(run_id, ceiling, self.settings)
         headers = {'Authorization': 'Bearer ' + self.settings.api_key} if self.settings.api_key else {}
-        payload = {'model': model_id, 'messages': [{'role': 'system', 'content': SYSTEM_MESSAGE},
+        payload = {'model': model_id, 'messages': [{'role': 'system', 'content': system_message},
                    {'role': 'user', 'content': prompt}], 'temperature': 0,
                    'max_completion_tokens': completion_limit, 'stream': False}
         try:
