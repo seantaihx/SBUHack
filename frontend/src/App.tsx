@@ -47,7 +47,7 @@ function App() {
     const poll = async () => {
       try {
         if (api.isMock) { await new Promise((resolve) => window.setTimeout(resolve, 650)); if (cancelled) return; api.advanceMock(run.id); }
-        const snapshot = await api.getRun(run.id);
+        const snapshot = await api.getRun(run.id, controller.signal);
         if (cancelled) return;
         setRun(snapshot); setNetworkError(null);
         if (!terminal(snapshot.status)) timeout = window.setTimeout(poll, 1000);
@@ -78,6 +78,7 @@ function App() {
     if (requestLock.current || !capabilities) return;
     if (mode === 'live' && !capabilities.live_enabled) { setError(capabilities.live_disabled_reason ?? 'Live inference is unavailable.'); return; }
     if (mode === 'demo' && selectedTasks.length === 0) { setError('Select at least one sample task to compare.'); return; }
+    if (api.isMock && mode === 'demo' && selectedTasks.length !== (samples?.tasks.length ?? 0)) { setError('The frontend mock only contains the complete sample run. Select all sample tasks or turn off VITE_USE_FRONTEND_MOCK.'); return; }
     if (mode === 'live' && (customTasks.length === 0 || customTasks.some((task) => !task.prompt.trim()))) { setError('Add a prompt for every live task.'); return; }
     requestLock.current = true; setSubmitting(true); setError(null); setNetworkError(null); setNotice(null); setRun(null); updateUrl(null);
     const payload: CreateRun = { mode, tasks: mode === 'demo' ? selectedTasks : customTasks.map((task) => ({ ...task, prompt: task.prompt.trim() })), carbon_intensity_g_per_kwh: carbon };
@@ -107,6 +108,7 @@ function App() {
 
   return <main className="app-shell">
     <header className="topbar"><a className="brand" href="#top" aria-label="EcoAgent home"><span className="brand-mark"><LeafIcon /></span><span>ecoagent<span className="brand-period">.</span></span></a><div className="topbar-right"><span className="topbar-note"><span className="live-dot" /> SYSTEM ONLINE</span><span className="topbar-divider" /><span className="version">MVP&nbsp; / &nbsp;v1.0</span></div></header>
+    {api.isMock && <div className="mock-banner" role="status"><span className="mock-banner-dot" /> FRONTEND MOCK ACTIVE <span>Static contract fixtures · no backend requests</span></div>}
     <div className="content" id="top">
       <section className="hero"><div className="hero-copy"><div className="eyebrow"><span className="eyebrow-line" /> INTELLIGENT ROUTING, MADE VISIBLE</div><h1>Better inference.<br /><span>Less overhead.</span></h1><p className="hero-description">Compare how a task-routing policy changes model choice, response, latency and illustrative energy estimates.</p></div><div className="hero-art" aria-hidden="true"><div className="orbit orbit-one" /><div className="orbit orbit-two" /><div className="orbit orbit-three" /><div className="orbit-core"><LeafIcon /></div><div className="orbit-node node-one" /><div className="orbit-node node-two" /><span className="orbit-caption">ROUTE<br />WITH INTENT</span></div></section>
 

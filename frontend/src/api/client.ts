@@ -28,8 +28,8 @@ export const api = {
     if (!mockMode) return request<Run>('/runs', { method: 'POST', body: JSON.stringify(payload) });
     return fixture<Run>('run-queued');
   },
-  getRun: async (id: string) => {
-    if (!mockMode) return request<Run>(`/runs/${encodeURIComponent(id)}`);
+  getRun: async (id: string, signal?: AbortSignal) => {
+    if (!mockMode) return request<Run>(`/runs/${encodeURIComponent(id)}`, { signal });
     const status = sessionStorage.getItem(`ecoagent-mock-${id}`) ?? 'run-completed';
     return fixture<Run>(status);
   },
