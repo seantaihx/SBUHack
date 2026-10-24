@@ -31,7 +31,7 @@ The backend source tests use injected DNS/HTTP transports, local SQLite and fake
 - Source locators are extracted and validated against source snapshots, but the provider does not return validated answer citations or an explicit not-found state. Confirm source claims manually.
 - Unbound previews expire after 30 minutes. Bound source content remains in SQLite with its run; this prototype has no source/run deletion or authentication. Use synthetic/public test data only.
 - `starter-v2` is 24 cases, but the default per-run paired request cap is 10. Full-dataset evaluation requires explicit bounded runs; exports include all authored definitions and accurately mark subset completeness.
-- No GitHub issue was filed during this local implementation. The remaining items above are recorded here for review.
+- GitHub issue search found no matching open issue; issue creation was denied by the connected integration with HTTP 403. Copyable functional and visual issue drafts are in [`ISSUES_TO_FILE.md`](ISSUES_TO_FILE.md).
 
 ## Source of truth
 

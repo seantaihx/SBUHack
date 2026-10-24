@@ -71,11 +71,12 @@ This milestone supersedes the earlier WIP checkpoint above. The user approved th
 - `npm.cmd run typecheck --prefix frontend` — passed; `npm.cmd run test --prefix frontend` — **45 passed**; `VITE_USE_FRONTEND_MOCK=false npm.cmd run build --prefix frontend` — passed.
 - Parsed every checked-in contract example, browser mock and benchmark JSON — **33 files passed**; `git diff --check` passed.
 - Local HTTP integration used a temporary SQLite DB and forced `LIVE_ENABLED=false` plus simulated benchmark inference. Source POST/GET/DELETE passed; `starter-v2` catalog/definition loaded; a one-case run completed; export contained all 24 definitions and correctly reported partial coverage.
+- A public fetch of `https://example.com/` succeeded through the webpage source route; the temporary preview was deleted.
 - No browser automation surface was available for visual, responsive or keyboard walkthrough. No live provider call or billable inference was made. No screenshot was captured.
 
 ### Changed areas
 
-Backend: `backend/app/sources.py`, comparison and benchmark routes/schemas/runner/store/provider/settings/pricing, pinned source parser dependencies, and regression tests. Frontend: `App`, `SourceInput`, `BenchmarkDashboard`, typed API client/types, fixtures and focused tests. Shared: `.env.example`, `README.md`, `contracts/openapi.json`, examples, `benchmarks/starter-v2.json`, `docs/API_CONTRACT.md`, benchmark/QA/inventory docs, and the two proposal records.
+Backend: `backend/app/sources.py`, comparison and benchmark routes/schemas/runner/store/provider/settings/pricing, pinned source parser dependencies, and regression tests. Frontend: `App`, `SourceInput`, `BenchmarkDashboard`, typed API client/types, fixtures and focused tests. Shared: `.env.example`, `README.md`, `contracts/openapi.json`, examples, `benchmarks/starter-v2.json`, `docs/API_CONTRACT.md`, benchmark/QA/inventory docs, the two proposal records, and `docs/ISSUES_TO_FILE.md`.
 
 ### Remaining limits
 
@@ -83,12 +84,15 @@ Backend: `backend/app/sources.py`, comparison and benchmark routes/schemas/runne
 - Extracted locators are not answer citations. The model does not return validated claim citations or an explicit not-found-in-source state.
 - Dataset evaluators are synthetic exact/lexical checks; they do not establish semantic quality. Energy/carbon figures remain illustrative.
 - Qwen is marked Preview. Real Groq account access and inference were not tested. The per-run maximum can be lower than ten when the selected model pair reaches request or spend safeguards.
-- The screen and print-to-PDF layout have not had a visual browser walkthrough in this checkout; no GitHub issues were filed.
+- The screen and print-to-PDF layout have not had a visual browser walkthrough in this checkout. GitHub search found no matching open issues, but the connected integration denied issue creation with HTTP 403; copyable drafts are in [`../ISSUES_TO_FILE.md`](../ISSUES_TO_FILE.md).
 
 ### Launch and review commands (PowerShell)
 
 ```powershell
 # Terminal 1: backend, with root .env for private configuration as needed
+$env:DATABASE_PATH = (Join-Path (Get-Location) '.tmp-ecoagent-demo.sqlite3')
+$env:LIVE_ENABLED = "false"
+$env:BENCHMARK_INFERENCE_MODE = "simulated"
 .\.venv\Scripts\python.exe -m uvicorn backend.app.main:app --host 127.0.0.1 --port 8000 --workers 1
 
 # Terminal 2: frontend with real API transport
