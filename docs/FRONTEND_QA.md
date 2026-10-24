@@ -1,43 +1,56 @@
 # Frontend QA and outstanding work
 
-## Checks run in this checkout
+## Checks run
 
-Run from `frontend/`:
+Run from `frontend/` in PowerShell:
 
 ```powershell
 npm.cmd ci
+$env:VITE_USE_FRONTEND_MOCK = "false"
 npm.cmd run test
 npm.cmd run typecheck
 npm.cmd run build
 ```
 
-The 18 Vitest component tests exercise the comparison flow plus benchmark dataset loading, benchmark request payload, queued/running/completed polling, result/case display, null metric display, rate-limit errors, loading errors, and duplicate-submit protection. `npm.cmd ci`, `npm.cmd run test` (18 passed), `npm.cmd run typecheck`, and `npm.cmd run build` passed on October 24, 2026. Benchmark and frontend mock JSON files also parse successfully.
+On October 24, 2026, all 34 Vitest tests passed, TypeScript typechecking passed, and the production build passed with frontend mock mode disabled. The tests cover comparison submission and polling states, duplicate-submit prevention, errors, latency direction for negative/positive/zero/null values, review state and unavailable storage, export contents, URL warnings, benchmark state restoration, and typed 409 navigation.
+
+## HTTP verification
+
+The local backend on port 8000 reported `GET /api/v1/health` as healthy, and capabilities reported `live_enabled: true`. No Live run or provider-backed inference request was sent.
+
+The frontend dev server started with `VITE_USE_FRONTEND_MOCK=false` on port 5174 because port 5173 was already occupied. Requests through its Vite `/api` proxy succeeded:
+
+- `GET /api/v1/health` → `200`, API version `1.0.0`.
+- `GET /api/v1/sample-tasks` → `200`, three tasks.
+- `GET /api/v1/capabilities` → `200`; illustrative energy profile and model IDs were returned by the backend.
+- `POST /api/v1/runs` with `contracts/examples/create-run.json` → `202`; `GET /api/v1/runs/{id}` reached `completed`, `mode: demo`, `measurement_source: simulated`, with both policy outputs and backend comparison metrics.
+- `GET /api/v1/benchmarks/datasets` → `200`, synthetic `starter-v1` dataset.
+- `POST /api/v1/benchmarks/runs` with dataset `starter-v1`, baseline `openai/gpt-oss-120b`, candidate `eco-auto`, and `max_cases: 5` → `202`; `GET /api/v1/benchmarks/runs/{id}` reached `completed`, `measurement_source: simulated`, 5/5 cases.
+
+Benchmark mode was not specified in the private root `.env`; backend settings default `BENCHMARK_INFERENCE_MODE` to `simulated`. The capabilities response and completed snapshots were checked without reading or printing any provider credential. No real quality claim follows from the synthetic benchmark.
 
 ## Verification boundaries
 
-- Component tests use mocked fetch responses. They do not establish compatibility with a running FastAPI service.
-- The benchmark view's proposed API is not in shared OpenAPI and must be agreed before the backend implements it.
-- Backend end-to-end smoke test and browser walkthrough remain outstanding until Sean's API is available on port 8000 or another agreed URL. Port 8000 was not listening during this verification.
-- A browser UI session was unavailable for visual inspection; screenshot review is not complete.
-- Automated tests do not assess screenshot quality, visual contrast by pixel measurement, or actual keyboard behavior in a browser.
-- Desktop, tablet, and phone viewport review remains outstanding. Check long prompts/answers and the attempt table at narrow widths.
-- No issue tracker entries are represented as filed unless linked below.
+- A browser UI surface was not available to the automation tool, so no visual browser walkthrough or screenshots were captured.
+- Desktop, tablet, and phone viewport review remains outstanding. Keep provenance and simulation labels visible at each size.
+- Keyboard-only and screen-reader behavior still needs a manual browser pass. Automated DOM tests do not measure contrast or confirm announcements in real assistive technology.
+- No GitHub issues were filed from this checkout.
 
 ## Outstanding issues
 
 ### Functional
 
-1. Run the integrated browser walkthrough against the agreed backend, checking `/capabilities`, `/sample-tasks`, `POST /runs`, and repeated `GET /runs/{id}` including a `409` and a provider failure case.
-2. Verify the production frontend is served by the backend at the configured same-origin path and that `/api` failures remain JSON.
-3. After Sean agrees the proposal, test benchmark datasets/history, submit, poll, rate-limit/provider-timeout errors, and case pages against FastAPI.
+1. Run the UI in a real browser and walk through Demo/Live labels, comparison submission, URL refresh restoration, export, manual review persistence/reset, network retry, benchmark dataset/history/cases, and narrow-screen behavior.
+2. Exercise a provider failure only in an explicitly authorized Live environment; this session sent no Live requests.
+3. Confirm the production frontend is served by the backend at the expected same-origin path.
 
-### Visual and interaction review
+### API coordination
 
-1. Capture and review screenshots at desktop, tablet, and phone sizes while keeping Demo/Live and simulated/observed provenance labels visible.
+The shared active-run gate can reject a comparison submission while a benchmark is active. Benchmark 409 responses include `details.active_run_id` and `details.active_run_kind`; comparison 409 responses currently include only `details.active_run_id`. The comparison client therefore cannot safely know whether to restore a comparison or navigate to Benchmarks. Proposal for Sean: add `active_run_kind: "comparison" | "benchmark"` to comparison 409 details, matching the benchmark response. No backend or shared contract was changed here.
+
+### Visual and accessibility review
+
+1. Capture and inspect screenshots at desktop, tablet, and phone widths with Demo/Live and provenance labels visible.
 2. Walk the page with keyboard-only navigation and a screen reader; verify focus order and announcements for loading, errors, and run status.
 
-GitHub issue links: not filed from this checkout. The connected GitHub integration did not grant issue-write access in the previous attempt; create separate Functional and Visual issues when write access is available.
-
-## Backend integration follow-up — October 24, 2026
-
-On Sean_branch after merging main a7e3767, Node 24 was used on macOS: `npm ci`, typecheck, 18 frontend tests and the production build passed without frontend source changes. A real browser walkthrough through Vite and the FastAPI-served build verified original comparison completion/refresh, benchmark catalog/submission/polling/cases/history, simulated labels, and a real HTTP 502 connection error with no mock fallback. See backend-handoff.md for exact commands and backend checks. This does not claim a complete responsive/accessibility audit or real Groq verification.
+GitHub issue links: none filed.
