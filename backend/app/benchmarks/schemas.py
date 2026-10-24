@@ -28,7 +28,24 @@ class BenchmarkDataset(Model):
     case_count: Count
     categories: list[str]
     supported_models: list[str]
+    preview_models: list[str] = Field(default_factory=list)
+    max_cases_per_run: Count = 10
     provenance: Literal['synthetic', 'curated']
+
+
+class BenchmarkCaseDefinition(Model):
+    case_id: str
+    category: str
+    input: str
+    expected: str | dict | int | float | None
+    evaluation: dict
+
+
+class BenchmarkDatasetDefinition(Model):
+    dataset_id: str
+    version: str
+    provenance: Literal['synthetic', 'curated']
+    cases: list[BenchmarkCaseDefinition]
 
 
 class BenchmarkDatasetsResponse(Model):
@@ -37,9 +54,11 @@ class BenchmarkDatasetsResponse(Model):
 
 class BenchmarkMetricSet(Model):
     total_cases: Count | None
+    evaluated_cases: Count | None = None
     passed_cases: Count | None
     pass_rate: float | None = Field(ge=0, le=1)
     failed_cases: Count | None
+    incomplete_cases: Count | None = None
     total_cost_usd: Nonnegative | None
     mean_latency_ms: Nonnegative | None
     input_tokens: Count | None
@@ -75,6 +94,9 @@ class BenchmarkCaseSide(Model):
     model_id: str
     routing_reason: str | None
     output: str | None
+    provider_id: str = 'groq'
+    finish_reason: str | None = None
+    output_truncated: bool | None = None
     latency_ms: Nonnegative | None
     input_tokens: Count | None
     output_tokens: Count | None
@@ -85,7 +107,7 @@ class BenchmarkCaseSide(Model):
 class BenchmarkCase(Model):
     case_id: str
     category: str
-    status: Literal['passed', 'failed', 'skipped', 'error']
+    status: Literal['passed', 'failed', 'skipped', 'error', 'incomplete']
     evaluation_method: str
     expected: str | None
     baseline: BenchmarkCaseSide | None = None
@@ -108,3 +130,15 @@ class BenchmarkRecord(Model):
     run: BenchmarkRun
     cases: list[BenchmarkCase] = Field(default_factory=list)
     outcomes: list[dict[str, bool | None]] = Field(default_factory=list)
+    dataset_snapshot: dict = Field(default_factory=dict)
+
+
+class BenchmarkExport(Model):
+    export_version: Literal['benchmark-analysis-v1'] = 'benchmark-analysis-v1'
+    exported_at: str
+    data_completeness: Literal['complete', 'partial']
+    completeness_note: str | None
+    dataset: BenchmarkDatasetDefinition
+    run: BenchmarkRun
+    pricing_snapshot: dict
+    cases: list[dict]

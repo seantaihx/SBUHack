@@ -3,11 +3,12 @@ from typing import Annotated, Literal
 from uuid import UUID
 import re
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 Mode = Literal['demo', 'live']
 Role = Literal['small', 'large']
 Policy = Literal['baseline', 'optimized']
+SourceKind = Literal['text', 'pdf', 'csv', 'webpage']
 Reason = Literal['baseline_large', 'simple_task_small', 'summary_large']
 Nonnegative = Annotated[float, Field(ge=0, allow_inf_nan=False)]
 Count = Annotated[int, Field(ge=0)]
@@ -37,10 +38,76 @@ class Task(Model):
         return value.strip() if isinstance(value, str) else value
 
 
+class SourceReference(Model):
+    kind: Literal['pdf_page', 'csv_cell', 'webpage_text']
+    page_number: Count | None = None
+    row_number: Count | None = None
+    column_name: str | None = None
+    column_index: Count | None = None
+    url: str | None = None
+    start_char: Count
+    end_char: Count
+    excerpt: str
+
+
+class SourceMetadata(Model):
+    source_id: UUID
+    kind: SourceKind
+    name: str
+    media_type: str
+    original_url: str | None = None
+    final_url: str | None = None
+    retrieved_at: str | None = None
+    content_sha256: str
+    character_count: Count
+    unit_count: Count | None = None
+    parse_duration_ms: Nonnegative
+    expires_at: str | None = None
+    references: list[SourceReference] = Field(default_factory=list)
+    references_complete: bool = True
+
+
+class SourceSnapshot(SourceMetadata):
+    extracted_text: str
+
+
+class SourceResponse(Model):
+    source: SourceSnapshot
+
+
+class CreateTextSource(Model):
+    name: str = Field(default='Pasted text', max_length=200)
+    text: str = Field(min_length=1, max_length=100000)
+
+
+class CreateWebpageSource(Model):
+    url: str = Field(min_length=1, max_length=2048)
+
+
 class CreateRun(Model):
     mode: Mode
     tasks: list[Task] = Field(min_length=1, max_length=10)
     carbon_intensity_g_per_kwh: Intensity = 400
+    source_snapshot_id: UUID | None = None
+    confirm_source_submission: bool | None = None
+
+    @field_validator('source_snapshot_id', mode='before')
+    @classmethod
+    def parse_source_id(cls, value):
+        if value is None or isinstance(value, UUID):
+            return value
+        try:
+            return UUID(value) if isinstance(value, str) else value
+        except ValueError:
+            return value
+
+    @model_validator(mode='after')
+    def source_requires_confirmation(self):
+        if self.source_snapshot_id is not None and self.confirm_source_submission is not True:
+            raise ValueError('A source requires explicit submission confirmation.')
+        if self.source_snapshot_id is None and self.confirm_source_submission is True:
+            raise ValueError('Confirmation requires a source snapshot.')
+        return self
 
 
 class ErrorInfo(Model):
@@ -111,6 +178,8 @@ class Result(Model):
     estimated_energy_wh: Nonnegative | None
     estimated_carbon_g: Nonnegative | None
     error: ErrorInfo | None
+    provider_finish_reason: str | None = Field(default=None, max_length=64)
+    output_truncated: bool | None = None
 
 
 class ComparisonMetric(Model):
@@ -146,3 +215,5 @@ class Run(Model):
     results: list[Result] = Field(default_factory=list)
     comparison: Comparison = Field(default_factory=Comparison)
     run_error: ErrorInfo | None = None
+    source_snapshot: SourceMetadata | None = None
+    source_submission_confirmed: bool = False

@@ -1,6 +1,8 @@
-# PROPOSED: Source import, grounded comparison, and export API
+# Source import and comparison API proposal (implemented subset)
 
-**Status: PROPOSED, not an accepted contract.** This document is for coordination with Sean. It does not change `contracts/openapi.json`, the existing `/api/v1` schemas, or backend code. Frontend code must not send these fields/routes until Sean confirms the wire contract.
+**Status: Implemented on `Muffin_branch` with the approved API shape.** The current contract is in [`../API_CONTRACT.md`](../API_CONTRACT.md) and [`../../contracts/openapi.json`](../../contracts/openapi.json). The implementation includes source preview/storage, safe PDF/CSV extraction, guarded webpage retrieval, Live-only explicit source submission, and run metadata. Model answer citations and `not_found_in_source` evaluation were not implemented; input references are source locators only. Web retrieval uses a 10-second deadline; bound text remains with its SQLite run until that local database is removed.
+
+> Historical proposal below: it preserves the original design and review questions. The API shape was approved and the supported subset is implemented. Current behavior, exact limits, error handling, retention, and verification are authoritative in `docs/API_CONTRACT.md` and the generated OpenAPI document. Old “proposed” labels and the decision list below are not pending work.
 
 ## Goals and boundaries
 

@@ -5,13 +5,38 @@ SBUHacks inference comparison and benchmark prototype. Deterministic simulation 
 ## Implemented and verified
 
 - Existing `/api/v1` comparison API: exact schemas, deterministic demo, SQLite snapshots, paired aggregates, one-worker gate, safe failures and restart recovery.
-- Five benchmark routes: datasets, history, start, progress snapshot, case results; stable pagination; deterministic evaluation; baseline/candidate routing; persistent limits.
-- Groq-compatible HTTP adapter for `openai/gpt-oss-20b` and `openai/gpt-oss-120b`, including usage/timing, estimated cost, hard timeout and sanitized errors. Tested with mocked HTTP responses; **real Groq inference has not been tested and no credentials are configured in this checkout**.
+- Source import APIs for pasted text, text-based PDF, UTF-8 CSV, and public webpage extraction; immutable snapshots, input references, explicit Live confirmation, and SSRF-aware URL retrieval. Scanned PDF OCR and validated answer citations are unsupported.
+- Expanded benchmark catalog: stable five-case `starter-v1`, 24-case `starter-v2`, effective case limits, completion/truncation status, and a self-contained JSON analysis export. All fixture checks are synthetic and deterministic, not semantic model evaluations.
+- Groq-compatible HTTP adapter for GPT-OSS small/large and an explicitly marked Qwen Preview benchmark model with published pricing. Usage/timing, estimated cost, hard timeout, truncation status and sanitized errors are recorded. Tested with mocked HTTP responses; **real Groq inference and account access have not been tested**.
 - Teammate's unchanged React frontend integrated from main `a7e3767`; real HTTP browser walkthrough passed using simulated backend inference, through both Vite and the production frontend served by FastAPI.
 
 Shared specification: [original architecture](docs/01-product-and-architecture.md), [comparison semantics](docs/02-api-and-data.md), [accepted benchmark contract](docs/API_CONTRACT.md), [OpenAPI](contracts/openapi.json), [handoff and verification](docs/backend-handoff.md). Original v1 schemas/fixtures are preserved; benchmark schemas/examples are additive. The proposed agent/firewall datasets are not executable.
 
-## Setup and launch on macOS
+## Setup and launch on Windows
+
+Use PowerShell from the repository root. `npm.cmd` avoids the PowerShell script execution policy that can block `npm.ps1`.
+
+```powershell
+py -3 -m venv .venv
+.\.venv\Scripts\python.exe -m pip install -r backend/requirements.txt
+npm.cmd ci --prefix frontend
+$env:VITE_USE_FRONTEND_MOCK = "false"
+npm.cmd run build --prefix frontend
+$env:LIVE_ENABLED = "false"
+$env:BENCHMARK_INFERENCE_MODE = "simulated"
+.\.venv\Scripts\python.exe -m uvicorn backend.app.main:app --host 127.0.0.1 --port 8000 --workers 1
+```
+
+Open [EcoAgent](http://127.0.0.1:8000). The backend serves `frontend/dist`. Use one backend worker for SQLite run coordination. To develop the UI, keep the backend running and open another PowerShell terminal:
+
+```powershell
+cd frontend
+$env:VITE_USE_FRONTEND_MOCK = "false"
+$env:VITE_API_PROXY_TARGET = "http://127.0.0.1:8000"
+npm.cmd run dev -- --host 127.0.0.1 --port 5173 --strictPort
+```
+
+## Setup and launch on macOS/Linux
 
 Python 3.11+ is required; verified with CPython 3.14.6 and uv 0.11.26. Frontend tools require a supported Node version; verified with Node 24. The installed Node 25 is outside the pinned Vitest engine range. Backend dependencies are fully pinned in `backend/requirements.txt`; frontend uses the teammate's unchanged package-lock.json.
 
@@ -69,17 +94,25 @@ Legacy INFERENCE_API_KEY/SMALL_MODEL_ID/LARGE_MODEL_ID are fallback names when t
 
 Default limits: 20 requests/run, 60 provider requests/minute, 10 benchmark starts/minute, $0.50/run, $1.00/UTC day and a hard 30-second deadline per HTTP request. All knobs are in `.env.example`. Limits and conservative spending reservations persist in SQLite across restart. A request reserves full-context maximum input plus 256 output tokens; known usage reconciles the reservation. Unknown usage/failure retains it, so limits may block conservatively. Missing usage stays null in displayed metrics. Costs use the [Groq standard token rates](https://console.groq.com/docs/models) checked October 24, 2026; no external tools, retries or caching are requested. The adapter preserves the original shared `max_tokens: 256` wire setting, still documented as a deprecated compatible alias in [Groq's API reference](https://console.groq.com/docs/api-reference).
 
+`BENCHMARK_MAX_CASES` defaults to 10, bounded by the dataset and paired request cap. `BENCHMARK_EXTRA_MODEL_IDS` defaults to `qwen/qwen3.8-27b`; it is marked Preview and provider account access is not probed. Remove it from the environment if you do not want the option.
+
+Source parsing limits and retention are documented in [the API contract](docs/API_CONTRACT.md). Unbound previews expire after 30 minutes; source text attached to a run remains in that local SQLite database. This prototype has no authentication, source cleanup, OCR, or validated answer citations. Do not submit confidential or regulated documents or webpages.
+
 ## Copyable frontend/backend handoff
 
 Available comparison endpoints: GET health/capabilities/sample-tasks; POST runs; GET runs/{UUID}, all under `/api/v1`.
 
+Source endpoints: POST `/api/v1/sources/text`, POST `/api/v1/sources/files`, POST `/api/v1/sources/webpage`, GET/DELETE `/api/v1/sources/{UUID}`.
+
 Available benchmark endpoints:
 
 - `GET /api/v1/benchmarks/datasets`
+- `GET /api/v1/benchmarks/datasets/{dataset_id}`
 - `GET /api/v1/benchmarks/runs?limit=20`
 - `POST /api/v1/benchmarks/runs`
 - `GET /api/v1/benchmarks/runs/{UUID}`
 - `GET /api/v1/benchmarks/runs/{UUID}/cases?limit=50`
+- `GET /api/v1/benchmarks/runs/{UUID}/export`
 
 From the repository root, with the backend running:
 
@@ -89,7 +122,7 @@ curl -i http://127.0.0.1:8000/api/v1/benchmarks/runs \
   --data-binary @contracts/examples/benchmark-start.json
 ```
 
-Poll the returned Location until terminal, then GET `Location/cases`. The default run is explicitly simulated. Muffin's existing client works unchanged: keep frontend mocks false, open Benchmarks, submit, and inspect history/cases. One cross-view limitation remains: the comparison UI cannot reopen an active benchmark from a 409; switch to Benchmarks/history. Coordinate an `active_run_kind` navigation improvement with Muffin before editing frontend source.
+Poll the returned Location until terminal, then GET `Location/cases`. The default run is explicitly simulated. Keep frontend mocks false, open Benchmarks, submit, and inspect history/cases or download the JSON analysis. Comparison and benchmark 409 responses include the active run kind so the frontend can navigate without submitting a duplicate.
 
 For the original comparison:
 
@@ -112,5 +145,7 @@ VITE_USE_FRONTEND_MOCK=false npm run build --prefix frontend
 ```
 
 The HTTP smoke scripts create temporary loopback servers/databases, force simulated mode, abruptly stop only their own subprocesses, and verify persisted results/recovery. They require loopback bind permission. Automated provider tests use HTTPX MockTransport; they do not spend Groq credits. Normal application shutdown marks active jobs interrupted; abrupt termination is recovered on next startup. A disk/database outage can prevent a terminal snapshot until storage is restored and the service restarted.
+
+Windows PowerShell checks use `.\.venv\Scripts\python.exe -m pytest -q backend/tests`, `npm.cmd run typecheck --prefix frontend`, `npm.cmd run test --prefix frontend`, and `$env:VITE_USE_FRONTEND_MOCK="false"; npm.cmd run build --prefix frontend`. `npm ci` requires the checked-in `frontend/package-lock.json`; use `npm.cmd` when PowerShell blocks `npm.ps1`.
 
 The team deadline is October 25, 2026 at **9 AM Eastern**. Keep the verified simulated walkthrough available while validating any optional real-provider run.

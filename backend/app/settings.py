@@ -17,7 +17,8 @@ class Settings:
     frontend_dist: Path = ROOT / 'frontend/dist'
     small_model_id: str = 'openai/gpt-oss-20b'
     large_model_id: str = 'openai/gpt-oss-120b'
-    benchmark_max_cases: int = 5
+    benchmark_max_cases: int = 10
+    benchmark_extra_model_ids: tuple[str, ...] = ('qwen/qwen3.8-27b',)
     benchmark_mode: str = 'simulated'
     live_enabled: bool = False
     base_url: str = 'https://api.groq.com/openai/v1'
@@ -40,7 +41,7 @@ class Settings:
         if any(not math.isfinite(value) or value <= 0 for value in limits) or self.request_timeout_seconds > 30:
             raise ValueError('Backend limits must be positive and finite; request timeout cannot exceed 30 seconds.')
         # Identifiers are public metadata: disallow URLs, whitespace and the configured secret.
-        for model in (self.small_model_id, self.large_model_id):
+        for model in (self.small_model_id, self.large_model_id, *self.benchmark_extra_model_ids):
             if not re.fullmatch(r'[A-Za-z0-9][A-Za-z0-9._/-]{0,199}', model) or (self.api_key and self.api_key in model):
                 raise ValueError('Configured model identifiers are invalid.')
 
@@ -76,7 +77,8 @@ class Settings:
                        base_url=value('INFERENCE_BASE_URL', cls.base_url) or cls.base_url,
                        live_enabled=value('LIVE_ENABLED', 'false').lower() == 'true',
                        benchmark_mode=value('BENCHMARK_INFERENCE_MODE', 'simulated'),
-                       benchmark_max_cases=int(value('BENCHMARK_MAX_CASES', 5)),
+                       benchmark_max_cases=int(value('BENCHMARK_MAX_CASES', 10)),
+                       benchmark_extra_model_ids=tuple(part.strip() for part in value('BENCHMARK_EXTRA_MODEL_IDS', 'qwen/qwen3.8-27b').split(',') if part.strip()),
                        benchmark_runs_per_minute=int(value('BENCHMARK_RUNS_PER_MINUTE', 10)),
                        request_timeout_seconds=float(value('INFERENCE_TIMEOUT_SECONDS', 30)),
                        max_requests_per_run=int(value('INFERENCE_MAX_REQUESTS_PER_RUN', 20)),

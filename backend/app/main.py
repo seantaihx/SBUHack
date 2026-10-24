@@ -1,7 +1,8 @@
 from contextlib import asynccontextmanager
+import asyncio
 from uuid import UUID
 
-from fastapi import FastAPI, Request, Response
+from fastapi import FastAPI, File, Request, Response, UploadFile
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse, FileResponse
 from starlette.exceptions import HTTPException
@@ -14,6 +15,8 @@ from .store import RunActive, Store
 from .errors import APIError
 from .benchmarks.service import BenchmarkService
 from .benchmarks.routes import router as benchmark_router
+from .sources import SourceFailure, parse_csv, parse_pdf, parse_text, parse_webpage
+from .schemas import CreateTextSource, CreateWebpageSource, SourceResponse, SourceSnapshot
 
 def error_response(status: int, error: ErrorInfo) -> JSONResponse:
     return JSONResponse(status_code=status, content=ErrorEnvelope(error=error).model_dump(mode='json'))
@@ -75,6 +78,59 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     async def samples():
         return demo.samples
 
+    def persist_source(request: Request, source: SourceSnapshot):
+        request.app.state.store.create_source(source)
+        return {'source': source}
+
+    def source_error(exc: SourceFailure):
+        raise APIError(exc.status, exc.code, exc.message) from None
+
+    @app.post('/api/v1/sources/text', status_code=201, response_model=SourceResponse, responses={code: {'model': ErrorEnvelope} for code in (400, 413, 422, 500)})
+    async def create_text_source(body: CreateTextSource, request: Request):
+        try:
+            source = await asyncio.to_thread(parse_text, body.text, body.name)
+            return persist_source(request, source)
+        except SourceFailure as exc:
+            source_error(exc)
+
+    @app.post('/api/v1/sources/files', status_code=201, response_model=SourceResponse, responses={code: {'model': ErrorEnvelope} for code in (413, 415, 422, 500)})
+    async def create_file_source(request: Request, file: UploadFile = File(...)):
+        name = file.filename or ''
+        suffix = name.lower().rsplit('.', 1)[-1] if '.' in name else ''
+        if suffix not in {'pdf', 'csv'}:
+            raise APIError(415, 'SOURCE_TYPE_UNSUPPORTED', 'Upload one PDF or CSV file.')
+        from .sources import MAX_FILE_BYTES
+        data = await file.read(MAX_FILE_BYTES + 1)
+        await file.close()
+        if len(data) > MAX_FILE_BYTES:
+            raise APIError(413, 'SOURCE_TOO_LARGE', 'The file exceeds the 10 MiB limit.')
+        try:
+            source = await asyncio.to_thread(parse_pdf if suffix == 'pdf' else parse_csv, data, name)
+            return persist_source(request, source)
+        except SourceFailure as exc:
+            source_error(exc)
+
+    @app.post('/api/v1/sources/webpage', status_code=201, response_model=SourceResponse, responses={code: {'model': ErrorEnvelope} for code in (400, 413, 415, 422, 502, 504, 500)})
+    async def create_webpage_source(body: CreateWebpageSource, request: Request):
+        try:
+            source = await asyncio.to_thread(parse_webpage, body.url)
+            return persist_source(request, source)
+        except SourceFailure as exc:
+            source_error(exc)
+
+    @app.get('/api/v1/sources/{source_id}', response_model=SourceResponse, responses={code: {'model': ErrorEnvelope} for code in (404, 422, 500)})
+    async def get_source(source_id: UUID, request: Request):
+        source = request.app.state.store.get_source(str(source_id))
+        if source is None:
+            raise APIError(404, 'SOURCE_NOT_FOUND', 'This source preview expired or was not found.')
+        return {'source': source}
+
+    @app.delete('/api/v1/sources/{source_id}', status_code=204, responses={code: {'model': ErrorEnvelope} for code in (404, 409, 422, 500)})
+    async def delete_source(source_id: UUID, request: Request):
+        if not request.app.state.store.delete_source(str(source_id)):
+            raise APIError(404, 'SOURCE_NOT_FOUND', 'This source preview expired or was not found.')
+        return Response(status_code=204)
+
     @app.post('/api/v1/runs', status_code=202, response_model=Run,
               responses={code: {'model': ErrorEnvelope} for code in (409, 422, 503, 500)})
     async def create_run(body: CreateRun, request: Request, response: Response):
@@ -90,7 +146,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             run = request.app.state.runner.submit(body)
         except RunActive as exc:
             raise APIError(409, 'RUN_ALREADY_ACTIVE', 'A comparison is already running.',
-                           {'active_run_id': exc.run_id}) from None
+                           {'active_run_id': exc.run_id, 'active_run_kind': exc.kind}) from None
         response.headers['Location'] = f'/api/v1/runs/{run.id}'
         return run
 

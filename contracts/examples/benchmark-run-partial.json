@@ -27,7 +27,9 @@
     "input_tokens": 60,
     "output_tokens": 20,
     "total_requests": 1,
-    "error_count": 0
+    "error_count": 0,
+    "evaluated_cases": 1,
+    "incomplete_cases": 0
   },
   "candidate_metrics": {
     "total_cases": 1,
@@ -39,7 +41,9 @@
     "input_tokens": null,
     "output_tokens": null,
     "total_requests": 1,
-    "error_count": 1
+    "error_count": 1,
+    "evaluated_cases": 0,
+    "incomplete_cases": 0
   },
   "created_at": "2026-10-24T17:23:42.970583Z",
   "started_at": "2026-10-24T17:23:42.971846Z",
