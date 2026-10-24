@@ -1,0 +1,86 @@
+{
+  "fixture_version": "1.0.0",
+  "contract": "EcoAgent API v1",
+  "execution_status": "prepared_not_run",
+  "source": "EcoAgent-repo-kit/contracts/examples and docs/02-api-and-data.md",
+  "cases": [
+    {
+      "id": "demo-routing-baseline-optimized",
+      "purpose": "Compare baseline and task-aware routing for the exact sample workload",
+      "request": {
+        "mode": "demo",
+        "sample_task_selection": "all tasks from GET /api/v1/sample-tasks, unchanged",
+        "carbon_intensity_g_per_kwh": 400
+      },
+      "expected_behavior": [
+        "POST returns 202 with a run id and Location header",
+        "Each requested task has baseline and optimized attempts in request order",
+        "Backend policy version and route reasons are present in the run snapshot",
+        "Only complete comparable pairs contribute to aggregate cohort counts"
+      ],
+      "pass_conditions": [
+        "Terminal state is completed, partial, or failed; polling does not fabricate completion",
+        "Every non-null aggregate equals aggregation of eligible backend result pairs using the documented API rules",
+        "Missing metrics are null and display as Unavailable in the UI",
+        "A negative saved value is preserved and labeled as an increase"
+      ],
+      "answer_correctness": {
+        "method": "Human review against each task's stated expected facts; do not infer equivalence from successful status",
+        "automated_score": null,
+        "pass_condition": "Reviewer records supported facts, material omissions, and contradictions for both outputs; no quality pass is claimed without an agreed rubric"
+      },
+      "measurement_provenance": "simulated demo values; energy and carbon illustrative"
+    },
+    {
+      "id": "demo-single-task-and-null-cohorts",
+      "purpose": "Check single-task selection and unavailable metrics",
+      "request": {
+        "mode": "demo",
+        "sample_task_selection": "one exact task object from GET /api/v1/sample-tasks",
+        "carbon_intensity_g_per_kwh": 0
+      },
+      "expected_behavior": [
+        "The server accepts a non-empty exact subset of sample tasks",
+        "Response retains the selected task for refresh restoration",
+        "Zero carbon intensity produces zero carbon totals for eligible energy pairs and a null carbon-savings percentage when its denominator is zero"
+      ],
+      "pass_conditions": [
+        "Exactly two attempts are returned for the selected task when the deterministic demo fixture completes both policies",
+        "No absent usage or metric is converted to numeric zero",
+        "A null carbon-savings percentage is rendered Unavailable"
+      ],
+      "answer_correctness": {
+        "method": "Human review against task-specific expected facts",
+        "automated_score": null,
+        "pass_condition": "No equivalence claim; record correctness observations separately from routing/metric checks"
+      },
+      "measurement_provenance": "simulated demo values; carbon intensity is a scenario input"
+    },
+    {
+      "id": "live-capability-and-safe-failure",
+      "purpose": "Ensure Live behavior follows backend capability and never silently falls back",
+      "precondition": "Use a development configuration that intentionally reports Live unavailable, then separately a provider-enabled configuration approved by the backend owner",
+      "request": {
+        "mode": "live",
+        "tasks": "valid task objects created in the UI",
+        "carbon_intensity_g_per_kwh": 400
+      },
+      "expected_behavior": [
+        "When live_enabled is false, UI disables Live submission and shows live_disabled_reason",
+        "If an enabled Live request returns 503 LIVE_UNAVAILABLE, UI displays the backend reason and preserves Live mode",
+        "No provider secret is sent from or stored in browser code"
+      ],
+      "pass_conditions": [
+        "No Demo POST is issued after a Live request fails",
+        "Provider failures appear on the corresponding attempt with unavailable numeric fields",
+        "Observed provenance is shown only when the backend marks the run observed"
+      ],
+      "answer_correctness": {
+        "method": "Use a separately approved task rubric and human evaluation; v1 provides no quality evaluator",
+        "automated_score": null,
+        "pass_condition": "Do not report equal quality without a predeclared evaluation and results"
+      },
+      "measurement_provenance": "depends on backend measurement_source; estimates remain estimates"
+    }
+  ]
+}

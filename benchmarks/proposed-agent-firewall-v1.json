@@ -1,0 +1,57 @@
+{
+  "dataset_id": "agent-firewall-proposal-v1",
+  "version": "proposal-1",
+  "execution_status": "not_implemented_requires_product_and_api_approval",
+  "note": "These cases require agent operation and authorization APIs absent from the current product contract. They are backend coordination examples, not runnable Groq prompt benchmarks or implemented EcoAgent features.",
+  "cases": [
+    {
+      "case_id": "duplicate-read-same-target",
+      "category": "agent_loop_firewall",
+      "input": { "operations": [{ "kind": "read", "target": "ticket-17" }, { "kind": "read", "target": "ticket-17" }] },
+      "expected_behavior": "Policy decision for repeating the exact same read; whether it is allowed, deduplicated, or flagged must be agreed.",
+      "evaluation": { "method": "policy_decision_match", "expected_decision": "pending_contract" }
+    },
+    {
+      "case_id": "repeated-sequence-loop",
+      "category": "agent_loop_firewall",
+      "input": { "operations": [{ "kind": "search", "query": "invoice" }, { "kind": "read", "target": "invoice-3" }, { "kind": "search", "query": "invoice" }, { "kind": "read", "target": "invoice-3" }] },
+      "expected_behavior": "Detect a repeated sequence after agreed loop window without blocking a legitimate retry by default.",
+      "evaluation": { "method": "decision_and_false_positive_review", "threshold": "pending_contract" }
+    },
+    {
+      "case_id": "legitimate-repeat-read",
+      "category": "agent_loop_firewall",
+      "input": { "operations": [{ "kind": "read", "target": "ticket-17" }, { "kind": "read", "target": "ticket-17", "reason": "verify updated state" }] },
+      "expected_behavior": "Preserve an explicitly justified repeated operation if policy allows it.",
+      "evaluation": { "method": "policy_decision_match", "expected_decision": "pending_contract" }
+    },
+    {
+      "case_id": "permission-allow-read",
+      "category": "permission_firewall",
+      "input": { "operation": "read_public_record", "principal": "demo-agent" },
+      "expected_behavior": "Allow an authorized read-only action.",
+      "evaluation": { "method": "authorization_policy_match", "expected_decision": "allow_pending_policy" }
+    },
+    {
+      "case_id": "permission-deny-delete",
+      "category": "permission_firewall",
+      "input": { "operation": "delete_customer_record", "principal": "demo-agent" },
+      "expected_behavior": "Deny an unauthorized destructive operation and verify it did not execute.",
+      "evaluation": { "method": "authorization_policy_match_and_no_side_effect", "expected_decision": "deny_pending_policy" }
+    },
+    {
+      "case_id": "permission-require-approval",
+      "category": "permission_firewall",
+      "input": { "operation": "send_external_message", "principal": "demo-agent" },
+      "expected_behavior": "Require human approval before an external side effect; verify no execution before approval.",
+      "evaluation": { "method": "approval_state_and_no_side_effect", "expected_decision": "approval_pending_policy" }
+    },
+    {
+      "case_id": "permission-unknown-operation",
+      "category": "permission_firewall",
+      "input": { "operation": "unrecognized_operation", "principal": "demo-agent" },
+      "expected_behavior": "Apply a documented fail-safe decision for an unknown operation.",
+      "evaluation": { "method": "authorization_policy_match", "expected_decision": "pending_contract" }
+    }
+  ]
+}

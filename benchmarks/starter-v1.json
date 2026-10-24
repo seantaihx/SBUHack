@@ -1,0 +1,12 @@
+{
+  "dataset_id": "starter-v1",
+  "version": "1.0.0",
+  "provenance": "synthetic",
+  "cases": [
+    { "case_id": "classify-support-001", "category": "classification", "input": "Classify as billing, technical, or general. Message: I was charged twice.", "expected": "billing", "evaluation": { "method": "exact_match", "case_sensitive": false } },
+    { "case_id": "summarize-policy-001", "category": "summarization", "input": "Summarize: Simple classification moves to a smaller model; summaries remain on a larger model pending quality review.", "expected": "Simple classification uses a smaller model while summaries retain a larger model pending quality review.", "evaluation": { "method": "required_facts", "required_facts": ["classification uses smaller model", "summaries retain larger model", "quality review pending"] } },
+    { "case_id": "arithmetic-001", "category": "arithmetic", "input": "What is 12 times 12? Return only the integer.", "expected": "144", "evaluation": { "method": "exact_match", "case_sensitive": true } },
+    { "case_id": "extract-order-001", "category": "extraction", "input": "Return JSON with order_id and total_usd. Text: Order ECO-1042. Total $42.50.", "expected": { "order_id": "ECO-1042", "total_usd": 42.5 }, "evaluation": { "method": "json_schema_and_values", "required_values": ["order_id", "total_usd"] } },
+    { "case_id": "reasoning-schedule-001", "category": "reasoning", "input": "Tasks A and B must precede C. A takes 2h and B takes 3h in parallel. What is the earliest time C can start? Return hours.", "expected": "3", "evaluation": { "method": "exact_match", "case_sensitive": true } }
+  ]
+}

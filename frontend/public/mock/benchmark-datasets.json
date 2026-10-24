@@ -1,0 +1,14 @@
+{
+  "datasets": [
+    {
+      "dataset_id": "starter-v1",
+      "name": "EcoAgent Starter",
+      "version": "1.0.0",
+      "description": "Small objective-check workload for routing and structured responses.",
+      "case_count": 5,
+      "categories": ["classification", "summarization", "arithmetic", "extraction", "reasoning"],
+      "supported_models": ["openai/gpt-oss-20b", "openai/gpt-oss-120b"],
+      "provenance": "synthetic"
+    }
+  ]
+}

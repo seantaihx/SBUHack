@@ -1,0 +1,147 @@
+{
+  "id": "b7523d30-e051-481c-8934-f77ca6c22e7d",
+  "status": "completed",
+  "mode": "demo",
+  "measurement_source": "simulated",
+  "policy_version": "task-routing-v1",
+  "energy_estimation_profile": "illustrative-v1",
+  "carbon_intensity_g_per_kwh": 400,
+  "tasks": [
+    {
+      "id": "classify-1",
+      "type": "classify",
+      "prompt": "Classify this support message as billing, technical, or general. Return one label only. Message: I was charged twice for my subscription."
+    },
+    {
+      "id": "extract-1",
+      "type": "extract",
+      "prompt": "Extract the order ID and total from this text. Return JSON only with keys order_id and total_usd. Text: Order ECO-1042 was confirmed. Total: $42.50."
+    },
+    {
+      "id": "summarize-1",
+      "type": "summarize",
+      "prompt": "Summarize in one sentence: The team moved simple classification requests to a smaller model, retained the larger model for summaries, and planned further quality evaluation before deployment."
+    }
+  ],
+  "created_at": "2026-10-24T16:00:00Z",
+  "started_at": "2026-10-24T16:00:00Z",
+  "finished_at": "2026-10-24T16:00:01Z",
+  "total_attempts": 6,
+  "completed_attempts": 6,
+  "results": [
+    {
+      "task_id": "classify-1",
+      "policy": "baseline",
+      "model_role": "large",
+      "model_id": "demo-large",
+      "output_text": "billing",
+      "input_tokens": 40,
+      "output_tokens": 3,
+      "latency_ms": 1200,
+      "routing_reason": "baseline_large",
+      "status": "succeeded",
+      "estimated_energy_wh": 0.0052,
+      "estimated_carbon_g": 0.00208,
+      "error": null
+    },
+    {
+      "task_id": "classify-1",
+      "policy": "optimized",
+      "model_role": "small",
+      "model_id": "demo-small",
+      "output_text": "billing",
+      "input_tokens": 40,
+      "output_tokens": 3,
+      "latency_ms": 350,
+      "routing_reason": "simple_task_small",
+      "status": "succeeded",
+      "estimated_energy_wh": 0.0010400000000000001,
+      "estimated_carbon_g": 0.0004160000000000001,
+      "error": null
+    },
+    {
+      "task_id": "extract-1",
+      "policy": "baseline",
+      "model_role": "large",
+      "model_id": "demo-large",
+      "output_text": "{\"order_id\":\"ECO-1042\",\"total_usd\":42.5}",
+      "input_tokens": 60,
+      "output_tokens": 25,
+      "latency_ms": 1500,
+      "routing_reason": "baseline_large",
+      "status": "succeeded",
+      "estimated_energy_wh": 0.016,
+      "estimated_carbon_g": 0.0063999999999999994,
+      "error": null
+    },
+    {
+      "task_id": "extract-1",
+      "policy": "optimized",
+      "model_role": "small",
+      "model_id": "demo-small",
+      "output_text": "{\"order_id\":\"ECO-1042\",\"total_usd\":42.5}",
+      "input_tokens": 60,
+      "output_tokens": 25,
+      "latency_ms": 500,
+      "routing_reason": "simple_task_small",
+      "status": "succeeded",
+      "estimated_energy_wh": 0.0032,
+      "estimated_carbon_g": 0.00128,
+      "error": null
+    },
+    {
+      "task_id": "summarize-1",
+      "policy": "baseline",
+      "model_role": "large",
+      "model_id": "demo-large",
+      "output_text": "The team routed simple classification to a smaller model, kept summaries on a larger model, and planned quality evaluation before deployment.",
+      "input_tokens": 70,
+      "output_tokens": 38,
+      "latency_ms": 2000,
+      "routing_reason": "baseline_large",
+      "status": "succeeded",
+      "estimated_energy_wh": 0.0222,
+      "estimated_carbon_g": 0.00888,
+      "error": null
+    },
+    {
+      "task_id": "summarize-1",
+      "policy": "optimized",
+      "model_role": "large",
+      "model_id": "demo-large",
+      "output_text": "The team routed simple classification to a smaller model, kept summaries on a larger model, and planned quality evaluation before deployment.",
+      "input_tokens": 70,
+      "output_tokens": 38,
+      "latency_ms": 1900,
+      "routing_reason": "summary_large",
+      "status": "succeeded",
+      "estimated_energy_wh": 0.0222,
+      "estimated_carbon_g": 0.00888,
+      "error": null
+    }
+  ],
+  "comparison": {
+    "successful_pairs": 3,
+    "energy_pairs": 3,
+    "latency_pairs": 3,
+    "energy_wh": {
+      "baseline": 0.0434,
+      "optimized": 0.02644,
+      "saved": 0.01696,
+      "savings_pct": 39.07834101382488
+    },
+    "carbon_g": {
+      "baseline": 0.01736,
+      "optimized": 0.010576,
+      "saved": 0.006784,
+      "savings_pct": 39.07834101382488
+    },
+    "latency_ms": {
+      "baseline": 4700,
+      "optimized": 2750,
+      "saved": 1950,
+      "savings_pct": 41.48936170212766
+    }
+  },
+  "run_error": null
+}
