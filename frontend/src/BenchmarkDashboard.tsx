@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { benchmarkApi } from './api/client';
+import { ApiError, benchmarkApi } from './api/client';
 import type { BenchmarkCase, BenchmarkDataset, BenchmarkRun, StartBenchmarkRequest } from './api/types';
 
 const missing = 'Unavailable';
@@ -8,7 +8,7 @@ const metric = (value: number | null, suffix = '') => value === null ? missing :
 const money = (value: number | null) => value === null ? missing : `$${value.toFixed(4)}`;
 const statusText: Record<BenchmarkRun['status'], string> = { queued: 'Queued', running: 'Running', completed: 'Completed', partial: 'Partial', failed: 'Failed', cancelled: 'Cancelled' };
 
-export default function BenchmarkDashboard() {
+export default function BenchmarkDashboard({ initialRunId = null, onOpenComparisonRun = () => {} }: { initialRunId?: string | null; onOpenComparisonRun?: (runId: string) => void } = {}) {
   const [datasets, setDatasets] = useState<BenchmarkDataset[]>([]);
   const [runs, setRuns] = useState<BenchmarkRun[]>([]);
   const [runsCursor, setRunsCursor] = useState<string | null>(null);
@@ -23,9 +23,11 @@ export default function BenchmarkDashboard() {
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
   const [pollError, setPollError] = useState<string | null>(null);
   const [loadingCases, setLoadingCases] = useState(false);
   const lock = useRef(false);
+  const openedInitialRun = useRef<string | null>(null);
   const selectedDataset = datasets.find((item) => item.dataset_id === datasetId);
 
   useEffect(() => {
@@ -71,11 +73,29 @@ export default function BenchmarkDashboard() {
     return () => controller.abort();
   }, [run?.run_id, run?.status]);
 
-  const openRun = async (runId: string) => {
+  const updateBenchmarkUrl = (runId: string | null) => {
+    const url = new URL(window.location.href);
+    url.searchParams.delete('run');
+    if (runId) url.searchParams.set('benchmark', runId); else url.searchParams.delete('benchmark');
+    window.history.replaceState({}, '', url);
+  };
+
+  const openRun = async (runId: string, showNotice = false) => {
     setError(null); setPollError(null); setPendingRunId(null); setCases([]); setCasesCursor(null);
-    try { setRun(await benchmarkApi.getRun(runId)); }
+    try {
+      const snapshot = await benchmarkApi.getRun(runId);
+      setRun(snapshot);
+      updateBenchmarkUrl(runId);
+      if (showNotice) setNotice('Opened the active benchmark identified by the backend.');
+    }
     catch (reason) { setError(reason instanceof Error ? reason.message : 'Could not open this benchmark run.'); }
   };
+
+  useEffect(() => {
+    if (!initialRunId || loading || openedInitialRun.current === initialRunId) return;
+    openedInitialRun.current = initialRunId;
+    void openRun(initialRunId, true);
+  }, [initialRunId, loading]);
 
   const retryProgress = async () => {
     const runId = pendingRunId ?? run?.run_id;
@@ -114,7 +134,16 @@ export default function BenchmarkDashboard() {
       setPendingRunId(created.run_id);
       const initial = await benchmarkApi.getRun(created.run_id);
       setPendingRunId(null); setRun(initial); setRuns((items) => [initial, ...items.filter((item) => item.run_id !== initial.run_id)]);
-    } catch (reason) { setError(reason instanceof Error ? reason.message : 'Could not start the benchmark.'); }
+      updateBenchmarkUrl(initial.run_id);
+    } catch (reason) {
+      if (reason instanceof ApiError && reason.status === 409) {
+        const activeId = reason.details?.active_run_id;
+        const activeKind = reason.details?.active_run_kind;
+        if (typeof activeId === 'string' && activeKind === 'benchmark') await openRun(activeId, true);
+        else if (typeof activeId === 'string' && activeKind === 'comparison') onOpenComparisonRun(activeId);
+        else setError(`${reason.message} The backend did not identify the active run type, so it cannot be opened safely. No request was resubmitted. This contract gap is documented for Sean.`);
+      } else setError(reason instanceof Error ? reason.message : 'Could not start the benchmark.');
+    }
     finally { lock.current = false; setSubmitting(false); }
   };
 
@@ -128,6 +157,7 @@ export default function BenchmarkDashboard() {
     <div className="benchmark-intro"><div><span className="section-kicker">BENCHMARK LAB</span><h1 id="benchmark-title">Compare model configurations</h1><p>Submit workloads to the EcoAgent backend and review its evaluation results. The browser never calls Groq directly.</p></div><span className={`provenance-pill ${run?.measurement_source ?? (benchmarkApi.isMock ? 'simulated' : 'pending')}`}><span />{run?.measurement_source.toUpperCase() ?? (benchmarkApi.isMock ? 'SIMULATED FIXTURES' : 'SOURCE PENDING')}</span></div>
 
     {error && <div className="error-box compact" role="alert"><span>{error}</span>{pendingRunId && <button className="text-button" onClick={() => void retryProgress()}>Check submitted run</button>}</div>}
+    {notice && <div className="notice-strip" role="status">{notice}</div>}
     {pollError && <div className="error-box compact" role="alert"><span>{pollError}</span><button className="text-button" onClick={() => void retryProgress()}>Retry progress</button></div>}
     {loading ? <div className="loading-row" role="status">Loading benchmark datasets…</div> : datasets.length === 0 ? <div className="empty-state"><p>NO DATASETS AVAILABLE</p><span>The benchmark API returned no datasets.</span></div> : <>
       <section className="benchmark-config panel" aria-labelledby="benchmark-config-title"><div className="panel-heading"><div><div className="section-kicker">01 / CONFIGURE</div><h2 id="benchmark-config-title">Benchmark workload</h2></div><span className="policy-chip">{selectedDataset?.case_count ?? 0} cases available</span></div>

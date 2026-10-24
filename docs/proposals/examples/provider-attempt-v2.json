@@ -1,0 +1,65 @@
+{
+  "task_id": "classify-1",
+  "policy": "optimized",
+  "model_role": "small",
+  "model_id": "configured-model-id",
+  "routing_reason": "simple_task_small",
+  "status": "succeeded",
+  "output_text": "billing",
+  "latency_ms": 245,
+  "input_tokens": 30,
+  "output_tokens": 2,
+  "estimated_energy_wh": null,
+  "estimated_carbon_g": null,
+  "error": null,
+  "observation": {
+    "provider": "openai",
+    "requested_model_id": "configured-model-id",
+    "returned_model_id": "provider-returned-model-id",
+    "provider_request_id": "req_example_redacted",
+    "endpoint_identity": "https://api.openai.com/v1/responses",
+    "started_at": "2026-10-24T17:00:00Z",
+    "completed_at": "2026-10-24T17:00:00.245Z",
+    "effective_input": {
+      "messages": [
+        { "role": "system", "content": "Configured shared system instruction." },
+        { "role": "user", "content": "Classify this support message as billing, technical, or general." }
+      ],
+      "generation_parameters": { "temperature": "0", "max_output_tokens": 256 }
+    },
+    "output_completeness": {
+      "complete": true,
+      "finish_reason": "stop",
+      "refusal": false,
+      "incomplete_reason": null
+    },
+    "provider_usage": {
+      "source": "provider_reported",
+      "complete": true,
+      "input_tokens": 30,
+      "output_tokens": 2,
+      "categories": {
+        "input_uncached_tokens": 30,
+        "input_cache_read_tokens": null,
+        "input_cache_write_tokens": null,
+        "reasoning_output_tokens_subset": null
+      },
+      "raw_allowlisted": { "input_tokens": 30, "output_tokens": 2 }
+    },
+    "cost_estimate": {
+      "status": "unavailable",
+      "basis": "reported_usage_and_rate_snapshot",
+      "currency": "USD",
+      "total": null,
+      "known_subtotal": null,
+      "components": {
+        "input_uncached": null,
+        "input_cache_read": null,
+        "input_cache_write": null,
+        "output": null
+      },
+      "rate_snapshot_id": null
+    },
+    "sanitized_metadata": {}
+  }
+}

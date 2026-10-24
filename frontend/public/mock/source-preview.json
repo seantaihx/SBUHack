@@ -1,0 +1,22 @@
+{
+  "pdf": {
+    "kind": "pdf",
+    "label": "Synthetic PDF parser fixture",
+    "extracted_text": "Synthetic page 1: Annual utilization for 2015 is 91.0%.\nSynthetic page 2: This fixture is not derived from an uploaded PDF.",
+    "character_count": 123,
+    "unit_count": 2,
+    "references": [
+      { "kind": "pdf_page", "page_number": 1, "excerpt": "Annual utilization for 2015 is 91.0%." }
+    ]
+  },
+  "csv": {
+    "kind": "csv",
+    "label": "Synthetic CSV parser fixture",
+    "extracted_text": "year,utilization,note\n2015,91.0%,\"Quoted, Unicode 雪\"\n2016,,\"missing value\"",
+    "character_count": 74,
+    "unit_count": 2,
+    "references": [
+      { "kind": "csv_cell", "row_number": 2, "column_name": "utilization", "excerpt": "91.0%" }
+    ]
+  }
+}
