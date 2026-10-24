@@ -29,7 +29,7 @@ class Settings:
     base_url: str = 'https://api.groq.com/openai/v1'
     api_key: str = field(default='', repr=False)
     request_timeout_seconds: float = 30
-    max_completion_tokens: int = 16384
+    max_completion_tokens: int = 65536
     max_requests_per_run: int = 20
     max_requests_per_minute: int = 60
     max_run_cost_usd: float = 0.50
@@ -89,7 +89,7 @@ class Settings:
                        base_url=value('INFERENCE_BASE_URL', cls.base_url) or cls.base_url,
                        live_enabled=value('LIVE_ENABLED', 'false').lower() == 'true',
                        benchmark_mode=value('BENCHMARK_INFERENCE_MODE', 'simulated'),
-                       max_completion_tokens=int(value('INFERENCE_MAX_COMPLETION_TOKENS', 16384)),
+                       max_completion_tokens=int(value('INFERENCE_MAX_COMPLETION_TOKENS', 65536)),
                        benchmark_max_cases=int(value('BENCHMARK_MAX_CASES', 10)),
                        benchmark_extra_model_ids=tuple(part.strip() for part in value('BENCHMARK_EXTRA_MODEL_IDS', 'qwen/qwen3.8-27b').split(',') if part.strip()),
                        benchmark_runs_per_minute=int(value('BENCHMARK_RUNS_PER_MINUTE', 10)),

@@ -50,12 +50,12 @@ class BenchmarkService:
             raise APIError(422, 'UNSUPPORTED_MODEL', 'Choose a supported model or the eco-auto candidate policy.')
         if request.baseline.optimization_enabled or request.candidate.optimization_enabled != (request.candidate.model_id == 'eco-auto'):
             raise APIError(422, 'VALIDATION_ERROR', 'Optimization is supported only by the eco-auto candidate.')
+        if self.settings.benchmark_mode == 'groq' and self.settings.live_disabled_reason:
+            raise APIError(503, 'PROVIDER_UNAVAILABLE', self.settings.live_disabled_reason)
         effective_limit = min(effective_limit, self.effective_case_budget(request))
         if request.max_cases > effective_limit:
             raise APIError(422, 'VALIDATION_ERROR', 'The selected models and current server budgets allow fewer cases per run.',
                            {'max_cases_per_run': effective_limit})
-        if self.settings.benchmark_mode == 'groq' and self.settings.live_disabled_reason:
-            raise APIError(503, 'PROVIDER_UNAVAILABLE', self.settings.live_disabled_reason)
         run = BenchmarkRun(run_id=str(uuid4()), status='queued', dataset_id=request.dataset_id,
                            progress=BenchmarkProgress(total=request.max_cases), baseline=request.baseline,
                            candidate=request.candidate, max_cases=request.max_cases,

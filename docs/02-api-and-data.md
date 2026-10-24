@@ -67,8 +67,8 @@ Attempt errors use PROVIDER_TIMEOUT, PROVIDER_AUTH_ERROR, PROVIDER_RATE_LIMITED,
 ## Provider wire format
 
 POST configured base URL + `/chat/completions`:
-`{"model":"<configured model id>","messages":[{"role":"system","content":"Follow the user's task. Be concise. Return only the requested answer."},{"role":"user","content":"<task prompt>"}],"temperature":0,"max_completion_tokens":16384,"stream":false}`.
+`{"model":"<configured model id>","messages":[{"role":"system","content":"Follow the user's task. Be concise. Return only the requested answer."},{"role":"user","content":"<task prompt>"}],"temperature":0,"max_completion_tokens":65536,"stream":false}`.
 
-`max_completion_tokens` comes from the backend-only `INFERENCE_MAX_COMPLETION_TOKENS` setting (default 16384; allowed 1–65536), not from browser input. Known Groq model ceilings clamp this setting (65,536 for GPT-OSS, 16,384 for Qwen 3.8 27B). Both comparison policies share the same configured setting. A provider `finish_reason=length` remains explicitly incomplete; there is no automatic second request. The token cap must fit the selected model and the backend's request/spending limits.
+`max_completion_tokens` comes from the backend-only `INFERENCE_MAX_COMPLETION_TOKENS` setting (default 65536; allowed 1–65536), not from browser input. Known Groq model ceilings clamp this setting (65,536 for GPT-OSS, 16,384 for Qwen 3.8 27B). Both comparison policies share the same configured setting. A provider `finish_reason=length` remains explicitly incomplete; there is no automatic second request. The token cap must fit the selected model and the backend's request/spending limits.
 
 Read `choices[0].message.content` as a string. Missing/invalid choices or content gives PROVIDER_BAD_RESPONSE. Read optional `usage.prompt_tokens` and `usage.completion_tokens` as nonnegative integers; absent/invalid usage yields null for that field and no energy estimate. Do not fail otherwise valid text solely because usage is missing. Authorization: Bearer key only when configured. Verify HTTPS normally; never disable TLS verification. HTTP is acceptable only for operator-configured local/trusted inference.

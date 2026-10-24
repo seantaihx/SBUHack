@@ -41,7 +41,7 @@ def test_groq_wire_and_cost(tmp_path):
         'model': 'openai/gpt-oss-20b', 'messages': [
             {'role': 'system', 'content': "Follow the user's task. Be concise. Return only the requested answer."},
             {'role': 'user', 'content': 'synthetic prompt'}], 'temperature': 0,
-        'max_completion_tokens': 16384, 'stream': False}
+        'max_completion_tokens': 65536, 'stream': False}
     from backend.app.pricing import cost
     assert cost('openai/gpt-oss-20b', 100, 20) == pytest.approx(0.0000135)
     assert cost('openai/gpt-oss-120b', 100, 20) == pytest.approx(0.000027)

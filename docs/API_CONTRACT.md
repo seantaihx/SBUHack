@@ -214,7 +214,7 @@ All routes are under `/api/v1`; the generated, machine-readable source of truth 
 
 ### Live completion length
 
-The backend defaults `INFERENCE_MAX_COMPLETION_TOKENS` to 16384, configurable from 1 to 65536, and sends it as Groq's `max_completion_tokens`. The backend clamps known models to their provider ceilings: 65,536 for GPT-OSS and 16,384 for Qwen 3.8 27B. The same configured setting applies to both sides of a comparison and live benchmark attempts. Live request reservations include 131072 input tokens plus the model-bounded output cap, so a larger cap can lower the effective benchmark case maximum or cause a request to be blocked by existing spend limits. No automatic retry is performed. If the provider returns `finish_reason=length`, the output remains visible but marked incomplete and excluded from benchmark correctness scoring; a provider/context hard limit can still be reached.
+The backend defaults `INFERENCE_MAX_COMPLETION_TOKENS` to 65536, configurable from 1 to 65536, and sends it as Groq's `max_completion_tokens`. The backend clamps known models to their provider ceilings: 65,536 for GPT-OSS and 16,384 for Qwen 3.8 27B. The same configured setting applies to both sides of a comparison and live benchmark attempts. Live request reservations include 131072 input tokens plus the model-bounded output cap, so a larger cap can lower the effective benchmark case maximum or cause a request to be blocked by existing spend limits. No automatic retry is performed. If the provider returns `finish_reason=length`, the output remains visible but marked incomplete and excluded from benchmark correctness scoring; a provider/context hard limit can still be reached.
 
 ### Source import and preview
 

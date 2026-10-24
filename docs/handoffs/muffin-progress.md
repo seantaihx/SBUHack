@@ -110,7 +110,7 @@ npm.cmd run build --prefix frontend
 
 The runnable source requests and exact limits are documented in [`../API_CONTRACT.md`](../API_CONTRACT.md). Source-backed inference remains unavailable until the backend explicitly enables Live and configures a supported provider; the frontend does not silently switch modes.
 
-## Milestone 4 — extend Live completion limit (October 24, 2026)
+## Milestone 4 (historical) — extend Live completion limit (October 24, 2026)
 
 The provider truncation report came from the old fixed 256-token completion cap. Live requests now use Groq's current `max_completion_tokens` parameter. The backend setting `INFERENCE_MAX_COMPLETION_TOKENS` defaults to 2048 and accepts 1–16384. Baseline, optimized, and benchmark attempts share the backend setting. `finish_reason=length` remains visible as incomplete and is never silently accepted or automatically retried.
 
@@ -124,10 +124,19 @@ To raise the cap for a local Live run, set `INFERENCE_MAX_COMPLETION_TOKENS=4096
 
 ## Milestone 5 — raise default to current model output ceilings (October 24, 2026)
 
-The user reported that responses still reached the 2048-token cap. The default is now **16,384** with configurable range 1–65,536. Known Groq model caps are applied before requests and reservations: GPT-OSS 20B/120B at 65,536 and Qwen 3.8 27B at 16,384. Benchmark budget calculations use the same per-model effective cap. The warning now recommends shorter requests or a model with more output capacity instead of suggesting a setting increase that may exceed the selected model's ceiling.
+The user reported that responses still reached the 2048-token cap. The default is now **65,536** with configurable range 1–65,536. Known Groq model caps are applied before requests and reservations: GPT-OSS 20B/120B at 65,536 and Qwen 3.8 27B at 16,384. Benchmark budget calculations use the same per-model effective cap. The warning recommends shorter requests or a model with more output capacity instead of suggesting a setting increase that may exceed the selected model's ceiling.
 
-The effective setting in the current shell is 16,384, with no environment override. The backend process already listening on port 8000 was started before this update and must be restarted to load the new default. I left that user process running. No provider request was sent.
+The effective setting after this update is 65,536, with no environment override in the current shell. The backend process already listening on port 8000 was started before this update and must be restarted to load the new default. I left that user process running. No provider request was sent.
 
-Verification after this change: **146 backend tests passed**, **45 frontend tests passed**, typecheck and production build passed. Added tests verify provider-specific limits, wire payload, reservation amount, and cost-based benchmark case caps.
+To apply it locally: stop the old backend with Ctrl+C, then from the repository root run:
+
+```powershell
+$env:INFERENCE_MAX_COMPLETION_TOKENS = "65536"
+.\.venv\Scripts\python.exe -m uvicorn backend.app.main:app --host 127.0.0.1 --port 8000 --workers 1
+```
+
+The explicit setting overrides any stale shell value. Do not place it in a `VITE_*` variable.
+
+Verification after this change: **146 backend tests passed**, **45 frontend tests passed**, typecheck and production build passed. Added tests verify provider-specific limits, wire payload, reservation amount, and cost-based benchmark case caps. Live-disabled benchmark requests return the backend's 503 reason before budget preflight.
 
 Hard provider/context limits still exist, so an unusually long response can still return `finish_reason=length`. The UI keeps such output marked incomplete; no unsafe automatic continuation is added.
