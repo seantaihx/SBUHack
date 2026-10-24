@@ -278,6 +278,22 @@ def test_live_model_pair_case_cap_accounts_for_reserved_cost_before_submission(t
         assert client.app.state.store.remaining_daily_cost(settings) == settings.max_daily_cost_usd
 
 
+def test_extended_completion_budget_reduces_benchmark_case_cap(tmp_path):
+    from backend.app.main import create_app
+    from backend.app.settings import Settings
+    settings = Settings(database_path=tmp_path / 'extended-priced.sqlite3', live_enabled=True,
+                        api_key='test-only-placeholder', benchmark_mode='groq', max_completion_tokens=8192)
+    with TestClient(create_app(settings)) as client:
+        response = client.post(BASE + '/runs', json={
+            'dataset_id': 'starter-v2',
+            'baseline': {'model_id': 'qwen/qwen3.8-27b', 'optimization_enabled': False},
+            'candidate': {'model_id': 'qwen/qwen3.8-27b', 'optimization_enabled': False},
+            'max_cases': 2,
+        })
+        assert response.status_code == 422
+        assert response.json()['error']['details']['max_cases_per_run'] == 1
+
+
 def test_structurally_valid_but_invalid_history_cursor_is_rejected(client):
     import base64
     import json

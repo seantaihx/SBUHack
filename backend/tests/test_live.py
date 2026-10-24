@@ -40,7 +40,8 @@ def test_groq_wire_and_cost(tmp_path):
     assert json.loads(req.content) == {
         'model': 'openai/gpt-oss-20b', 'messages': [
             {'role': 'system', 'content': "Follow the user's task. Be concise. Return only the requested answer."},
-            {'role': 'user', 'content': 'synthetic prompt'}], 'temperature': 0, 'max_tokens': 256, 'stream': False}
+            {'role': 'user', 'content': 'synthetic prompt'}], 'temperature': 0,
+        'max_completion_tokens': 2048, 'stream': False}
     from backend.app.pricing import cost
     assert cost('openai/gpt-oss-20b', 100, 20) == pytest.approx(0.0000135)
     assert cost('openai/gpt-oss-120b', 100, 20) == pytest.approx(0.000027)
@@ -124,6 +125,31 @@ def test_known_usage_reconciles_reservation_and_run_request_cap(tmp_path):
         assert db.execute('SELECT SUM(cost_usd) FROM inference_reservations').fetchone()[0] == pytest.approx(0.0000135)
     with pytest.raises(ProviderError, match='PROVIDER_RATE_LIMITED'):
         asyncio.run(provider.infer('test', 'openai/gpt-oss-20b', 'run1'))
+
+
+def test_extended_completion_limit_is_sent_and_reserved(tmp_path):
+    from backend.app.pricing import cost
+    calls = []
+    def handler(request):
+        calls.append(request)
+        return httpx.Response(200, json=success({}))
+    provider, store, settings = setup_provider(
+        tmp_path, handler,
+        max_completion_tokens=4096,
+    )
+    asyncio.run(provider.infer('synthetic long answer request', 'openai/gpt-oss-20b', 'extended-run'))
+    assert json.loads(calls[0].content)['max_completion_tokens'] == 4096
+    assert 'max_tokens' not in json.loads(calls[0].content)
+    with store._connect() as db:
+        reserved = db.execute('SELECT cost_usd FROM inference_reservations').fetchone()[0]
+    assert reserved == pytest.approx(cost('openai/gpt-oss-20b', 131072, 4096))
+
+
+@pytest.mark.parametrize('limit', [0, -1, 16385, True])
+def test_completion_limit_must_fit_supported_range(tmp_path, limit):
+    from backend.app.settings import Settings
+    with pytest.raises(ValueError, match='INFERENCE_MAX_COMPLETION_TOKENS'):
+        Settings(database_path=tmp_path / 'invalid-limit.sqlite3', max_completion_tokens=limit)
 
 
 def test_live_api_does_not_fallback_and_keeps_null_usage(tmp_path):

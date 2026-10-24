@@ -22,11 +22,13 @@ class LiveProvider:
             raise ProviderError('PROVIDER_UNAVAILABLE')
         # Full advertised context + output ceiling is a conservative reservation,
         # NOT an estimate of missing usage. Unknown/failed usage retains it.
-        ceiling = cost(model_id, 131072, 256)
+        completion_limit = self.settings.max_completion_tokens
+        ceiling = cost(model_id, 131072, completion_limit)
         reservation = self.store.reserve_inference(run_id, ceiling, self.settings)
         headers = {'Authorization': 'Bearer ' + self.settings.api_key} if self.settings.api_key else {}
         payload = {'model': model_id, 'messages': [{'role': 'system', 'content': SYSTEM_MESSAGE},
-                   {'role': 'user', 'content': prompt}], 'temperature': 0, 'max_tokens': 256, 'stream': False}
+                   {'role': 'user', 'content': prompt}], 'temperature': 0,
+                   'max_completion_tokens': completion_limit, 'stream': False}
         try:
             async with asyncio.timeout(self.settings.request_timeout_seconds):
                 async with httpx.AsyncClient(timeout=self.settings.request_timeout_seconds, follow_redirects=False,

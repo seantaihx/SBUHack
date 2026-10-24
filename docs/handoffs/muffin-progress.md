@@ -109,3 +109,15 @@ npm.cmd run build --prefix frontend
 ```
 
 The runnable source requests and exact limits are documented in [`../API_CONTRACT.md`](../API_CONTRACT.md). Source-backed inference remains unavailable until the backend explicitly enables Live and configures a supported provider; the frontend does not silently switch modes.
+
+## Milestone 4 — extend Live completion limit (October 24, 2026)
+
+The provider truncation report came from the old fixed 256-token completion cap. Live requests now use Groq's current `max_completion_tokens` parameter. The backend setting `INFERENCE_MAX_COMPLETION_TOKENS` defaults to 2048 and accepts 1–16384. Baseline, optimized, and benchmark attempts share the backend setting. `finish_reason=length` remains visible as incomplete and is never silently accepted or automatically retried.
+
+The budget guard reserves 131072 input tokens plus the configured completion cap for every Live call. Benchmark admission uses the same configured cap when returning its allowed case maximum; increasing the token limit can reduce cases per run or be blocked by existing spend limits. No spending limit was raised.
+
+Changed: `backend/app/settings.py`, `backend/app/providers/live.py`, `backend/app/benchmarks/service.py`, focused provider/benchmark tests, `.env.example`, README, architecture/API contract docs, and the frontend truncation warning.
+
+Verification: **145 backend tests passed**, **45 frontend tests passed**, frontend typecheck and production build passed. Live tests used HTTPX MockTransport only; no key was read and no provider request was sent. The maximum-token parameter is covered by wire and reservation tests. The existing build output remains ready; no browser screenshot was taken for this backend setting change.
+
+To raise the cap for a local Live run, set `INFERENCE_MAX_COMPLETION_TOKENS=4096` in the backend's private root `.env`, confirm that value is below the selected model's provider limit, and restart the backend. Do not put it in a `VITE_*` variable. The default 2048 should already prevent the common 256-token cutoff.

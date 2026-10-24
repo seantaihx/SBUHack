@@ -212,6 +212,10 @@ The active-run navigation limitation noted during initial integration has since 
 
 All routes are under `/api/v1`; the generated, machine-readable source of truth is [`../contracts/openapi.json`](../contracts/openapi.json).
 
+### Live completion length
+
+The backend defaults `INFERENCE_MAX_COMPLETION_TOKENS` to 2048, configurable from 1 to 16384, and sends it as Groq's `max_completion_tokens`. The same configured cap applies to both sides of a comparison and to live benchmark attempts. Model-specific/provider ceilings still apply. Live request reservations include 131072 input tokens plus the configured output cap, so a larger cap can lower the effective benchmark case maximum or cause a request to be blocked by existing spend limits. No automatic retry is performed. If the provider returns `finish_reason=length`, the output remains visible but marked incomplete and excluded from benchmark correctness scoring.
+
 ### Source import and preview
 
 | Route | Request | Response |
