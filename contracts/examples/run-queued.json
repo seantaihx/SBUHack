@@ -53,6 +53,13 @@
       "optimized": null,
       "saved": null,
       "savings_pct": null
+    },
+    "measured_gpu_energy_pairs": 0,
+    "measured_gpu_energy_wh": {
+      "saved": null,
+      "optimized": null,
+      "baseline": null,
+      "savings_pct": null
     }
   },
   "run_error": null,

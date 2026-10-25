@@ -5292,6 +5292,12 @@
             "title": "Energy Pairs",
             "default": 0
           },
+          "measured_gpu_energy_pairs": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Measured Gpu Energy Pairs",
+            "default": 0
+          },
           "latency_pairs": {
             "type": "integer",
             "minimum": 0.0,
@@ -5299,6 +5305,9 @@
             "default": 0
           },
           "energy_wh": {
+            "$ref": "#/components/schemas/ComparisonMetric"
+          },
+          "measured_gpu_energy_wh": {
             "$ref": "#/components/schemas/ComparisonMetric"
           },
           "carbon_g": {
@@ -5313,8 +5322,10 @@
         "required": [
           "successful_pairs",
           "energy_pairs",
+          "measured_gpu_energy_pairs",
           "latency_pairs",
           "energy_wh",
+          "measured_gpu_energy_wh",
           "carbon_g",
           "latency_ms"
         ],
@@ -5689,6 +5700,115 @@
             ],
             "title": "Estimated Carbon G"
           },
+          "measured_gpu_energy_wh": {
+            "anyOf": [
+              {
+                "type": "number",
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Measured Gpu Energy Wh"
+          },
+          "gpu_energy_measurement": {
+            "anyOf": [
+              {
+                "type": "string",
+                "const": "nvidia_smi_power_draw"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Gpu Energy Measurement"
+          },
+          "gpu_device_index": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Gpu Device Index"
+          },
+          "gpu_device_name": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 200
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Gpu Device Name"
+          },
+          "gpu_utilization_pct": {
+            "anyOf": [
+              {
+                "type": "number",
+                "maximum": 100.0,
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Gpu Utilization Pct"
+          },
+          "gpu_average_power_w": {
+            "anyOf": [
+              {
+                "type": "number",
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Gpu Average Power W"
+          },
+          "gpu_sample_count": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Gpu Sample Count"
+          },
+          "output_tokens_per_second": {
+            "anyOf": [
+              {
+                "type": "number",
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Output Tokens Per Second"
+          },
+          "output_speed_source": {
+            "anyOf": [
+              {
+                "type": "string",
+                "const": "ollama_eval_duration"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Output Speed Source"
+          },
           "error": {
             "anyOf": [
               {
@@ -5751,6 +5871,15 @@
           "cost_usd",
           "estimated_energy_wh",
           "estimated_carbon_g",
+          "measured_gpu_energy_wh",
+          "gpu_energy_measurement",
+          "gpu_device_index",
+          "gpu_device_name",
+          "gpu_utilization_pct",
+          "gpu_average_power_w",
+          "gpu_sample_count",
+          "output_tokens_per_second",
+          "output_speed_source",
           "error",
           "provider_finish_reason",
           "output_truncated",
@@ -5992,6 +6121,115 @@
             ],
             "title": "Estimated Carbon G"
           },
+          "measured_gpu_energy_wh": {
+            "anyOf": [
+              {
+                "type": "number",
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Measured Gpu Energy Wh"
+          },
+          "gpu_energy_measurement": {
+            "anyOf": [
+              {
+                "type": "string",
+                "const": "nvidia_smi_power_draw"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Gpu Energy Measurement"
+          },
+          "gpu_device_index": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Gpu Device Index"
+          },
+          "gpu_device_name": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 200
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Gpu Device Name"
+          },
+          "gpu_utilization_pct": {
+            "anyOf": [
+              {
+                "type": "number",
+                "maximum": 100.0,
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Gpu Utilization Pct"
+          },
+          "gpu_average_power_w": {
+            "anyOf": [
+              {
+                "type": "number",
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Gpu Average Power W"
+          },
+          "gpu_sample_count": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Gpu Sample Count"
+          },
+          "output_tokens_per_second": {
+            "anyOf": [
+              {
+                "type": "number",
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Output Tokens Per Second"
+          },
+          "output_speed_source": {
+            "anyOf": [
+              {
+                "type": "string",
+                "const": "ollama_eval_duration"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Output Speed Source"
+          },
           "error": {
             "anyOf": [
               {
@@ -6123,6 +6361,15 @@
           "output_tokens",
           "estimated_energy_wh",
           "estimated_carbon_g",
+          "measured_gpu_energy_wh",
+          "gpu_energy_measurement",
+          "gpu_device_index",
+          "gpu_device_name",
+          "gpu_utilization_pct",
+          "gpu_average_power_w",
+          "gpu_sample_count",
+          "output_tokens_per_second",
+          "output_speed_source",
           "error",
           "provider_finish_reason",
           "output_truncated",

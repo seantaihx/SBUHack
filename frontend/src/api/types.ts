@@ -46,6 +46,10 @@ export type Result = {
   routing_reason: 'baseline_large' | 'simple_task_small' | 'summary_large' | 'writing_large' | 'coding_large' | 'validation_fallback_large'; status: 'succeeded' | 'failed';
   output_text: string | null; latency_ms: number | null; input_tokens: number | null; output_tokens: number | null;
   estimated_energy_wh: number | null; estimated_carbon_g: number | null; error: ApiErrorInfo | null;
+  measured_gpu_energy_wh: number | null; gpu_energy_measurement: 'nvidia_smi_power_draw' | null;
+  gpu_device_index: number | null; gpu_device_name: string | null; gpu_utilization_pct: number | null;
+  gpu_average_power_w: number | null; gpu_sample_count: number | null;
+  output_tokens_per_second: number | null; output_speed_source: 'ollama_eval_duration' | null;
   provider_finish_reason: string | null; output_truncated: boolean | null;
   output_validation: 'passed' | 'failed' | 'not_configured'; validation_notes: string[];
   fallback_used: boolean; fallback_reason: string | null; fallback_model_id: string | null;
@@ -55,13 +59,17 @@ export type FallbackAttempt = {
   model_role: 'small' | 'large'; model_id: string; output_text: string | null; latency_ms: number | null;
   input_tokens: number | null; output_tokens: number | null; cost_usd: number | null;
   estimated_energy_wh: number | null; estimated_carbon_g: number | null; error: ApiErrorInfo | null;
+  measured_gpu_energy_wh: number | null; gpu_energy_measurement: 'nvidia_smi_power_draw' | null;
+  gpu_device_index: number | null; gpu_device_name: string | null; gpu_utilization_pct: number | null;
+  gpu_average_power_w: number | null; gpu_sample_count: number | null;
+  output_tokens_per_second: number | null; output_speed_source: 'ollama_eval_duration' | null;
   provider_finish_reason: string | null; output_truncated: boolean | null;
   output_validation: 'passed' | 'failed' | 'not_configured'; validation_notes: string[];
 };
 export type ComparisonMetric = { baseline: number | null; optimized: number | null; saved: number | null; savings_pct: number | null };
 export type Comparison = {
-  successful_pairs: number; energy_pairs: number; latency_pairs: number;
-  energy_wh: ComparisonMetric; carbon_g: ComparisonMetric; latency_ms: ComparisonMetric;
+  successful_pairs: number; energy_pairs: number; measured_gpu_energy_pairs: number; latency_pairs: number;
+  energy_wh: ComparisonMetric; measured_gpu_energy_wh: ComparisonMetric; carbon_g: ComparisonMetric; latency_ms: ComparisonMetric;
 };
 export type Run = {
   id: string; status: RunStatus; mode: Mode; measurement_source: 'simulated' | 'provider_usage_and_client_timing';

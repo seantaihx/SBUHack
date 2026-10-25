@@ -58,7 +58,8 @@ class Runner:
                 output = (await self.provider.execute(task, policy, role) if run.mode == 'demo' else
                           await self.live.infer(prompt, model_id, str(run.id),
                                                 allowed_models=(run.small_model_id, run.large_model_id),
-                                                system_message=system_instruction(task)))
+                                                system_message=system_instruction(task),
+                                                measure_gpu_energy=True))
         except TimeoutError:
             raise ProviderError('PROVIDER_TIMEOUT') from None
         validation, notes = validate_output(task, output.output_text)
@@ -68,7 +69,15 @@ class Runner:
         return FallbackAttempt(model_role=role, model_id=model_id, output_text=output.output_text,
                                latency_ms=output.latency_ms, input_tokens=output.input_tokens,
                                output_tokens=output.output_tokens, cost_usd=actual_cost,
-                               estimated_energy_wh=energy, estimated_carbon_g=carbon, error=None,
+                               estimated_energy_wh=energy, estimated_carbon_g=carbon,
+                               measured_gpu_energy_wh=output.measured_gpu_energy_wh,
+                               gpu_energy_measurement=output.gpu_energy_measurement,
+                               gpu_device_index=output.gpu_device_index, gpu_device_name=output.gpu_device_name,
+                               gpu_utilization_pct=output.gpu_utilization_pct,
+                               gpu_average_power_w=output.gpu_average_power_w,
+                               gpu_sample_count=output.gpu_sample_count,
+                               output_tokens_per_second=output.output_tokens_per_second,
+                               output_speed_source=output.output_speed_source, error=None,
                                provider_finish_reason=output.finish_reason,
                                output_truncated=output.output_truncated if run.mode == 'live' else False,
                                output_validation=validation, validation_notes=notes)
@@ -98,6 +107,11 @@ class Runner:
                     fallback = FallbackAttempt(model_role='large', model_id=fallback_model, output_text=None,
                                                latency_ms=None, input_tokens=None, output_tokens=None, cost_usd=None,
                                                estimated_energy_wh=None, estimated_carbon_g=None, error=exc.error,
+                                               measured_gpu_energy_wh=None, gpu_energy_measurement=None,
+                                               gpu_device_index=None, gpu_device_name=None,
+                                               gpu_utilization_pct=None, gpu_average_power_w=None,
+                                               gpu_sample_count=None, output_tokens_per_second=None,
+                                               output_speed_source=None,
                                                provider_finish_reason=None, output_truncated=None,
                                                output_validation='not_configured', validation_notes=[])
             selected = fallback if fallback is not None and fallback.error is None else initial
@@ -105,12 +119,35 @@ class Runner:
             def total(field):
                 values = [getattr(item, field) for item in attempts]
                 return sum(values) if all(value is not None for value in values) else None
+            gpu_energy_total = total('measured_gpu_energy_wh')
+            gpu_samples_total = total('gpu_sample_count')
+            utilization_attempts = [item for item in attempts if item.gpu_utilization_pct is not None]
+            gpu_utilization = (
+                sum(item.gpu_utilization_pct * item.latency_ms for item in utilization_attempts)
+                / sum(item.latency_ms for item in utilization_attempts)
+                if utilization_attempts and all(item.latency_ms is not None and item.latency_ms > 0
+                                                 for item in utilization_attempts) else None)
+            power_attempts = [item for item in attempts if item.gpu_average_power_w is not None]
+            gpu_average_power = (
+                sum(item.gpu_average_power_w * item.latency_ms for item in power_attempts)
+                / sum(item.latency_ms for item in power_attempts)
+                if power_attempts and all(item.latency_ms is not None and item.latency_ms > 0
+                                          for item in power_attempts) else None)
             if fallback is not None and fallback.error is None:
                 identity.update(model_role='large', model_id=fallback.model_id, routing_reason='validation_fallback_large')
             return Result(**identity, status='succeeded', output_text=selected.output_text,
                           latency_ms=total('latency_ms'), input_tokens=total('input_tokens'),
                           output_tokens=total('output_tokens'), estimated_energy_wh=total('estimated_energy_wh'),
-                          estimated_carbon_g=total('estimated_carbon_g'), error=None,
+                          estimated_carbon_g=total('estimated_carbon_g'),
+                          measured_gpu_energy_wh=gpu_energy_total,
+                          gpu_energy_measurement=(selected.gpu_energy_measurement
+                                                  if gpu_energy_total is not None else None), error=None,
+                          gpu_device_index=selected.gpu_device_index, gpu_device_name=selected.gpu_device_name,
+                          gpu_utilization_pct=gpu_utilization,
+                          gpu_average_power_w=gpu_average_power,
+                          gpu_sample_count=gpu_samples_total,
+                          output_tokens_per_second=selected.output_tokens_per_second,
+                          output_speed_source=selected.output_speed_source,
                           provider_finish_reason=selected.provider_finish_reason,
                           output_truncated=selected.output_truncated,
                           output_validation=selected.output_validation, validation_notes=selected.validation_notes,
@@ -122,7 +159,11 @@ class Runner:
         except ProviderError as exc:
             return Result(**identity, status='failed', output_text=None, latency_ms=None,
                           input_tokens=None, output_tokens=None, estimated_energy_wh=None,
-                          estimated_carbon_g=None, error=exc.error, provider_finish_reason=None,
+                          estimated_carbon_g=None, measured_gpu_energy_wh=None,
+                          gpu_energy_measurement=None, gpu_device_index=None, gpu_device_name=None,
+                          gpu_utilization_pct=None, gpu_average_power_w=None, gpu_sample_count=None,
+                          output_tokens_per_second=None, output_speed_source=None,
+                          error=exc.error, provider_finish_reason=None,
                           output_truncated=None, output_validation='not_configured', validation_notes=[],
                           cost_usd=None)
 
