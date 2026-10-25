@@ -56,7 +56,16 @@
       "initial_attempt": null,
       "fallback_attempt": null,
       "attempt_count": 1,
-      "cost_usd": null
+      "cost_usd": null,
+      "measured_gpu_energy_wh": null,
+      "gpu_energy_measurement": null,
+      "gpu_device_index": null,
+      "gpu_device_name": null,
+      "gpu_utilization_pct": null,
+      "gpu_average_power_w": null,
+      "gpu_sample_count": null,
+      "output_tokens_per_second": null,
+      "output_speed_source": null
     },
     {
       "task_id": "classify-1",
@@ -86,7 +95,16 @@
       "initial_attempt": null,
       "fallback_attempt": null,
       "attempt_count": 1,
-      "cost_usd": null
+      "cost_usd": null,
+      "measured_gpu_energy_wh": null,
+      "gpu_energy_measurement": null,
+      "gpu_device_index": null,
+      "gpu_device_name": null,
+      "gpu_utilization_pct": null,
+      "gpu_average_power_w": null,
+      "gpu_sample_count": null,
+      "output_tokens_per_second": null,
+      "output_speed_source": null
     },
     {
       "task_id": "extract-1",
@@ -112,7 +130,16 @@
       "initial_attempt": null,
       "fallback_attempt": null,
       "attempt_count": 1,
-      "cost_usd": null
+      "cost_usd": null,
+      "measured_gpu_energy_wh": null,
+      "gpu_energy_measurement": null,
+      "gpu_device_index": null,
+      "gpu_device_name": null,
+      "gpu_utilization_pct": null,
+      "gpu_average_power_w": null,
+      "gpu_sample_count": null,
+      "output_tokens_per_second": null,
+      "output_speed_source": null
     },
     {
       "task_id": "extract-1",
@@ -138,7 +165,16 @@
       "initial_attempt": null,
       "fallback_attempt": null,
       "attempt_count": 1,
-      "cost_usd": null
+      "cost_usd": null,
+      "measured_gpu_energy_wh": null,
+      "gpu_energy_measurement": null,
+      "gpu_device_index": null,
+      "gpu_device_name": null,
+      "gpu_utilization_pct": null,
+      "gpu_average_power_w": null,
+      "gpu_sample_count": null,
+      "output_tokens_per_second": null,
+      "output_speed_source": null
     },
     {
       "task_id": "summarize-1",
@@ -164,7 +200,16 @@
       "initial_attempt": null,
       "fallback_attempt": null,
       "attempt_count": 1,
-      "cost_usd": null
+      "cost_usd": null,
+      "measured_gpu_energy_wh": null,
+      "gpu_energy_measurement": null,
+      "gpu_device_index": null,
+      "gpu_device_name": null,
+      "gpu_utilization_pct": null,
+      "gpu_average_power_w": null,
+      "gpu_sample_count": null,
+      "output_tokens_per_second": null,
+      "output_speed_source": null
     },
     {
       "task_id": "summarize-1",
@@ -190,7 +235,16 @@
       "initial_attempt": null,
       "fallback_attempt": null,
       "attempt_count": 1,
-      "cost_usd": null
+      "cost_usd": null,
+      "measured_gpu_energy_wh": null,
+      "gpu_energy_measurement": null,
+      "gpu_device_index": null,
+      "gpu_device_name": null,
+      "gpu_utilization_pct": null,
+      "gpu_average_power_w": null,
+      "gpu_sample_count": null,
+      "output_tokens_per_second": null,
+      "output_speed_source": null
     }
   ],
   "comparison": {
@@ -214,6 +268,13 @@
       "optimized": 2400,
       "saved": 1100,
       "savings_pct": 31.428571428571427
+    },
+    "measured_gpu_energy_pairs": 0,
+    "measured_gpu_energy_wh": {
+      "saved": null,
+      "optimized": null,
+      "baseline": null,
+      "savings_pct": null
     }
   },
   "run_error": null,

@@ -185,6 +185,15 @@ class FallbackAttempt(Model):
     cost_usd: Nonnegative | None
     estimated_energy_wh: Nonnegative | None
     estimated_carbon_g: Nonnegative | None
+    measured_gpu_energy_wh: Nonnegative | None = None
+    gpu_energy_measurement: Literal['nvidia_smi_power_draw'] | None = None
+    gpu_device_index: Count | None = None
+    gpu_device_name: str | None = Field(default=None, max_length=200)
+    gpu_utilization_pct: Annotated[float, Field(ge=0, le=100)] | None = None
+    gpu_average_power_w: Nonnegative | None = None
+    gpu_sample_count: Count | None = None
+    output_tokens_per_second: Nonnegative | None = None
+    output_speed_source: Literal['ollama_eval_duration'] | None = None
     error: ErrorInfo | None
     provider_finish_reason: str | None = Field(default=None, max_length=64)
     output_truncated: bool | None = None
@@ -274,6 +283,15 @@ class Result(Model):
     output_tokens: Count | None
     estimated_energy_wh: Nonnegative | None
     estimated_carbon_g: Nonnegative | None
+    measured_gpu_energy_wh: Nonnegative | None = None
+    gpu_energy_measurement: Literal['nvidia_smi_power_draw'] | None = None
+    gpu_device_index: Count | None = None
+    gpu_device_name: str | None = Field(default=None, max_length=200)
+    gpu_utilization_pct: Annotated[float, Field(ge=0, le=100)] | None = None
+    gpu_average_power_w: Nonnegative | None = None
+    gpu_sample_count: Count | None = None
+    output_tokens_per_second: Nonnegative | None = None
+    output_speed_source: Literal['ollama_eval_duration'] | None = None
     error: ErrorInfo | None
     provider_finish_reason: str | None = Field(default=None, max_length=64)
     output_truncated: bool | None = None
@@ -298,8 +316,10 @@ class ComparisonMetric(Model):
 class Comparison(Model):
     successful_pairs: Count = 0
     energy_pairs: Count = 0
+    measured_gpu_energy_pairs: Count = 0
     latency_pairs: Count = 0
     energy_wh: ComparisonMetric = Field(default_factory=ComparisonMetric)
+    measured_gpu_energy_wh: ComparisonMetric = Field(default_factory=ComparisonMetric)
     carbon_g: ComparisonMetric = Field(default_factory=ComparisonMetric)
     latency_ms: ComparisonMetric = Field(default_factory=ComparisonMetric)
 

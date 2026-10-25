@@ -51,7 +51,10 @@ def test_groq_wire_and_cost(tmp_path):
 @pytest.mark.parametrize(('provider_id', 'model_id', 'key_field', 'response_body', 'expected_url', 'expected_auth'), [
     ('openai', 'gpt-6-luna', 'openai_api_key', success(), 'https://api.openai.com/v1/chat/completions', 'Bearer provider-secret'),
     ('gemini', 'gemini-3.8-flash', 'gemini_api_key', success(), 'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions', 'Bearer provider-secret'),
-    ('ollama', 'qwen3:8b', None, success(), 'http://127.0.0.1:11434/v1/chat/completions', None),
+    ('ollama', 'qwen3:8b', None, {'message': {'content': 'billing'}, 'done': True,
+                                  'done_reason': 'stop', 'prompt_eval_count': 11,
+                                  'eval_count': 3, 'eval_duration': 1_000_000_000},
+     'http://127.0.0.1:11434/api/chat', None),
 ])
 def test_openai_compatible_provider_adapters(tmp_path, provider_id, model_id, key_field, response_body, expected_url, expected_auth):
     from backend.app.settings import Settings
@@ -71,7 +74,13 @@ def test_openai_compatible_provider_adapters(tmp_path, provider_id, model_id, ke
     assert calls[0].headers.get('authorization') == expected_auth
     payload = json.loads(calls[0].content)
     assert payload['model'] == model_id
-    assert payload['max_tokens' if provider_id in ('gemini', 'ollama') else 'max_completion_tokens'] > 0
+    if provider_id == 'ollama':
+        assert result.input_tokens == 11 and result.output_tokens == 3
+        assert result.output_tokens_per_second == 3
+        assert result.output_speed_source == 'ollama_eval_duration'
+        assert payload['options']['num_predict'] > 0 and payload['think'] is False and payload['stream'] is False
+    else:
+        assert payload['max_tokens' if provider_id == 'gemini' else 'max_completion_tokens'] > 0
 
 
 def test_anthropic_messages_adapter_and_usage(tmp_path):

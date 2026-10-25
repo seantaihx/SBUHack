@@ -30,7 +30,10 @@ def compare(results: list[Result]) -> Comparison:
                   and rows['baseline'].status == rows['optimized'].status == 'succeeded']
     energy = [pair for pair in successful if all(r.input_tokens is not None and r.output_tokens is not None
                                                for r in pair)]
-    return Comparison(successful_pairs=len(successful), energy_pairs=len(energy), latency_pairs=len(successful),
+    gpu_energy = [pair for pair in successful if all(r.measured_gpu_energy_wh is not None for r in pair)]
+    return Comparison(successful_pairs=len(successful), energy_pairs=len(energy),
+                      measured_gpu_energy_pairs=len(gpu_energy), latency_pairs=len(successful),
                       energy_wh=_metric(energy, 'estimated_energy_wh'),
+                      measured_gpu_energy_wh=_metric(gpu_energy, 'measured_gpu_energy_wh'),
                       carbon_g=_metric(energy, 'estimated_carbon_g'),
                       latency_ms=_metric(successful, 'latency_ms'))
