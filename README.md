@@ -12,7 +12,7 @@ SBUHacks inference comparison and benchmark prototype. Deterministic simulation 
 - Groq-compatible HTTP adapter for GPT-OSS small/large and an explicitly marked Qwen Preview benchmark model with published pricing. Usage/timing, estimated cost, hard timeout, truncation status and sanitized errors are recorded. Tested with mocked HTTP responses; **real Groq inference and account access have not been tested**.
 - Teammate's unchanged React frontend integrated from main `a7e3767`; real HTTP browser walkthrough passed using simulated backend inference, through both Vite and the production frontend served by FastAPI.
 
-Shared specification: [original architecture](docs/01-product-and-architecture.md), [comparison semantics](docs/02-api-and-data.md), [accepted benchmark contract](docs/API_CONTRACT.md), [OpenAPI](contracts/openapi.json), [handoff and verification](docs/backend-handoff.md). Original v1 schemas/fixtures are preserved; benchmark schemas/examples are additive. The workspace agent is a separate opt-in, loopback-only prototype; its execution is approval-gated and it has no shell or network tools.
+Shared specification: [original architecture](docs/01-product-and-architecture.md), [comparison semantics](docs/02-api-and-data.md), [accepted benchmark contract](docs/API_CONTRACT.md), [OpenAPI](contracts/openapi.json), [handoff and verification](docs/backend-handoff.md), [hackathon demo flow](docs/HACKATHON_DEMO.md), [Devpost draft](docs/DEVPOST_DRAFT.md). Original v1 schemas/fixtures are preserved; benchmark schemas/examples are additive. The workspace agent is a separate opt-in, loopback-only prototype; its execution is approval-gated and it has no shell or network tools.
 
 Use the [feature acceptance test plan](docs/FEATURE_ACCEPTANCE_TESTS.md) for a manual checklist covering main and Muffin_branch functionality, safety boundaries, and verification limits.
 
@@ -88,7 +88,7 @@ DATABASE_PATH=backend/data/ecoagent.sqlite3
 
 Original comparison requests select `mode: demo|live`. The existing benchmark request has no mode field, so `BENCHMARK_INFERENCE_MODE=simulated|groq` selects its server adapter. `VITE_USE_FRONTEND_MOCK=false` selects real HTTP transport; it does **not** enable paid inference. Every backend run reports its provenance. Neither adapter silently substitutes simulated answers for live failures.
 
-To configure Groq later, privately add `GROQ_API_KEY` to root `.env`, set `LIVE_ENABLED=true`, and set `BENCHMARK_INFERENCE_MODE=groq` only when you intend benchmark submissions to consume provider quota. Restart the backend. Defaults are:
+For local development, the **Provider settings** dialog can save a Groq key to the ignored root `.env` through a loopback-only backend endpoint. The key is never returned to the browser or saved in browser storage, though it is necessarily transient in the password input and local request memory. Restart the backend after saving. Saving a key does not enable Live: set `LIVE_ENABLED=true` in root `.env` only when you explicitly intend to permit provider calls, and set `BENCHMARK_INFERENCE_MODE=groq` only when you intend benchmark submissions to consume provider quota. Never expose the local settings endpoint through a public deployment. Defaults are:
 
 ```dotenv
 GROQ_MODEL_SMALL=openai/gpt-oss-20b

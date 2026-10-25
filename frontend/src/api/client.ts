@@ -1,4 +1,4 @@
-import type { AgentCapabilities, AgentEventsResponse, AgentRun, AgentStartRequest, BenchmarkCasesResponse, BenchmarkDatasetsResponse, BenchmarkExport, BenchmarkRun, BenchmarkRunsResponse, Capabilities, CreateRun, Run, SampleTasks, SourceSnapshot, StartBenchmarkRequest, StartBenchmarkResponse } from './types';
+import type { AgentCapabilities, AgentEventsResponse, AgentRun, AgentStartRequest, BenchmarkCasesResponse, BenchmarkDatasetsResponse, BenchmarkExport, BenchmarkRun, BenchmarkRunsResponse, Capabilities, CreateRun, LocalProviderSettings, Run, SampleTasks, SourceSnapshot, StartBenchmarkRequest, StartBenchmarkResponse } from './types';
 
 const mockMode = import.meta.env.VITE_USE_FRONTEND_MOCK === 'true';
 const apiBaseUrl = (import.meta.env.VITE_API_BASE_URL || '/api/v1').replace(/\/+$/, '');
@@ -27,6 +27,8 @@ export const api = {
   isMock: mockMode,
   baseUrl: apiBaseUrl,
   capabilities: () => mockMode ? fixture<Capabilities>('capabilities') : request<Capabilities>('/capabilities'),
+  localProviderSettings: () => mockMode ? Promise.reject(new ApiError('Provider setup requires the local backend; fixture mode does not store credentials.', 503, 'LOCAL_SETUP_MOCK')) : request<LocalProviderSettings>('/local-settings/provider'),
+  saveLocalProviderKey: (apiKey: string) => mockMode ? Promise.reject(new ApiError('Provider setup requires the local backend; fixture mode does not store credentials.', 503, 'LOCAL_SETUP_MOCK')) : request<LocalProviderSettings>('/local-settings/provider-key', { method: 'PUT', body: JSON.stringify({ api_key: apiKey }) }),
   sampleTasks: () => mockMode ? fixture<SampleTasks>('tasks') : request<SampleTasks>('/sample-tasks'),
   createRun: async (payload: CreateRun) => {
     if (!mockMode) return request<Run>('/runs', { method: 'POST', body: JSON.stringify(payload) });

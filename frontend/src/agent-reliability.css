@@ -1,0 +1,39 @@
+.agent-completion-checks {
+  grid-column: 1 / -1;
+  min-width: 0;
+  margin: 0;
+  padding: 13px;
+  border: 1px solid #dce4db;
+  border-radius: 5px;
+  background: #fbfcf9;
+}
+
+.agent-completion-checks legend { padding: 0 5px; color: #34483a; font-size: 12px; font-weight: 700; }
+.agent-completion-checks legend span,
+.agent-completion-checks > p { color: #718075; font-size: 11px; font-weight: 400; }
+
+.agent-check-row {
+  display: grid;
+  grid-template-columns: minmax(150px, .8fr) minmax(180px, 1.2fr) minmax(150px, 1fr) auto;
+  align-items: end;
+  gap: 10px;
+  margin: 10px 0;
+  padding: 10px 0;
+  border-bottom: 1px solid #e8ede6;
+}
+
+.agent-check-row > label { display: grid; gap: 5px; color: #4c5c50; font-size: 11px; font-weight: 700; }
+.agent-check-row input,
+.agent-check-row select { min-width: 0; padding: 8px; border: 1px solid #dce4db; border-radius: 5px; background: #fff; color: #26352a; font: 11px var(--mono); }
+
+.agent-verification { padding: 10px; border-left: 3px solid #819181; background: #f4f6f1; color: #536657; font-size: 12px; }
+.agent-verification.verified { border-color: #3f8658; }
+.agent-verification.failed { border-color: #b36b36; background: #fff8ed; }
+.agent-verification.pending { border-color: #c39543; }
+.agent-check-results { padding-left: 22px; color: #55665a; font-size: 11px; }
+.agent-check-results li { padding: 3px 0; overflow-wrap: anywhere; }
+
+@media (max-width: 680px) {
+  .agent-check-row { grid-template-columns: minmax(0, 1fr); }
+  .agent-check-row .text-button { justify-self: start; }
+}

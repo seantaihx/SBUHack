@@ -9,7 +9,7 @@ import tempfile
 from pathlib import Path, PurePosixPath
 from uuid import UUID, uuid4
 
-from .agent_schemas import AgentEvent, AgentPendingAction, AgentRun, AgentStartRequest
+from .agent_schemas import AgentCompletionCheckResult, AgentEvent, AgentPendingAction, AgentRun, AgentStartRequest
 from .errors import APIError
 from .providers.base import ProviderError
 from .providers.live import LiveProvider
@@ -94,6 +94,10 @@ class AgentService:
     def start(self, request: AgentStartRequest) -> AgentRun:
         if self.disabled_reason:
             raise APIError(503, 'AGENT_UNAVAILABLE', self.disabled_reason)
+        effective_max_steps = min(20, self.settings.max_requests_per_run)
+        if request.max_steps > effective_max_steps:
+            raise APIError(422, 'AGENT_STEP_LIMIT_INVALID',
+                           f'Maximum model calls for this run is {effective_max_steps}, based on the configured provider request budget.')
         root = self.settings.agent_workspace_root.resolve()
         for path in (*request.read_paths, *request.write_paths):
             try:
@@ -101,10 +105,26 @@ class AgentService:
             except ValueError:
                 raise APIError(422, 'AGENT_PATH_NOT_ALLOWED', 'A requested path is not permitted.') from None
         created = now()
+        baselines = {}
+        for check in request.completion_checks:
+            try:
+                target = _safe_path(check.path, root)
+                if target.is_file():
+                    raw = target.read_bytes()
+                    if len(raw) > MAX_FILE_CHARS or SECRET_TEXT.search(raw.decode('utf-8')):
+                        raise ValueError('not a bounded permitted text file')
+                    baselines[check.check_id] = hashlib.sha256(raw).hexdigest()
+                else:
+                    baselines[check.check_id] = None
+            except (OSError, UnicodeDecodeError, ValueError):
+                raise APIError(422, 'AGENT_COMPLETION_CHECK_INVALID',
+                               'A completion check path is not an available bounded UTF-8 text file.') from None
         run = AgentRun(run_id=uuid4(), status='queued', phase='planning', task_type=request.task_type,
                        workspace_name=root.name or 'workspace', instruction=request.instruction,
                        read_paths=request.read_paths, write_paths=request.write_paths,
-                       max_steps=request.max_steps, created_at=created)
+                       max_steps=request.max_steps, checkpoint_at=created, created_at=created,
+                       completion_checks=request.completion_checks, completion_check_baselines=baselines,
+                       verification_status='pending' if request.completion_checks else 'not_requested')
         try:
             self.store.create_agent(run)
         except RunActive as exc:
@@ -129,6 +149,19 @@ class AgentService:
     def _event_hashes(self, run: AgentRun):
         return [event.action_hash for event in run.events if event.action_hash]
 
+    def _pause_after_failure(self, run: AgentRun, fingerprint: str, stop_reason: str, summary: str):
+        run.repeated_failure_count = run.repeated_failure_count + 1 if run.last_failure_fingerprint == fingerprint else 1
+        run.last_failure_fingerprint = fingerprint
+        if run.repeated_failure_count >= 3:
+            run.phase = 'failed'; run.status = 'failed'; run.finished_at = now()
+            run.stop_reason = 'REPEATED_PROVIDER_FAILURE'
+            self._append(run, 'policy', 'recovery_stop', None, 'stopped',
+                         'The same provider or response failure repeated three times; stop and review the task before starting a new run.')
+        else:
+            run.phase = 'paused'; run.stop_reason = stop_reason
+            self._append(run, 'policy', 'model_call', None, 'failed', summary)
+        self.store.save_agent(run)
+
     async def _next_action(self, run_id: str):
         run = self.store.get_agent(run_id)
         if run is None or run.status != 'running' and run.status != 'queued':
@@ -138,9 +171,10 @@ class AgentService:
         if run.started_at is None:
             run.started_at = now()
         if run.model_calls >= run.max_steps:
-            run.phase = 'completed'; run.status = 'completed'; run.finished_at = now()
+            run.phase = 'failed'; run.status = 'failed'; run.finished_at = now()
             run.stop_reason = 'STEP_LIMIT_REACHED'
-            self._append(run, 'policy', 'stop', None, 'stopped', 'The configured model-call limit was reached.')
+            run.verification_status = 'failed' if run.completion_checks else 'not_requested'
+            self._append(run, 'policy', 'stop', None, 'stopped', 'The configured model-call limit was reached before the task was independently verified.')
             self.store.save_agent(run)
             return
         run.model_calls += 1
@@ -163,20 +197,18 @@ class AgentService:
             output = await self.live.infer(prompt, self.settings.large_model_id, run_id,
                                            allowed_models=(self.settings.large_model_id,), system_message=SYSTEM_MESSAGE)
             if output.output_truncated is not False:
-                self._append(run, 'policy', 'model_response', None, 'failed', 'The model response was truncated or its completion status was unavailable; no action was executed.')
-                run.phase = 'paused'; run.stop_reason = 'INCOMPLETE_MODEL_RESPONSE'
-                self.store.save_agent(run)
+                self._pause_after_failure(run, 'INCOMPLETE_MODEL_RESPONSE', 'INCOMPLETE_MODEL_RESPONSE',
+                                          'The model response was truncated or its completion status was unavailable; no action was executed.')
                 return
             parsed = json.loads(output.output_text)
+            run.repeated_failure_count = 0
+            run.last_failure_fingerprint = None
             self._handle_model_action(run, parsed)
         except ProviderError as exc:
-            self._append(run, 'policy', 'model_call', None, 'failed', exc.error.message)
-            run.phase = 'paused'; run.stop_reason = exc.error.code
-            self.store.save_agent(run)
+            self._pause_after_failure(run, exc.error.code, exc.error.code, exc.error.message)
         except (ValueError, TypeError, KeyError):
-            self._append(run, 'policy', 'model_response', None, 'failed', 'The model did not return the required structured action; no tool executed.')
-            run.phase = 'paused'; run.stop_reason = 'INVALID_AGENT_RESPONSE'
-            self.store.save_agent(run)
+            self._pause_after_failure(run, 'INVALID_AGENT_RESPONSE', 'INVALID_AGENT_RESPONSE',
+                                      'The model did not return the required structured action; no tool executed.')
         finally:
             self._tasks.pop(run_id, None)
 
@@ -191,9 +223,23 @@ class AgentService:
             if not isinstance(final_text, str) or len(final_text) > MAX_AGENT_OUTPUT_CHARS or SECRET_TEXT.search(final_text):
                 raise ValueError('invalid final response')
             run.final_text = final_text
-            run.phase = 'completed'; run.status = 'completed'; run.finished_at = now()
-            run.stop_reason = None
-            self._append(run, 'agent', 'finish', None, 'completed', summary or 'Agent finished the requested task.')
+            if run.completion_checks:
+                run.completion_check_results = self._evaluate_completion_checks(run)
+                passed = all(check.status == 'passed' for check in run.completion_check_results)
+                run.verification_status = 'verified' if passed else 'failed'
+                if passed:
+                    run.phase = 'completed'; run.status = 'completed'; run.finished_at = now()
+                    run.stop_reason = None
+                    self._append(run, 'agent', 'finish', None, 'completed', 'Agent finished and all deterministic completion checks passed.')
+                else:
+                    run.phase = 'paused'; run.status = 'running'; run.stop_reason = 'COMPLETION_CHECKS_FAILED'
+                    self._append(run, 'policy', 'completion_check', None, 'failed',
+                                 'The agent reported completion, but one or more independent completion checks did not pass.')
+            else:
+                run.phase = 'completed'; run.status = 'completed'; run.finished_at = now()
+                run.stop_reason = None
+                run.verification_status = 'not_requested'
+                self._append(run, 'agent', 'finish', None, 'completed', summary or 'Agent finished. No independent completion checks were requested.')
             self.store.save_agent(run)
             return
         if operation not in ('read_file', 'write_file'):
@@ -219,14 +265,6 @@ class AgentService:
             run.phase = 'paused'; run.stop_reason = 'CONTENT_NOT_PERMITTED'
             self.store.save_agent(run)
             return
-        content_hash = content if operation == 'write_file' else None
-        action_hash = _digest_action(operation, path, content_hash)
-        if action_hash in self._event_hashes(run):
-            self._append(run, 'policy', operation, path, 'denied_duplicate',
-                         'Repeated identical operation detected; no action was executed.')
-            run.phase = 'paused'; run.stop_reason = 'DUPLICATE_OPERATION'
-            self.store.save_agent(run)
-            return
         root = self.settings.agent_workspace_root.resolve()
         try:
             target = _safe_path(path, root)
@@ -242,6 +280,7 @@ class AgentService:
             elif target.exists():
                 raw = target.read_bytes()
                 before_text = raw.decode('utf-8')
+                base_hash = hashlib.sha256(raw).hexdigest()
                 if len(before_text) > MAX_FILE_CHARS or SECRET_TEXT.search(before_text):
                     raise ValueError('file too large')
             elif not target.exists():
@@ -250,6 +289,25 @@ class AgentService:
             self._append(run, 'policy', operation, path, 'denied_out_of_scope',
                          'Path is unavailable or not a bounded UTF-8 text file; no action was executed.')
             run.phase = 'paused'; run.stop_reason = 'PATH_NOT_READABLE'
+            self.store.save_agent(run)
+            return
+        if operation == 'write_file' and before_text is not None and content == before_text:
+            self._append(run, 'policy', 'no_progress', path, 'denied_duplicate',
+                         'The proposed write would leave the file unchanged; no file operation was executed.')
+            run.phase = 'paused'; run.stop_reason = 'NO_PROGRESS_LOOP'
+            self.store.save_agent(run)
+            return
+        # Fingerprint the observed file state as well as the requested operation.
+        # A reread after a real file change is therefore a new action, while an
+        # unchanged reread is still caught as a duplicate.
+        state = base_hash if operation == 'write_file' else hashlib.sha256(before_text.encode('utf-8')).hexdigest()
+        content_hash = json.dumps({'content': content, 'base_sha256': state}, sort_keys=True, ensure_ascii=False)
+        action_hash = _digest_action(operation, path, content_hash)
+        if action_hash in self._event_hashes(run):
+            self._append(run, 'policy', operation, path, 'denied_duplicate',
+                         'Repeated identical operation against unchanged file state detected; no action was executed.',
+                         action_hash=action_hash)
+            run.phase = 'paused'; run.stop_reason = 'DUPLICATE_OPERATION'
             self.store.save_agent(run)
             return
         run.pending_action = AgentPendingAction(action_id=uuid4(), action_hash=action_hash,
@@ -323,13 +381,62 @@ class AgentService:
         if run.status != 'running' or run.phase != 'paused' or run.pending_action is not None:
             raise APIError(409, 'AGENT_RUN_NOT_PAUSED', 'Only a paused run without a pending approval can continue.')
         if run.model_calls >= run.max_steps:
-            run.phase = 'completed'; run.status = 'completed'; run.finished_at = now(); run.stop_reason = 'STEP_LIMIT_REACHED'
+            run.phase = 'failed'; run.status = 'failed'; run.finished_at = now(); run.stop_reason = 'STEP_LIMIT_REACHED'
+            run.verification_status = 'failed' if run.completion_checks else 'not_requested'
             self.store.save_agent(run)
             return run
+        if run.completion_checks and run.stop_reason == 'COMPLETION_CHECKS_FAILED':
+            run.verification_status = 'pending'
+            run.completion_check_results = []
         run.phase = 'planning'; run.stop_reason = None
         self.store.save_agent(run)
         self._schedule(str(run.run_id))
         return run
+
+    def _evaluate_completion_checks(self, run: AgentRun):
+        """Check only bounded text files at exact paths already granted for writes."""
+        root = self.settings.agent_workspace_root.resolve()
+        results = []
+        for check in run.completion_checks:
+            try:
+                target = _safe_path(check.path, root)
+                if not target.is_file():
+                    status = 'failed'
+                    message = 'The required output file does not exist.'
+                elif check.kind == 'file_exists':
+                    status = 'passed'
+                    message = 'The required output file exists.'
+                else:
+                    raw = target.read_bytes()
+                    if len(raw) > MAX_FILE_CHARS:
+                        status = 'not_verifiable'
+                        message = 'The output exceeds the size limit for safe verification.'
+                    else:
+                        text = raw.decode('utf-8')
+                        if SECRET_TEXT.search(text):
+                            status = 'not_verifiable'
+                            message = 'The output matched a credential safety filter.'
+                        elif check.kind == 'file_changed':
+                            current_hash = hashlib.sha256(raw).hexdigest()
+                            status = 'passed' if current_hash != run.completion_check_baselines.get(check.check_id) else 'failed'
+                            message = 'The file changed from its starting state.' if status == 'passed' else 'The file is unchanged from its starting state.'
+                        elif check.kind == 'contains_text':
+                            status = 'passed' if check.expected_text in text else 'failed'
+                            message = 'The required literal text is present.' if status == 'passed' else 'The required literal text is missing.'
+                        else:
+                            try:
+                                json.loads(text)
+                                status = 'passed'
+                                message = 'The output parses as JSON.'
+                            except json.JSONDecodeError:
+                                status = 'failed'
+                                message = 'The output does not parse as JSON.'
+            except (OSError, UnicodeDecodeError, ValueError):
+                status = 'not_verifiable'
+                message = 'The output could not be read as a bounded permitted UTF-8 text file.'
+            results.append(AgentCompletionCheckResult(check_id=check.check_id, kind=check.kind,
+                                                       path=check.path, status=status, message=message))
+        return results
 
     def stop(self, run_id: str) -> AgentRun:
         run = self.store.get_agent(run_id)

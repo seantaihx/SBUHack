@@ -140,3 +140,34 @@ The explicit setting overrides any stale shell value. Do not place it in a `VITE
 Verification after this change: **146 backend tests passed**, **45 frontend tests passed**, typecheck and production build passed. Added tests verify provider-specific limits, wire payload, reservation amount, and cost-based benchmark case caps. Live-disabled benchmark requests return the backend's 503 reason before budget preflight.
 
 Hard provider/context limits still exist, so an unusually long response can still return `finish_reason=length`. The UI keeps such output marked incomplete; no unsafe automatic continuation is added.
+
+## Milestone 6 — judge-feedback reliability, setup and demo readiness (October 24, 2026)
+
+Implemented the approved first reliability milestone on `Muffin_branch`; changes remain uncommitted and unpushed. Backend and frontend changes are separated into their respective directories, with additive shared fields in OpenAPI/API documentation.
+
+### Implemented
+
+- Workspace Agent now persists checkpoints, resumes only after an explicit user continuation, supports up to 20 bounded model calls subject to provider limits, fingerprints repeated actions against file state, allows changed-file rereads, pauses no-progress writes, applies bounded completion checks, and stops after repeated identical provider failures. File reads/writes remain exact-path scoped and require individual approval; shell, network, deletion, code execution, Git, deployment and permission changes are not available.
+- Added `benchmarks/agent-reliability-v1.json` and regression coverage for longer bounded work, repeated/no-progress actions, changed-file rereads, explicit transient recovery, forbidden actions, and unverified completion. These are synthetic protocol cases, not evidence of semantic quality or live model performance.
+- Added local Provider settings for the backend-only Groq key. The same-origin loopback routes save to the ignored root `.env` and return only boolean setup status. The field is disabled if setup is unavailable or a process-level key overrides `.env`; the browser never persists or returns the key.
+- Added/fixed focused accessible UI and pixel-lab styling, provider-dialog phone scrolling, reduced-motion CSS, status announcements, and explicit provenance/error states. Added a safe explanation when the running backend is older than this branch.
+- Added demo/presentation and truthful Devpost drafts. Updated prior browser-verification statements to distinguish inspected screens from saved submission screenshots.
+
+### Verification actually run
+
+- `npm.cmd test --prefix frontend` — **50 passed**.
+- `npm.cmd run typecheck --prefix frontend` — passed.
+- `npm.cmd run build --prefix frontend` — passed.
+- `.\.venv\Scripts\python.exe -m pytest -q backend/tests --basetemp=.tmp-pytest-final` — **172 passed**. This includes local settings checks for a loopback status read without `Origin`, rejection of cross-origin status requests, and strict Origin enforcement on key writes. The sandboxed Windows asyncio `TestClient` could not create its local socket pair; the same suite passed when run with local socket access. Temporary test directories were removed afterward.
+- `git diff --check` — passed; Git printed only its normal LF-to-CRLF working-copy notices.
+- Browser visually inspected at desktop and 320px width: comparison, completed benchmark result, source rejection, completed agent safety screen and provider setup error. Keyboard Tab showed visible focus on the skip link and logo; frontend coverage also opens a pending write preview and activates its exact-action approval with Enter. The provider-key test confirms the password field clears before its request resolves. No pending approval was available to show manually in the browser; no provider request or new agent run was started. No Devpost screenshots were saved.
+
+### Integration status and next check
+
+The current browser backend returned 404 for `GET /api/v1/local-settings/provider`, although the route is implemented on this branch and covered by the passing backend suite. The settings dialog therefore keeps the key input disabled and tells the user to restart from the current branch. After restart, status reads require loopback caller/Host checks and validate Origin when present; key-saving `PUT` always requires a matching Origin. A webpage test using `http://127.0.0.1/` was rejected as a non-public-network target; the UI showed the safe rejection. No Live model inference was tested and no key was read or sent.
+
+After restarting the backend from this branch, verify `GET /api/v1/local-settings/provider`, then verify the setup UI with a disposable test key only if the team explicitly wants to exercise writing the ignored `.env`. Keep `LIVE_ENABLED=false` and `AGENT_ENABLED=false` for the default simulated comparison/demo. The frontend fixtures remain available only under explicit `VITE_USE_FRONTEND_MOCK=true` and are labeled; request failures do not silently switch to them.
+
+### Files changed in this milestone
+
+Backend: `backend/app/agent_schemas.py`, `backend/app/agents.py`, `backend/app/main.py`, `backend/app/schemas.py`, `backend/app/store.py`, `backend/app/local_settings.py`, and the associated API/agent/local-settings tests. Contract/data: `contracts/openapi.json`, `docs/02-api-and-data.md`, `docs/API_CONTRACT.md`, and `benchmarks/agent-reliability-v1.json`. Frontend: `frontend/index.html`, `frontend/src/App.tsx`, `frontend/src/App.test.tsx`, `frontend/src/AgentDashboard.tsx`, `frontend/src/AgentDashboard.test.tsx`, `frontend/src/BenchmarkDashboard.tsx`, `frontend/src/SourceInput.tsx`, `frontend/src/SourceInput.test.tsx`, `frontend/src/api/client.ts`, `frontend/src/api/types.ts`, `frontend/src/main.tsx`, `frontend/src/test-setup.ts`, `frontend/src/ProviderKeySettings.tsx`, `frontend/src/agent-reliability.css`, `frontend/src/pixel-lab.css`, and `frontend/src/provider-settings.css`. Project/demo docs: `README.md`, `docs/AGENT_RELIABILITY.md`, `docs/DEVPOST_DRAFT.md`, `docs/HACKATHON_DEMO.md`, `docs/IMPLEMENTATION_IMPROVEMENTS_PROMPT.md`, `docs/handoffs/agent-reliability-proposal.md`, and this checkpoint.
