@@ -27,5 +27,14 @@ button:focus-visible,input:focus-visible,textarea:focus-visible,select:focus-vis
 .settings-close.secondary{font-size:13px}
 .provider-settings-dialog .primary-button{min-height:40px}
 .provider-settings-dialog button:disabled{opacity:.58;cursor:not-allowed}
+.agent-model-settings{margin-top:22px;padding-top:16px;border-top:1px solid #e4eae2}
+.agent-model-settings h3{margin:0;color:#26352a;font:700 16px var(--display)}
+.agent-model-settings>p{font-size:12px!important}
+.agent-model-settings form{margin-top:10px}
+.agent-model-row{display:grid;grid-template-columns:minmax(140px,.7fr) minmax(180px,1.3fr);align-items:center;gap:12px;margin:10px 0;padding:10px;border:1px solid #e4eae2;border-radius:5px;background:#fafbf9}
+.agent-model-row>span{display:grid;gap:4px;text-transform:capitalize}
+.agent-model-row small{color:#68776a;font-size:10px;font-weight:400;overflow-wrap:anywhere;text-transform:none}
+.agent-model-row select{min-height:40px;min-width:0;width:100%;padding:8px 10px;border:1px solid #aebdaf;border-radius:5px;background:#fff;color:#1c2b20;font:12px var(--mono)}
 @media(max-width:680px){.topbar{height:auto;min-height:72px;flex-wrap:wrap;padding-top:12px;padding-bottom:12px}.topbar-right{width:100%;justify-content:space-between;gap:8px}.provider-settings-dialog{padding:18px}.provider-settings-actions{flex-wrap:wrap}.provider-settings-actions button{flex:1}}
+@media(max-width:460px){.agent-model-row{grid-template-columns:minmax(0,1fr)}}
 @media(prefers-reduced-motion:reduce){.provider-settings-dialog *{scroll-behavior:auto!important;transition:none!important;animation:none!important}}

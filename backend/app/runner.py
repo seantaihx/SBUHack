@@ -38,11 +38,14 @@ class Runner:
             if source is None:
                 from .errors import APIError
                 raise APIError(404, 'SOURCE_NOT_FOUND', 'This source preview expired or was not found.')
+        small_model_id = request.small_model_id or self.settings.small_model_id
+        large_model_id = request.large_model_id or self.settings.large_model_id
         run = Run(id=uuid4(), status='queued', mode=request.mode, measurement_source='simulated' if request.mode == 'demo' else 'provider_usage_and_client_timing',
                   carbon_intensity_g_per_kwh=request.carbon_intensity_g_per_kwh,
                   tasks=request.tasks, created_at=now(), total_attempts=2 * len(request.tasks),
                   policy_version='task-routing-v2-fallback' if request.quality_fallback else 'task-routing-v1',
-                  quality_fallback=request.quality_fallback, task_profile_version=PROFILE_VERSION,
+                  quality_fallback=request.quality_fallback, small_model_id=small_model_id,
+                  large_model_id=large_model_id, task_profile_version=PROFILE_VERSION,
                   source_snapshot=source.model_copy(update={'expires_at': None}) if source else None,
                   source_submission_confirmed=source is not None)
         self.store.create(run, str(request.source_snapshot_id) if source else None)
@@ -53,7 +56,9 @@ class Runner:
         try:
             async with asyncio.timeout(ATTEMPT_TIMEOUT_SECONDS):
                 output = (await self.provider.execute(task, policy, role) if run.mode == 'demo' else
-                          await self.live.infer(prompt, model_id, str(run.id), system_message=system_instruction(task)))
+                          await self.live.infer(prompt, model_id, str(run.id),
+                                                allowed_models=(run.small_model_id, run.large_model_id),
+                                                system_message=system_instruction(task)))
         except TimeoutError:
             raise ProviderError('PROVIDER_TIMEOUT') from None
         validation, notes = validate_output(task, output.output_text)
@@ -71,7 +76,7 @@ class Runner:
     async def _attempt(self, run: Run, task: Task, policy: str) -> Result:
         role, reason = route(task, policy)
         identity = dict(task_id=task.id, policy=policy, model_role=role,
-                        model_id=f'demo-{role}' if run.mode == 'demo' else getattr(self.settings, role + '_model_id'), routing_reason=reason)
+                        model_id=f'demo-{role}' if run.mode == 'demo' else (run.small_model_id if role == 'small' else run.large_model_id), routing_reason=reason)
         try:
             prompt = task.prompt
             if run.source_snapshot is not None:
@@ -84,7 +89,7 @@ class Runner:
             fallback = None
             if (run.quality_fallback and policy == 'optimized' and run.mode == 'live' and role == 'small'
                     and initial.output_validation == 'failed' and initial.output_truncated is not True):
-                fallback_model = self.settings.large_model_id
+                fallback_model = run.large_model_id
                 run.total_attempts += 1
                 self.store.save(run)
                 try:
@@ -159,3 +164,23 @@ class Runner:
                 await self._worker
             except asyncio.CancelledError:
                 pass
+
+    async def stop(self, run_id: str):
+        from .errors import APIError
+        run = self.store.get(run_id)
+        if run is None:
+            raise APIError(404, 'RUN_NOT_FOUND', 'The comparison run was not found.')
+        if run.status not in ('queued', 'running'):
+            raise APIError(409, 'RUN_NOT_ACTIVE', 'This comparison is no longer running.')
+        run.status = 'cancelled'
+        run.finished_at = now()
+        run.run_error = ErrorInfo(code='RUN_CANCELLED', message='The comparison was stopped by the user.')
+        self.store.save(run)
+        worker = self._worker
+        if worker is not None and not worker.done():
+            worker.cancel()
+            try:
+                await worker
+            except asyncio.CancelledError:
+                pass
+        return self.store.get(run_id) or run

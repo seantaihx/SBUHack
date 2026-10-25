@@ -118,6 +118,8 @@ class CreateRun(Model):
     source_snapshot_id: UUID | None = None
     confirm_source_submission: bool | None = None
     quality_fallback: bool = False
+    small_model_id: str | None = Field(default=None, min_length=1, max_length=200)
+    large_model_id: str | None = Field(default=None, min_length=1, max_length=200)
 
     @field_validator('source_snapshot_id', mode='before')
     @classmethod
@@ -151,6 +153,16 @@ class ErrorEnvelope(Model):
 class Health(Model):
     status: Literal['ok'] = 'ok'
     api_version: Literal['1.1.0'] = '1.1.0'
+
+
+class ActiveRunInfo(Model):
+    id: str
+    kind: Literal['comparison', 'benchmark', 'agent']
+    status: str
+
+
+class StopActiveRunRequest(Model):
+    run_id: str | None = Field(default=None, pattern=r'^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$')
 
 
 class SampleTasks(Model):
@@ -208,6 +220,7 @@ class Capabilities(Model):
     task_profile_version: str = 'task-instructions-v1'
     supported_task_types: list[TaskType] = Field(default_factory=lambda: ['classify', 'extract', 'summarize', 'write', 'code'])
     models: list[ModelInfo] = Field(min_length=2, max_length=2)
+    supported_models: list[str] = Field(default_factory=list)
     energy_profile: EnergyProfile
 
 
@@ -219,6 +232,31 @@ class LocalProviderSettings(Model):
     local_setup_available: bool
     provider_key_configured: bool
     provider_key_saved_in_env: bool
+    restart_required: bool
+    environment_override: bool
+    providers: dict[str, dict[str, bool]] = Field(default_factory=dict)
+
+
+class ProviderModelOption(Model):
+    id: str
+    provider: str
+    provider_label: str
+    label: str
+    local: bool
+
+
+class AgentRoleModelAssignments(Model):
+    manager: str = Field(min_length=1, max_length=200, pattern=r'^(?:[a-z]+::)?[A-Za-z0-9][A-Za-z0-9._:/-]{0,199}$')
+    writer: str = Field(min_length=1, max_length=200, pattern=r'^(?:[a-z]+::)?[A-Za-z0-9][A-Za-z0-9._:/-]{0,199}$')
+    coder: str = Field(min_length=1, max_length=200, pattern=r'^(?:[a-z]+::)?[A-Za-z0-9][A-Za-z0-9._:/-]{0,199}$')
+    reviewer: str = Field(min_length=1, max_length=200, pattern=r'^(?:[a-z]+::)?[A-Za-z0-9][A-Za-z0-9._:/-]{0,199}$')
+
+
+class AgentRoleModelSettings(Model):
+    available_models: list[str]
+    model_options: list[ProviderModelOption] = Field(default_factory=list)
+    active_models: AgentRoleModelAssignments
+    saved_models: AgentRoleModelAssignments
     restart_required: bool
     environment_override: bool
 
@@ -268,12 +306,14 @@ class Comparison(Model):
 
 class Run(Model):
     id: UUID
-    status: Literal['queued', 'running', 'completed', 'partial', 'failed']
+    status: Literal['queued', 'running', 'completed', 'partial', 'failed', 'cancelled']
     mode: Mode
     measurement_source: Literal['simulated', 'provider_usage_and_client_timing']
     policy_version: str = 'task-routing-v1'
     task_profile_version: str = 'task-instructions-v1'
     quality_fallback: bool = False
+    small_model_id: str | None = None
+    large_model_id: str | None = None
     energy_estimation_profile: Literal['illustrative-v1'] = 'illustrative-v1'
     carbon_intensity_g_per_kwh: Intensity
     tasks: list[Task] = Field(min_length=1, max_length=10)

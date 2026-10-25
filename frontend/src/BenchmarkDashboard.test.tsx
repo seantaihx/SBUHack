@@ -2,7 +2,7 @@ import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import BenchmarkDashboard from './BenchmarkDashboard';
-import { ApiError, benchmarkApi } from './api/client';
+import { ApiError, api, benchmarkApi } from './api/client';
 import type { BenchmarkCasesResponse, BenchmarkDatasetsResponse, BenchmarkRun, BenchmarkRunsResponse, StartBenchmarkRequest } from './api/types';
 import datasetsFixture from '../public/mock/benchmark-datasets.json';
 import runFixture from '../public/mock/benchmark-run.json';
@@ -19,6 +19,8 @@ describe('BenchmarkDashboard', () => {
     vi.spyOn(benchmarkApi, 'startRun').mockResolvedValue({ run_id: completed.run_id, status: 'queued' });
     vi.spyOn(benchmarkApi, 'getRun').mockResolvedValue(completed);
     vi.spyOn(benchmarkApi, 'getCases').mockResolvedValue(cases);
+    vi.spyOn(api, 'activeRun').mockResolvedValue(null);
+    vi.spyOn(api, 'stopActiveRun').mockResolvedValue({ id: completed.run_id, kind: 'benchmark', status: 'cancelled' });
   });
 
   afterEach(() => vi.restoreAllMocks());
@@ -86,17 +88,33 @@ describe('BenchmarkDashboard', () => {
     expect(benchmarkApi.startRun).toHaveBeenCalledTimes(1);
   });
 
-  it('does not guess the active run type when a conflict omits it', async () => {
+  it('shows a stop control for a running benchmark and calls the guarded stop endpoint', async () => {
+    const running = { ...completed, status: 'running' as const, progress: { completed: 0, total: 1 } };
+    vi.mocked(benchmarkApi.startRun).mockResolvedValue({ run_id: completed.run_id, status: 'queued' });
+    vi.mocked(benchmarkApi.getRun).mockResolvedValueOnce(running).mockResolvedValue(completed);
+    vi.mocked(api.activeRun).mockResolvedValue({ id: completed.run_id, kind: 'benchmark', status: 'running' });
+    const user = userEvent.setup();
+    render(<BenchmarkDashboard />);
+    await screen.findByRole('combobox', { name: /Dataset/ });
+    await user.click(screen.getByRole('button', { name: 'Run benchmark' }));
+    await user.click(await screen.findByRole('button', { name: 'Stop run' }));
+    await waitFor(() => expect(api.stopActiveRun).toHaveBeenCalledWith(completed.run_id));
+    expect(await screen.findByRole('heading', { name: 'Completed' })).toBeInTheDocument();
+  });
+
+  it('looks up the active run when a benchmark conflict omits its kind', async () => {
     vi.mocked(benchmarkApi.startRun).mockRejectedValue(new ApiError('Another run is already active.', 409, 'RUN_ALREADY_ACTIVE', {
       active_run_id: 'opaque-run-id',
     }));
+    vi.mocked(api.activeRun).mockResolvedValue({ id: completed.run_id, kind: 'benchmark', status: 'running' });
     const user = userEvent.setup();
     render(<BenchmarkDashboard />);
     await screen.findByRole('combobox', { name: /Dataset/ });
     await user.click(screen.getByRole('button', { name: 'Run benchmark' }));
 
-    expect(await screen.findByRole('alert')).toHaveTextContent(/did not identify the active run type/i);
-    expect(benchmarkApi.getRun).not.toHaveBeenCalled();
+    expect(await screen.findByRole('heading', { name: 'Completed' })).toBeInTheDocument();
+    expect(api.activeRun).toHaveBeenCalled();
+    expect(benchmarkApi.getRun).toHaveBeenCalledWith(completed.run_id);
     expect(benchmarkApi.startRun).toHaveBeenCalledTimes(1);
   });
 

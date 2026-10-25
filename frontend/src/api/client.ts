@@ -1,4 +1,4 @@
-import type { AgentCapabilities, AgentEventsResponse, AgentRun, AgentStartRequest, BenchmarkCasesResponse, BenchmarkDatasetsResponse, BenchmarkExport, BenchmarkRun, BenchmarkRunsResponse, Capabilities, CreateRun, LocalProviderSettings, Run, SampleTasks, SourceSnapshot, StartBenchmarkRequest, StartBenchmarkResponse } from './types';
+import type { ActiveRunInfo, AgentCapabilities, AgentEventsResponse, AgentRoleModelAssignments, AgentRoleModelSettings, AgentRun, AgentStartRequest, AgentWorkflowStartRequest, BenchmarkCasesResponse, BenchmarkDatasetsResponse, BenchmarkExport, BenchmarkRun, BenchmarkRunsResponse, Capabilities, CreateRun, LocalProviderSettings, Run, SampleTasks, SourceSnapshot, StartBenchmarkRequest, StartBenchmarkResponse } from './types';
 
 const mockMode = import.meta.env.VITE_USE_FRONTEND_MOCK === 'true';
 const apiBaseUrl = (import.meta.env.VITE_API_BASE_URL || '/api/v1').replace(/\/+$/, '');
@@ -27,8 +27,13 @@ export const api = {
   isMock: mockMode,
   baseUrl: apiBaseUrl,
   capabilities: () => mockMode ? fixture<Capabilities>('capabilities') : request<Capabilities>('/capabilities'),
+  activeRun: () => request<ActiveRunInfo | null>('/active-run'),
+  stopActiveRun: (id?: string) => request<ActiveRunInfo>('/active-run/stop', { method: 'POST', body: JSON.stringify(id ? { run_id: id } : {}) }),
   localProviderSettings: () => mockMode ? Promise.reject(new ApiError('Provider setup requires the local backend; fixture mode does not store credentials.', 503, 'LOCAL_SETUP_MOCK')) : request<LocalProviderSettings>('/local-settings/provider'),
   saveLocalProviderKey: (apiKey: string) => mockMode ? Promise.reject(new ApiError('Provider setup requires the local backend; fixture mode does not store credentials.', 503, 'LOCAL_SETUP_MOCK')) : request<LocalProviderSettings>('/local-settings/provider-key', { method: 'PUT', body: JSON.stringify({ api_key: apiKey }) }),
+  saveProviderKey: (provider: string, apiKey: string) => mockMode ? Promise.reject(new ApiError('Provider setup requires the local backend.', 503, 'LOCAL_SETUP_MOCK')) : request<LocalProviderSettings>(provider === 'groq' ? '/local-settings/provider-key' : `/local-settings/provider-keys/${encodeURIComponent(provider)}`, { method: 'PUT', body: JSON.stringify({ api_key: apiKey }) }),
+  agentModelSettings: () => mockMode ? Promise.reject(new ApiError('Agent model setup requires the local backend.', 503, 'LOCAL_SETUP_MOCK')) : request<AgentRoleModelSettings>('/local-settings/agent-models'),
+  saveAgentModelSettings: (assignments: AgentRoleModelAssignments) => mockMode ? Promise.reject(new ApiError('Agent model setup requires the local backend.', 503, 'LOCAL_SETUP_MOCK')) : request<AgentRoleModelSettings>('/local-settings/agent-models', { method: 'PUT', body: JSON.stringify(assignments) }),
   sampleTasks: () => mockMode ? fixture<SampleTasks>('tasks') : request<SampleTasks>('/sample-tasks'),
   createRun: async (payload: CreateRun) => {
     if (!mockMode) return request<Run>('/runs', { method: 'POST', body: JSON.stringify(payload) });
@@ -74,11 +79,17 @@ function requireAgentApi() {
 export const agentApi = {
   capabilities: () => request<AgentCapabilities>('/agent/capabilities'),
   start: (payload: AgentStartRequest) => { requireAgentApi(); return request<AgentRun>('/agent-runs', { method: 'POST', body: JSON.stringify(payload) }); },
+  startWorkflow: (payload: AgentWorkflowStartRequest) => { requireAgentApi(); return request<AgentRun>('/agent-workflows', { method: 'POST', body: JSON.stringify(payload) }); },
   get: (id: string, signal?: AbortSignal) => { requireAgentApi(); return request<AgentRun>(`/agent-runs/${encodeURIComponent(id)}`, { signal }); },
   events: (id: string, cursor = 0, signal?: AbortSignal) => { requireAgentApi(); return request<AgentEventsResponse>(`/agent-runs/${encodeURIComponent(id)}/events?cursor=${cursor}`, { signal }); },
   approve: (id: string, actionId: string, actionHash: string, approved: boolean) => {
     requireAgentApi(); return request<AgentRun>(`/agent-runs/${encodeURIComponent(id)}/approvals`, {
       method: 'POST', body: JSON.stringify({ action_id: actionId, action_hash: actionHash, approved }),
+    });
+  },
+  approvePlan: (id: string, planHash: string, approved: boolean) => {
+    requireAgentApi(); return request<AgentRun>(`/agent-runs/${encodeURIComponent(id)}/plan-approvals`, {
+      method: 'POST', body: JSON.stringify({ plan_hash: planHash, approved }),
     });
   },
   continue: (id: string) => { requireAgentApi(); return request<AgentRun>(`/agent-runs/${encodeURIComponent(id)}/continue`, { method: 'POST' }); },

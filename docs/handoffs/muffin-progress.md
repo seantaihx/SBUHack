@@ -164,10 +164,73 @@ Implemented the approved first reliability milestone on `Muffin_branch`; changes
 
 ### Integration status and next check
 
-The current browser backend returned 404 for `GET /api/v1/local-settings/provider`, although the route is implemented on this branch and covered by the passing backend suite. The settings dialog therefore keeps the key input disabled and tells the user to restart from the current branch. After restart, status reads require loopback caller/Host checks and validate Origin when present; key-saving `PUT` always requires a matching Origin. A webpage test using `http://127.0.0.1/` was rejected as a non-public-network target; the UI showed the safe rejection. No Live model inference was tested and no key was read or sent.
+At the time this milestone was recorded, the browser was connected to an older backend process that returned 404 for `GET /api/v1/local-settings/provider`; this was later resolved by restarting/reloading the backend. Milestone 7 records the current successful browser verification of provider settings against the updated backend. After restart, status reads require loopback caller/Host checks and validate Origin when present; key-saving `PUT` always requires a matching Origin. A webpage test using `http://127.0.0.1/` was rejected as a non-public-network target; the UI showed the safe rejection. No Live model inference was tested and no key was read or sent.
 
 After restarting the backend from this branch, verify `GET /api/v1/local-settings/provider`, then verify the setup UI with a disposable test key only if the team explicitly wants to exercise writing the ignored `.env`. Keep `LIVE_ENABLED=false` and `AGENT_ENABLED=false` for the default simulated comparison/demo. The frontend fixtures remain available only under explicit `VITE_USE_FRONTEND_MOCK=true` and are labeled; request failures do not silently switch to them.
 
 ### Files changed in this milestone
 
 Backend: `backend/app/agent_schemas.py`, `backend/app/agents.py`, `backend/app/main.py`, `backend/app/schemas.py`, `backend/app/store.py`, `backend/app/local_settings.py`, and the associated API/agent/local-settings tests. Contract/data: `contracts/openapi.json`, `docs/02-api-and-data.md`, `docs/API_CONTRACT.md`, and `benchmarks/agent-reliability-v1.json`. Frontend: `frontend/index.html`, `frontend/src/App.tsx`, `frontend/src/App.test.tsx`, `frontend/src/AgentDashboard.tsx`, `frontend/src/AgentDashboard.test.tsx`, `frontend/src/BenchmarkDashboard.tsx`, `frontend/src/SourceInput.tsx`, `frontend/src/SourceInput.test.tsx`, `frontend/src/api/client.ts`, `frontend/src/api/types.ts`, `frontend/src/main.tsx`, `frontend/src/test-setup.ts`, `frontend/src/ProviderKeySettings.tsx`, `frontend/src/agent-reliability.css`, `frontend/src/pixel-lab.css`, and `frontend/src/provider-settings.css`. Project/demo docs: `README.md`, `docs/AGENT_RELIABILITY.md`, `docs/DEVPOST_DRAFT.md`, `docs/HACKATHON_DEMO.md`, `docs/IMPLEMENTATION_IMPROVEMENTS_PROMPT.md`, `docs/handoffs/agent-reliability-proposal.md`, and this checkpoint.
+
+## Milestone 7 — multi-provider Workspace Agent models (October 25, 2026)
+
+Expanded Workspace Agent model assignment from Groq-only to per-role choices across Groq, OpenAI, Gemini, Anthropic Claude, and local Ollama. Agent-only provider-qualified IDs (`provider::model-id`) keep each role's selection unambiguous. The comparison and benchmark configurations remain on their existing Groq settings. No provider credentials were read out, printed, or sent to an inference service during this work.
+
+Hosted provider credentials are independently stored in ignored root `.env` (`GROQ_API_KEY`, `OPENAI_API_KEY`, `GEMINI_API_KEY`, `ANTHROPIC_API_KEY`). The new same-origin loopback route is `PUT /api/v1/local-settings/provider-keys/{provider}` with `{"api_key":"…"}`; old Groq route remains compatible. Responses contain key-free status booleans only. `GET /api/v1/local-settings/provider` reports status without values. `GET /api/v1/local-settings/agent-models` returns supported IDs and labels; `PUT /api/v1/local-settings/agent-models` saves per-role selections to `ECOAGENT_AGENT_MODEL_MANAGER`, `..._WRITER`, `..._CODER`, and `..._REVIEWER`. Existing `GROQ_AGENT_MODEL_*` assignments still load as legacy fallbacks. Restart the backend after changing `.env`.
+
+Ollama is local-only: calls go to `http://127.0.0.1:11434/v1` by default, and configuration rejects non-loopback URLs. No Ollama API key is collected. Zero provider token fee does not mean zero electricity or total cost; those remain unavailable. Provider/catalog prices feed the existing spend checks; no claim is made that model/account availability was probed.
+
+### Verification actually run
+
+- `.\.venv\Scripts\python.exe -m pytest backend/tests -q` — **194 passed** (final fresh run).
+- `npm.cmd run test --prefix frontend` — **55 passed**.
+- `npm.cmd run typecheck --prefix frontend` — passed.
+- `npm.cmd run build --prefix frontend` — passed.
+- `git diff --check` — passed with only existing Git LF-to-CRLF notices.
+- Browser at `http://127.0.0.1:5173/`: opened Provider Settings against the running backend, observed all five provider choices in the role model menus, and selected Ollama to confirm local setup instructions and absence of a key input. Provider status displayed only booleans/labels. No screenshot was saved.
+- MockTransport tests verified OpenAI and Gemini `/chat/completions`, Anthropic `/messages` including finish reason/token usage, and local Ollama request URL/no auth header. Local API tests verified each hosted key writes to its provider-specific `.env` name without appearing in responses; Ollama key saves are rejected; provider-qualified role assignments persist.
+- No real hosted inference call was made. Live model access/pricing/account permissions are not end-to-end verified. The backend Agent remains subject to `AGENT_ENABLED=true`, `LIVE_ENABLED=true`, a scoped workspace root, per-action approval and configured spend/token limits.
+
+### Changed for this provider milestone
+
+`backend/app/model_catalog.py`, `backend/app/pricing.py`, `backend/app/settings.py`, `backend/app/providers/live.py`, `backend/app/local_settings.py`, `backend/app/schemas.py`, `backend/app/main.py`, backend provider/local-settings tests, `frontend/src/ProviderKeySettings.tsx`, `frontend/src/api/client.ts`, `frontend/src/api/types.ts`, `.env.example`, `contracts/openapi.json`, `README.md`, `docs/02-api-and-data.md`, `docs/API_CONTRACT.md`, `docs/FEATURE_ACCEPTANCE_TESTS.md`, `docs/HACKATHON_DEMO.md`, and this handoff.
+
+Launch frontend: `npm.cmd run dev --prefix frontend`. Launch backend from repository root: `.\.venv\Scripts\python.exe -m uvicorn backend.app.main:app --host 127.0.0.1 --port 8000 --workers 1`. Use real backend transport (`VITE_USE_FRONTEND_MOCK=false`). Models/keys newly saved in `.env` require backend restart. Existing fixtures still only work when explicit mock mode is enabled; none of the provider paths silently switches to fixtures.
+
+## Milestone 8 — model choices for comparisons and benchmarks (October 25, 2026)
+
+Extended the existing provider catalog into Live comparisons and benchmarks. `GET /api/v1/capabilities` now returns `supported_models`. `POST /api/v1/runs` accepts optional `small_model_id` and `large_model_id`; they set provider models for the small/large backend-selected roles, and the run snapshots both IDs. The frontend only chooses role assignments; it still renders backend-selected routes and reasons. Benchmark datasets expose the shared catalog, `BENCHMARK_INFERENCE_MODE=live` dispatches selected provider calls, and legacy `groq` mode remains a live alias. Selected providers are preflighted for keys before accepting requests; no inference runs when a required key is absent. Local Ollama selections have no hosted token fee, and local energy remains unavailable.
+
+The Workspace Agent team panel now identifies the Manager as the approved plan owner ahead of the serial specialist flow, using the actual manager assignment, approval state and backend workflow task statuses. Its provider note now explains provider-specific backend keys and local Ollama. This borrows the reference project's visible team/task log concept from [Agent Office](https://github.com/harishkotra/agent-office), while preserving EcoAgent's approval gates and avoiding invented autonomous movement or unapproved tools.
+
+### Verification actually run
+
+- `\.venv\Scripts\python.exe -m pytest backend/tests -q` — **196 passed**.
+- `npm.cmd run typecheck --prefix frontend` — passed.
+- `npm.cmd run test --prefix frontend` — **56 passed** (includes the Live role model submission interaction).
+- `npm.cmd run build --prefix frontend` — passed before adding the interaction check (the check does not change production code).
+- `git diff --check` — passed; Git only emitted its normal line-ending notices.
+- Mocked backend tests verified Live comparison requests use and persist selected OpenAI/Anthropic role IDs, benchmark catalogs expose OpenAI/Gemini/Anthropic/Ollama options, and a missing Anthropic key is rejected before dispatch. No hosted provider traffic or API keys were used.
+- Browser preview showed the current Compare page against the running local backend, but Live is disabled there, so I did not claim to inspect the Live selectors or perform a real provider end-to-end check.
+
+### Changes for this milestone
+
+`backend/app/settings.py`, `backend/app/main.py`, `backend/app/runner.py`, `backend/app/benchmarks/service.py`, `backend/tests/test_api.py`, `backend/tests/test_benchmarks.py`, `frontend/src/App.tsx`, `frontend/src/App.test.tsx`, `frontend/src/BenchmarkDashboard.tsx`, `frontend/src/AgentDashboard.tsx`, `frontend/src/api/types.ts`, `frontend/src/styles.css`, `.env.example`, `contracts/openapi.json`, `contracts/examples/capabilities.json`, `contracts/examples/run-*.json`, `frontend/public/mock/capabilities.json`, `frontend/public/mock/run-*.json`, `docs/API_CONTRACT.md`, `docs/02-api-and-data.md`, `README.md`, and this handoff.
+
+## Milestone 9 — identify and stop an active comparison or benchmark (October 25, 2026)
+
+Added `GET /api/v1/active-run` to expose the active run ID, kind, and status, plus `POST /api/v1/active-run/stop`. The stop endpoint accepts an optional `run_id`: a supplied ID must still match the active run, while an empty body stops whichever run is active at request handling time. This lets the explicit Stop active run action work even when conflict metadata or lookup is unavailable. Comparison and benchmark cancellation preserve already recorded attempts, return `cancelled`, and free the shared active slot. A no-longer-active run cannot be changed by a stale ID. Conflict handling still never repeats the original submission.
+
+### Verification actually run
+
+- `\.venv\Scripts\python.exe -m pytest -q` — **198 passed**.
+- `npm.cmd test --prefix frontend` — **58 passed**, plus a focused fallback Stop test passed.
+- `npm.cmd run typecheck --prefix frontend` — passed.
+- `npm.cmd run build --prefix frontend` — passed.
+- `git diff --check` — passed; Git emitted only existing LF-to-CRLF notices.
+- OpenAPI contract response-schema/example checks — **19 passed**.
+- Attempted to verify the listener on `127.0.0.1:8000`: it still serves the older app and returns 404 for `/api/v1/active-run`; a second Uvicorn process cannot bind because port 8000 is occupied. Restart the existing backend process to expose these new endpoints. No provider request was sent.
+
+### Changed for this milestone
+
+`backend/app/schemas.py`, `backend/app/store.py`, `backend/app/main.py`, `backend/app/runner.py`, `backend/app/benchmarks/service.py`, `backend/tests/test_api.py`, `backend/tests/test_benchmarks.py`, `frontend/src/api/types.ts`, `frontend/src/api/client.ts`, `frontend/src/App.tsx`, `frontend/src/App.test.tsx`, `frontend/src/BenchmarkDashboard.tsx`, `frontend/src/BenchmarkDashboard.test.tsx`, `contracts/openapi.json`, `docs/API_CONTRACT.md`, `docs/02-api-and-data.md`, and this handoff.
