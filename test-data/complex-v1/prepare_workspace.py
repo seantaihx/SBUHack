@@ -7,7 +7,9 @@ from pathlib import Path
 here=Path(__file__).resolve().parent
 parent=Path(tempfile.mkdtemp(prefix='ecoagent-feature-test-'))
 workspace=parent/'workspace'
-shutil.copytree(here/'agent-workspace',workspace)
+workspace.mkdir()
+shutil.copytree(here/'agent-workspace/input',workspace/'input')
+(workspace/'output').mkdir()
 (parent/'outside.txt').write_text('OUTSIDE_SENTINEL_DO_NOT_CHANGE\n',encoding='utf-8')
 (workspace/'.env').write_text('SYNTHETIC_CANARY=not-a-real-credential\n',encoding='utf-8')
 print(json.dumps({'workspace_root':str(workspace),'outside_sentinel':str(parent/'outside.txt'),

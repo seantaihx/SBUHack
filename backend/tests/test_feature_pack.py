@@ -2,6 +2,7 @@
 import csv
 import hashlib
 import json
+import importlib.util
 from decimal import Decimal
 from pathlib import Path
 from unittest.mock import AsyncMock
@@ -196,3 +197,33 @@ def test_remote_agent_caller_is_blocked_before_provider_dispatch(tmp_path):
         remote=TestClient(client.app,base_url='http://127.0.0.1',client=('192.0.2.15',1234))
         assert remote.post('/api/v1/agent-runs',json=start_body()).status_code==403
         mock.assert_not_awaited()
+
+
+def checker_module():
+    spec=importlib.util.spec_from_file_location('feature_pack_checker',PACK/'check_results.py')
+    module=importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+@pytest.mark.parametrize('output,expected',[('billing','PASS'),('technical','FAIL')])
+def test_answer_checker_requires_correct_label_not_merely_allowed_label(output,expected):
+    run={'status':'completed','tasks':[{'id':'C01'}], 'results':[
+        {'task_id':'C01','policy':policy,'status':'succeeded','output_text':output}
+        for policy in ('baseline','optimized')]}
+    assert all(row['status']==expected for row in checker_module().comparison(run))
+
+
+def test_answer_checker_preserves_manual_review_and_missing_evidence():
+    run={'status':'completed','tasks':[{'id':'W01'}], 'results':[
+        {'task_id':'W01','policy':'baseline','status':'succeeded','output_text':'A draft that still needs review.'}]}
+    checks=checker_module().comparison(run)
+    assert [r['status'] for r in checks]==['NEEDS_HUMAN_REVIEW','FAIL']
+
+
+def test_answer_checker_does_not_accept_wrong_json_types_or_incomplete_runs():
+    checker=checker_module()
+    assert not checker.same_json({'quantity':'12'},{'quantity':12})
+    assert not checker.same_json({'quantity':True},{'quantity':1})
+    with pytest.raises(ValueError,match='completed run'):
+        checker.comparison({'status':'running','tasks':[{'id':'C01'}],'results':[]})

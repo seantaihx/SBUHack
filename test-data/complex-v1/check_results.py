@@ -23,6 +23,8 @@ def same_json(actual, expected):
 
 def comparison(payload):
     run=payload.get('run_snapshot',payload)
+    if run.get('status') != 'completed':
+        raise ValueError('A completed run is required; failed, partial or unfinished runs are not passes.')
     key={r['id']:r for r in json.loads((HERE/'expected/normal-answer-key.json').read_text())}
     key['source-audit']={'evaluation':'exact_json_values_and_types','expected':json.loads((HERE/'expected/order-summary.json').read_text())}
     tasks=run.get('tasks',[])
