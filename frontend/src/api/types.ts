@@ -26,6 +26,10 @@ export type Capabilities = {
   task_profile_version: string; supported_task_types: TaskType[];
   models: { role: 'small' | 'large'; live_model_id: string | null }[]; energy_profile: EnergyProfile;
 };
+export type LocalProviderSettings = {
+  local_setup_available: boolean; provider_key_configured: boolean; provider_key_saved_in_env: boolean;
+  restart_required: boolean; environment_override: boolean;
+};
 export type SampleTasks = { version: 'sample-v1'; tasks: Task[] };
 export type ApiErrorInfo = { code: string; message: string; details: Record<string, unknown> };
 export type ApiErrorEnvelope = { error: ApiErrorInfo };
@@ -65,11 +69,19 @@ export type AgentCapabilities = {
   enabled: boolean; disabled_reason: string | null; workspace_name: string | null;
   task_types: ('write' | 'code')[]; operations: ('read_file' | 'write_file')[];
   approval_required_for_each_operation: true; shell_execution_enabled: false; network_tools_enabled: false;
-  max_steps: number; max_file_chars: number; default_steps: number; default_review_interval: number;
+  max_steps: number; max_file_chars: number;
+};
+export type AgentCompletionCheck = {
+  check_id: string; kind: 'file_exists' | 'file_changed' | 'contains_text' | 'valid_json';
+  path: string; expected_text: string | null;
+};
+export type AgentCompletionCheckResult = {
+  check_id: string; kind: AgentCompletionCheck['kind']; path: string;
+  status: 'passed' | 'failed' | 'not_verifiable'; message: string;
 };
 export type AgentPendingAction = {
   action_id: string; action_hash: string; operation: 'read_file' | 'write_file'; path: string;
-  summary: string; content: string | null; before_text: string | null; base_sha256: string | null; diff: string | null;
+  summary: string; content: string | null; before_text: string | null; base_sha256: string | null;
 };
 export type AgentEvent = {
   sequence: number; occurred_at: string; actor: 'agent' | 'operator' | 'policy' | 'tool';
@@ -81,18 +93,17 @@ export type AgentRun = {
   run_id: string; status: 'queued' | 'running' | 'completed' | 'failed' | 'cancelled';
   phase: 'planning' | 'awaiting_approval' | 'paused' | 'completed' | 'failed';
   task_type: 'write' | 'code'; workspace_name: string; instruction: string;
-  read_paths: string[]; write_paths: string[]; max_steps: number; model_calls: number; steps_completed: number;
-  review_interval: number; max_elapsed_seconds: number; review_required: boolean; completion_reviewed: boolean;
-  checklist: string[]; completed_items: number[];
-  checkpoints: { sequence: number; created_at: string; model_calls: number; assessment: 'observed_progress' | 'stalled' | 'uncertain'; summary: string }[];
-  revisions: { path: string; created_at: string; before_text: string | null; after_text: string }[];
-  input_tokens: number | null; output_tokens: number | null; estimated_cost_usd: number | null; provider_latency_ms: number | null;
-  pending_action: AgentPendingAction | null; events: AgentEvent[]; final_text: string | null;
+  read_paths: string[]; write_paths: string[]; max_steps: number; checkpoint_sequence: number; checkpoint_at: string;
+  model_calls: number; repeated_failure_count: number; last_failure_fingerprint: string | null; steps_completed: number;
+  pending_action: AgentPendingAction | null; events: AgentEvent[];
+  completion_checks: AgentCompletionCheck[]; completion_check_baselines: Record<string, string | null>;
+  completion_check_results: AgentCompletionCheckResult[]; verification_status: 'not_requested' | 'pending' | 'verified' | 'failed';
+  final_text: string | null;
   stop_reason: string | null; created_at: string; started_at: string | null; finished_at: string | null;
 };
 export type AgentStartRequest = {
   task_type: 'write' | 'code'; instruction: string; confirm_provider_submission: true;
-  read_paths: string[]; write_paths: string[]; max_steps: number; review_interval: number; max_elapsed_seconds: number; checklist: string[];
+  read_paths: string[]; write_paths: string[]; max_steps: number; completion_checks: AgentCompletionCheck[];
 };
 export type AgentEventsResponse = { events: AgentEvent[]; next_cursor: string | null };
 

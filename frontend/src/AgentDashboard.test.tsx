@@ -1,50 +1,80 @@
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { afterEach, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import AgentDashboard from './AgentDashboard';
+import { agentApi } from './api/client';
+import type { AgentCapabilities, AgentRun, AgentStartRequest } from './api/types';
 
-const caps = { enabled: true, workspace_name: 'sandbox', max_steps: 100, default_steps: 12, default_review_interval: 5 };
-const run = {
-  run_id: 'r1', task_type: 'code', workspace_name: 'sandbox', instruction: 'Update file',
-  status: 'running', phase: 'paused', model_calls: 12, max_steps: 12, steps_completed: 4,
-  stop_reason: 'STEP_LIMIT_REACHED', pending_action: null, final_text: null, events: [],
-  checkpoints: [{ sequence: 1, model_calls: 10, assessment: 'stalled', summary: 'No new evidence in this window.' }],
-  review_required: true, checklist: ['Check output'], completed_items: [], revisions: [],
-  input_tokens: 120, output_tokens: 80, estimated_cost_usd: .001, provider_latency_ms: 100,
-  created_at: '2026-10-24T12:00:00Z', max_elapsed_seconds: 3600,
+const capabilities: AgentCapabilities = {
+  enabled: true, disabled_reason: null, workspace_name: 'test-workspace', task_types: ['write', 'code'],
+  operations: ['read_file', 'write_file'], approval_required_for_each_operation: true,
+  shell_execution_enabled: false, network_tools_enabled: false, max_steps: 20, max_file_chars: 50000,
 };
-const ok = (body: unknown) => ({ ok: true, status: 200, json: async () => body });
-afterEach(() => vi.unstubAllGlobals());
 
-it('lets operators configure periodic review and completion criteria', async () => {
-  vi.stubGlobal('fetch', vi.fn(async () => ok(caps)));
-  render(<AgentDashboard initialRunId={null} />);
-  expect(await screen.findByLabelText(/Review progress every/)).toHaveValue(5);
-  expect(screen.getByLabelText(/Maximum model calls/)).toHaveAttribute('max', '100');
-  expect(screen.getByLabelText(/Completion criteria/)).toBeInTheDocument();
-});
+const queuedRun: AgentRun = {
+  run_id: 'run-123', status: 'queued', phase: 'planning', task_type: 'write', workspace_name: 'test-workspace',
+  instruction: 'Write JSON', read_paths: [], write_paths: ['result.json'], max_steps: 13,
+  checkpoint_sequence: 1, checkpoint_at: '2026-10-24T12:00:00Z', model_calls: 0, repeated_failure_count: 0,
+  last_failure_fingerprint: null, steps_completed: 0, pending_action: null, events: [],
+  completion_checks: [{ check_id: 'check-1', kind: 'valid_json', path: 'result.json', expected_text: null }],
+  completion_check_baselines: { 'check-1': null }, completion_check_results: [], verification_status: 'pending', final_text: null,
+  stop_reason: null, created_at: '2026-10-24T12:00:00Z', started_at: null, finished_at: null,
+};
+const approvalRun: AgentRun = {
+  ...queuedRun, status: 'running', phase: 'awaiting_approval',
+  pending_action: {
+    action_id: 'action-1', action_hash: 'a'.repeat(64), operation: 'write_file', path: 'result.json',
+    summary: 'Create the requested JSON file.', content: '{"ok":true}', before_text: null, base_sha256: null,
+  },
+};
 
-it('shows stalled evidence and extends the same run without continuing automatically', async () => {
-  const fetchMock = vi.fn(async (url: RequestInfo | URL, _init?: RequestInit) => {
-    if (String(url).endsWith('/capabilities')) return ok(caps);
-    if (String(url).endsWith('/extend')) return ok({ ...run, max_steps: 22 });
-    return ok(run);
+describe('AgentDashboard reliability controls', () => {
+  afterEach(() => vi.restoreAllMocks());
+
+  it('submits a typed completion check and permits a longer call budget advertised by the backend', async () => {
+    vi.spyOn(agentApi, 'capabilities').mockResolvedValue(capabilities);
+    vi.spyOn(agentApi, 'start').mockResolvedValue(queuedRun);
+    vi.spyOn(agentApi, 'get').mockResolvedValue(queuedRun);
+    const user = userEvent.setup();
+    render(<AgentDashboard initialRunId={null} />);
+
+    const instruction = await screen.findByLabelText('What should the agent do?');
+    await user.type(instruction, 'Write a JSON result');
+    await user.type(screen.getByLabelText(/Allowed write paths/), 'result.json');
+    await user.clear(screen.getByLabelText('Maximum model calls'));
+    await user.type(screen.getByLabelText('Maximum model calls'), '13');
+    await user.click(screen.getByRole('button', { name: 'Add completion check' }));
+    await user.selectOptions(screen.getByLabelText('Check type'), 'valid_json');
+    await user.click(screen.getByRole('checkbox'));
+    await user.click(screen.getByRole('button', { name: 'Start bounded run' }));
+
+    await waitFor(() => expect(agentApi.start).toHaveBeenCalled());
+    const payload = vi.mocked(agentApi.start).mock.calls[0][0] as AgentStartRequest;
+    expect(payload.max_steps).toBe(13);
+    expect(payload.completion_checks).toEqual([{
+      check_id: 'check-1', kind: 'valid_json', path: 'result.json', expected_text: null,
+    }]);
+    expect(await screen.findByText(/Independent checks are configured/)).toBeInTheDocument();
   });
-  vi.stubGlobal('fetch', fetchMock);
-  const user = userEvent.setup();
-  render(<AgentDashboard initialRunId="r1" />);
-  expect(await screen.findByText('No new evidence in this window.')).toBeInTheDocument();
-  expect(screen.queryByRole('button', { name: 'Finish at step limit' })).not.toBeInTheDocument();
-  await user.type(screen.getByLabelText(/Review notes/), 'Need to finish remaining task');
-  await user.click(screen.getByRole('button', { name: /Approve additional calls/ }));
-  await waitFor(() => expect(fetchMock.mock.calls.some(([url]) => String(url).endsWith('/extend'))).toBe(true));
-  expect(fetchMock.mock.calls.some(([url]) => String(url).endsWith('/continue'))).toBe(false);
-});
 
-it('requires checked criteria before accepting model completion', async () => {
-  vi.stubGlobal('fetch', vi.fn(async (url: RequestInfo | URL) => ok(String(url).endsWith('/capabilities') ? caps : {
-    ...run, stop_reason: 'COMPLETION_REVIEW_REQUIRED', final_text: 'Done', model_calls: 3,
-  })));
-  render(<AgentDashboard initialRunId="r1" />);
-  expect(await screen.findByRole('button', { name: 'Accept reviewed completion' })).toBeDisabled();
+  it('shows the exact proposed write and allows keyboard approval of that action', async () => {
+    vi.spyOn(agentApi, 'capabilities').mockResolvedValue(capabilities);
+    vi.spyOn(agentApi, 'get').mockResolvedValue(approvalRun);
+    vi.spyOn(agentApi, 'approve').mockResolvedValue({
+      ...approvalRun, phase: 'paused', pending_action: null, steps_completed: 1,
+    });
+    const user = userEvent.setup();
+    render(<AgentDashboard initialRunId={approvalRun.run_id} />);
+
+    expect(await screen.findByText('Create the requested JSON file.')).toBeInTheDocument();
+    expect(screen.getByLabelText('Current file preview')).toHaveTextContent('(new file)');
+    expect(screen.getByLabelText('Proposed file content')).toHaveTextContent('{"ok":true}');
+    const approve = screen.getByRole('button', { name: 'Approve this exact action' });
+    approve.focus();
+    await user.keyboard('{Enter}');
+
+    await waitFor(() => expect(agentApi.approve).toHaveBeenCalledWith(
+      approvalRun.run_id, 'action-1', 'a'.repeat(64), true,
+    ));
+  });
 });

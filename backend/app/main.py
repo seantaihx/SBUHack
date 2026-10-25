@@ -2,7 +2,7 @@ from contextlib import asynccontextmanager
 import asyncio
 from uuid import UUID
 
-from fastapi import FastAPI, Body, File, Request, Response, UploadFile
+from fastapi import FastAPI, File, Request, Response, UploadFile
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse, FileResponse
 from starlette.exceptions import HTTPException
@@ -17,8 +17,10 @@ from .benchmarks.service import BenchmarkService
 from .benchmarks.routes import router as benchmark_router
 from .sources import SourceFailure, parse_csv, parse_pdf, parse_text, parse_webpage
 from .schemas import CreateTextSource, CreateWebpageSource, SourceResponse, SourceSnapshot
-from .agent_schemas import AgentApprovalRequest, AgentCapabilities, AgentEventsResponse, AgentRun, AgentStartRequest, AgentContinueRequest, AgentExtendRequest, AgentReviewRequest
+from .agent_schemas import AgentApprovalRequest, AgentCapabilities, AgentEventsResponse, AgentRun, AgentStartRequest
 from .agents import AgentService, local_agent_request
+from .schemas import LocalProviderSettings, ProviderKeyInput
+from .local_settings import local_same_origin_request, provider_settings, save_provider_key
 
 def error_response(status: int, error: ErrorInfo) -> JSONResponse:
     return JSONResponse(status_code=status, content=ErrorEnvelope(error=error).model_dump(mode='json'))
@@ -78,6 +80,30 @@ def create_app(settings: Settings | None = None) -> FastAPI:
                             models=[ModelInfo(role='small', live_model_id=settings.small_model_id),
                                     ModelInfo(role='large', live_model_id=settings.large_model_id)], energy_profile=demo.profile)
 
+    @app.get('/api/v1/local-settings/provider', response_model=LocalProviderSettings,
+             responses={code: {'model': ErrorEnvelope} for code in (403, 500)})
+    async def local_provider_settings(request: Request, response: Response):
+        if not local_same_origin_request(request, allow_missing_origin_for_read=True):
+            raise APIError(403, 'LOCAL_SETUP_ONLY', 'Provider setup is available only from this app on the same computer.')
+        response.headers['Cache-Control'] = 'no-store'
+        return provider_settings(settings)
+
+    @app.put('/api/v1/local-settings/provider-key', response_model=LocalProviderSettings,
+             responses={code: {'model': ErrorEnvelope} for code in (403, 409, 422, 500)})
+    async def configure_local_provider_key(body: ProviderKeyInput, request: Request, response: Response):
+        if not local_same_origin_request(request):
+            raise APIError(403, 'LOCAL_SETUP_ONLY', 'Provider setup is available only from this app on the same computer.')
+        response.headers['Cache-Control'] = 'no-store'
+        try:
+            save_provider_key(body.api_key.get_secret_value())
+        except ValueError:
+            raise APIError(422, 'INVALID_PROVIDER_KEY', 'The key format or backend .env path is not valid for local setup.') from None
+        except RuntimeError:
+            raise APIError(409, 'ENVIRONMENT_KEY_OVERRIDE', 'GROQ_API_KEY is set in the backend process environment, which takes precedence over .env.') from None
+        except (OSError, UnicodeError):
+            raise APIError(500, 'LOCAL_SETUP_WRITE_FAILED', 'The backend could not safely update its ignored .env file.') from None
+        return provider_settings(settings)
+
     @app.get('/api/v1/agent/capabilities', response_model=AgentCapabilities)
     async def agent_capabilities(request: Request):
         service = request.app.state.agents
@@ -85,7 +111,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         reason = service.disabled_reason if local else 'Workspace agent requests are restricted to a loopback browser/API connection.'
         root = settings.agent_workspace_root if local and service.disabled_reason is None else None
         return AgentCapabilities(enabled=reason is None, disabled_reason=reason,
-                                 workspace_name=root.resolve().name if root else None, max_steps=settings.agent_max_steps)
+                                 workspace_name=root.resolve().name if root else None,
+                                 max_steps=min(20, settings.max_requests_per_run))
 
     def require_local_agent(request: Request):
         if not local_agent_request(request):
@@ -134,19 +161,9 @@ def create_app(settings: Settings | None = None) -> FastAPI:
 
     @app.post('/api/v1/agent-runs/{run_id}/continue', response_model=AgentRun,
               responses={code: {'model': ErrorEnvelope} for code in (403, 404, 409, 422, 500)})
-    async def continue_agent_run(run_id: UUID, request: Request, body: AgentContinueRequest | None = Body(default=None)):
+    async def continue_agent_run(run_id: UUID, request: Request):
         require_local_agent(request)
-        return request.app.state.agents.continue_run(str(run_id), body.guidance if body else "")
-
-    @app.post('/api/v1/agent-runs/{run_id}/extend', response_model=AgentRun)
-    async def extend_agent_run(run_id: UUID, body: AgentExtendRequest, request: Request):
-        require_local_agent(request)
-        return request.app.state.agents.extend(str(run_id), body.additional_steps, body.reason)
-
-    @app.post('/api/v1/agent-runs/{run_id}/review', response_model=AgentRun)
-    async def review_agent_run(run_id: UUID, body: AgentReviewRequest, request: Request):
-        require_local_agent(request)
-        return request.app.state.agents.review(str(run_id), body.completed_items, body.accept_completion, body.note)
+        return request.app.state.agents.continue_run(str(run_id))
 
     @app.post('/api/v1/agent-runs/{run_id}/stop', response_model=AgentRun,
               responses={code: {'model': ErrorEnvelope} for code in (403, 404, 409, 422, 500)})

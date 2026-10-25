@@ -51,6 +51,7 @@ def test_agent_requires_explicit_scope_and_provider_confirmation(tmp_path):
         assert caps['enabled'] is True
         assert caps['shell_execution_enabled'] is False
         assert caps['network_tools_enabled'] is False
+        assert caps['max_steps'] == 20
         invalid = client.post('/api/v1/agent-runs', json={
             'task_type': 'code', 'instruction': 'Edit code', 'read_paths': ['README.md'],
         })
@@ -62,7 +63,7 @@ def test_agent_requires_explicit_scope_and_provider_confirmation(tmp_path):
 def test_agent_actions_require_exact_approval_and_log_human_readable_steps(tmp_path):
     client, settings = agent_client(tmp_path)
     target = settings.agent_workspace_root / 'note.txt'
-    target.write_bytes(b'before\r\n')
+    target.write_text('before\n', encoding='utf-8')
     responses = [propose('read_file', 'note.txt'), propose('write_file', 'note.txt', 'after\n'),
                  propose('finish', final_text='Updated note.')]
     with client:
@@ -95,11 +96,7 @@ def test_agent_actions_require_exact_approval_and_log_human_readable_steps(tmp_p
         assert 'SHA-256:' in run['events'][-1]['details']
 
         assert client.post(f'/api/v1/agent-runs/{run_id}/continue').status_code == 200
-        run = wait_for(client, run_id, 'paused')
-        assert run['stop_reason'] == 'COMPLETION_REVIEW_REQUIRED'
-        reviewed = client.post(f'/api/v1/agent-runs/{run_id}/review', json={'completed_items': [], 'accept_completion': True, 'note': 'Verified the file change'})
-        assert reviewed.status_code == 200
-        run = reviewed.json()
+        run = wait_for(client, run_id, 'completed')
         assert run['final_text'] == 'Updated note.'
         page = client.get(f'/api/v1/agent-runs/{run_id}/events?limit=3')
         assert page.status_code == 200
@@ -148,7 +145,7 @@ def test_agent_duplicate_operations_pause_without_second_execution(tmp_path):
         assert run['steps_completed'] == 1
 
 
-def test_agent_pauses_without_claiming_completion_at_call_limit(tmp_path):
+def test_agent_fails_honestly_after_reaching_model_call_limit(tmp_path):
     client, settings = agent_client(tmp_path)
     (settings.agent_workspace_root / 'allowed.txt').write_text('safe', encoding='utf-8')
     with client:
@@ -164,9 +161,170 @@ def test_agent_pauses_without_claiming_completion_at_call_limit(tmp_path):
         assert run['phase'] == 'paused'
         finished = client.post(f"/api/v1/agent-runs/{run['run_id']}/continue")
         assert finished.status_code == 200
-        assert finished.json()['status'] == 'running'
-        assert finished.json()['phase'] == 'paused'
+        assert finished.json()['status'] == 'failed'
         assert finished.json()['stop_reason'] == 'STEP_LIMIT_REACHED'
+
+
+def test_agent_allows_longer_bounded_run_but_never_above_provider_budget(tmp_path):
+    client, settings = agent_client(tmp_path)
+    read_paths = [f'file-{index}.txt' for index in range(12)]
+    for path in read_paths:
+        (settings.agent_workspace_root / path).write_text(path, encoding='utf-8')
+    responses = [propose('read_file', path) for path in read_paths] + [propose('finish', final_text='All 12 files reviewed.')]
+    with client:
+        async def infer(*args, **kwargs):
+            return responses.pop(0)
+        client.app.state.agents.live.infer = infer
+        response = client.post('/api/v1/agent-runs', json={
+            'task_type': 'write', 'instruction': 'Do a longer bounded task.', 'confirm_provider_submission': True,
+            'read_paths': read_paths, 'max_steps': 13,
+        })
+        assert response.status_code == 202, response.text
+        run_id = response.json()['run_id']
+        for _ in read_paths:
+            run = wait_for(client, run_id, 'awaiting_approval')
+            approve(client, run)
+            client.post(f'/api/v1/agent-runs/{run_id}/continue')
+        run = wait_for(client, run_id, 'completed')
+        assert run['max_steps'] == 13
+        assert run['model_calls'] == 13
+        assert run['checkpoint_sequence'] > 1
+        too_many = client.post('/api/v1/agent-runs', json={
+            'task_type': 'write', 'instruction': 'Exceed the configured budget.', 'confirm_provider_submission': True,
+            'write_paths': ['out.txt'], 'max_steps': 21,
+        })
+        assert too_many.status_code == 422
+
+
+def test_completion_checks_pause_unverified_finish_and_verify_after_output(tmp_path):
+    client, settings = agent_client(tmp_path)
+    responses = [propose('finish', final_text='I completed the output.'),
+                 propose('write_file', 'result.json', '{"ok": true}'),
+                 propose('finish', final_text='The JSON output is ready.')]
+    with client:
+        async def infer(*args, **kwargs):
+            return responses.pop(0)
+        client.app.state.agents.live.infer = infer
+        response = client.post('/api/v1/agent-runs', json={
+            'task_type': 'code', 'instruction': 'Create valid JSON.', 'confirm_provider_submission': True,
+            'write_paths': ['result.json'], 'max_steps': 4,
+            'completion_checks': [{'check_id': 'json-result', 'kind': 'valid_json', 'path': 'result.json'}],
+        })
+        assert response.status_code == 202, response.text
+        run = wait_for(client, response.json()['run_id'], 'paused')
+        assert run['stop_reason'] == 'COMPLETION_CHECKS_FAILED'
+        assert run['status'] == 'running'
+        assert run['verification_status'] == 'failed'
+        assert run['completion_check_results'][0]['status'] == 'failed'
+        client.post(f"/api/v1/agent-runs/{run['run_id']}/continue")
+        run = wait_for(client, run['run_id'], 'awaiting_approval')
+        approve(client, run)
+        client.post(f"/api/v1/agent-runs/{run['run_id']}/continue")
+        run = wait_for(client, run['run_id'], 'completed')
+        assert run['verification_status'] == 'verified'
+        assert run['completion_check_results'][0]['status'] == 'passed'
+        assert (settings.agent_workspace_root / 'result.json').read_text(encoding='utf-8') == '{"ok": true}'
+
+
+def test_completion_check_must_target_permitted_write_path(tmp_path):
+    client, _ = agent_client(tmp_path)
+    with client:
+        response = client.post('/api/v1/agent-runs', json={
+            'task_type': 'write', 'instruction': 'Draft a file.', 'confirm_provider_submission': True,
+            'read_paths': ['README.md'],
+            'completion_checks': [{'check_id': 'output', 'kind': 'file_exists', 'path': 'README.md'}],
+        })
+        assert response.status_code == 422
+
+
+def test_changed_file_can_be_reread_but_noop_write_is_paused(tmp_path):
+    client, settings = agent_client(tmp_path)
+    target = settings.agent_workspace_root / 'note.txt'
+    target.write_text('first', encoding='utf-8')
+    read_responses = [propose('read_file', 'note.txt'), propose('read_file', 'note.txt')]
+    with client:
+        async def infer(*args, **kwargs):
+            return read_responses.pop(0)
+        client.app.state.agents.live.infer = infer
+        response = client.post('/api/v1/agent-runs', json={
+            'task_type': 'write', 'instruction': 'Read a file after it changes.', 'confirm_provider_submission': True,
+            'read_paths': ['note.txt'], 'write_paths': ['note.txt'], 'max_steps': 4,
+        })
+        run = wait_for(client, response.json()['run_id'], 'awaiting_approval')
+        approve(client, run)
+        target.write_text('changed', encoding='utf-8')
+        client.post(f"/api/v1/agent-runs/{run['run_id']}/continue")
+        run = wait_for(client, run['run_id'], 'awaiting_approval')
+        assert run['pending_action']['before_text'] == 'changed'
+
+    # A write proposal identical to the current bytes is not meaningful progress.
+    client2, settings2 = agent_client(tmp_path / 'noop')
+    same = 'unchanged'
+    (settings2.agent_workspace_root / 'note.txt').write_text(same, encoding='utf-8')
+    with client2:
+        async def infer_noop(*args, **kwargs):
+            return propose('write_file', 'note.txt', same)
+        client2.app.state.agents.live.infer = infer_noop
+        response = client2.post('/api/v1/agent-runs', json={
+            'task_type': 'write', 'instruction': 'Update a file.', 'confirm_provider_submission': True,
+            'write_paths': ['note.txt'],
+        })
+        run = wait_for(client2, response.json()['run_id'], 'paused')
+        assert run['stop_reason'] == 'NO_PROGRESS_LOOP'
+        assert run['pending_action'] is None
+        assert (settings2.agent_workspace_root / 'note.txt').read_text(encoding='utf-8') == same
+
+
+def test_transient_provider_failure_requires_explicit_continue(tmp_path):
+    from backend.app.providers.base import ProviderError
+
+    client, _ = agent_client(tmp_path)
+    with client:
+        calls = 0
+        async def infer(*args, **kwargs):
+            nonlocal calls
+            calls += 1
+            if calls == 1:
+                raise ProviderError('PROVIDER_TIMEOUT')
+            return propose('finish', final_text='Recovered after review.')
+        client.app.state.agents.live.infer = infer
+        response = client.post('/api/v1/agent-runs', json={
+            'task_type': 'write', 'instruction': 'Draft a note.', 'confirm_provider_submission': True,
+            'write_paths': ['note.txt'], 'max_steps': 3,
+        })
+        run = wait_for(client, response.json()['run_id'], 'paused')
+        assert calls == 1
+        assert run['stop_reason'] == 'PROVIDER_TIMEOUT'
+        assert client.post(f"/api/v1/agent-runs/{run['run_id']}/continue").status_code == 200
+        run = wait_for(client, run['run_id'], 'completed')
+        assert calls == 2
+        assert run['final_text'] == 'Recovered after review.'
+
+
+def test_repeated_identical_provider_failures_stop_after_three_user_reviewed_calls(tmp_path):
+    from backend.app.providers.base import ProviderError
+
+    client, _ = agent_client(tmp_path)
+    with client:
+        calls = 0
+        async def infer(*args, **kwargs):
+            nonlocal calls
+            calls += 1
+            raise ProviderError('PROVIDER_TIMEOUT')
+        client.app.state.agents.live.infer = infer
+        response = client.post('/api/v1/agent-runs', json={
+            'task_type': 'write', 'instruction': 'Draft a file.', 'confirm_provider_submission': True,
+            'write_paths': ['note.txt'], 'max_steps': 8,
+        })
+        run = wait_for(client, response.json()['run_id'], 'paused')
+        assert calls == 1
+        for _ in range(2):
+            client.post(f"/api/v1/agent-runs/{run['run_id']}/continue")
+            run = wait_for(client, run['run_id'], 'failed' if calls == 3 else 'paused')
+        assert calls == 3
+        assert run['stop_reason'] == 'REPEATED_PROVIDER_FAILURE'
+        assert run['repeated_failure_count'] == 3
+        assert client.post(f"/api/v1/agent-runs/{run['run_id']}/continue").status_code == 409
 
 
 def test_agent_paths_block_secrets_and_remote_clients(tmp_path):

@@ -403,23 +403,6 @@
             }
           }
         ],
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "anyOf": [
-                  {
-                    "$ref": "#/components/schemas/AgentContinueRequest"
-                  },
-                  {
-                    "type": "null"
-                  }
-                ],
-                "title": "Body"
-              }
-            }
-          }
-        },
         "responses": {
           "200": {
             "description": "Successful Response",
@@ -1514,49 +1497,37 @@
         }
       }
     },
-    "/api/v1/agent-runs/{run_id}/extend": {
-      "post": {
-        "summary": "Extend Agent Run",
-        "operationId": "extend_agent_run_api_v1_agent_runs__run_id__extend_post",
-        "parameters": [
-          {
-            "name": "run_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "format": "uuid",
-              "title": "Run Id"
-            }
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/AgentExtendRequest"
-              }
-            }
-          }
-        },
+    "/api/v1/local-settings/provider": {
+      "get": {
+        "summary": "Get Local Provider Settings",
+        "operationId": "local_provider_settings_api_v1_local_settings_provider_get",
         "responses": {
           "200": {
-            "description": "Successful Response",
+            "description": "Local provider setup status",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/AgentRun"
+                  "$ref": "#/components/schemas/LocalProviderSettings"
                 }
               }
             }
           },
-          "422": {
-            "description": "Validation Error",
+          "403": {
+            "description": "Error response",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Error response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
                 }
               }
             }
@@ -1564,49 +1535,67 @@
         }
       }
     },
-    "/api/v1/agent-runs/{run_id}/review": {
-      "post": {
-        "summary": "Review Agent Run",
-        "operationId": "review_agent_run_api_v1_agent_runs__run_id__review_post",
-        "parameters": [
-          {
-            "name": "run_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "format": "uuid",
-              "title": "Run Id"
-            }
-          }
-        ],
+    "/api/v1/local-settings/provider-key": {
+      "put": {
+        "summary": "Save Local Provider Key",
+        "operationId": "configure_local_provider_key_api_v1_local_settings_provider_key_put",
         "requestBody": {
-          "required": true,
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/AgentReviewRequest"
+                "$ref": "#/components/schemas/ProviderKeyInput"
               }
             }
-          }
+          },
+          "required": true
         },
         "responses": {
           "200": {
-            "description": "Successful Response",
+            "description": "Local provider setup status",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/AgentRun"
+                  "$ref": "#/components/schemas/LocalProviderSettings"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Error response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Error response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
                 }
               }
             }
           },
           "422": {
-            "description": "Validation Error",
+            "description": "Error response",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Error response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
                 }
               }
             }
@@ -1722,17 +1711,7 @@
           "max_steps": {
             "type": "integer",
             "title": "Max Steps",
-            "default": 100
-          },
-          "default_steps": {
-            "type": "integer",
-            "title": "Default Steps",
-            "default": 12
-          },
-          "default_review_interval": {
-            "type": "integer",
-            "title": "Default Review Interval",
-            "default": 5
+            "default": 20
           },
           "max_file_chars": {
             "type": "integer",
@@ -1752,11 +1731,148 @@
           "shell_execution_enabled",
           "network_tools_enabled",
           "max_steps",
-          "default_steps",
-          "default_review_interval",
           "max_file_chars"
         ],
         "title": "AgentCapabilities"
+      },
+      "AgentCompletionCheck-Input": {
+        "properties": {
+          "check_id": {
+            "type": "string",
+            "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_-]{0,39}$",
+            "title": "Check Id"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "file_exists",
+              "file_changed",
+              "contains_text",
+              "valid_json"
+            ],
+            "title": "Kind"
+          },
+          "path": {
+            "type": "string",
+            "maxLength": 500,
+            "minLength": 1,
+            "title": "Path"
+          },
+          "expected_text": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 500,
+                "minLength": 1
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expected Text"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "check_id",
+          "kind",
+          "path"
+        ],
+        "title": "AgentCompletionCheck"
+      },
+      "AgentCompletionCheck-Output": {
+        "properties": {
+          "check_id": {
+            "type": "string",
+            "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_-]{0,39}$",
+            "title": "Check Id"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "file_exists",
+              "file_changed",
+              "contains_text",
+              "valid_json"
+            ],
+            "title": "Kind"
+          },
+          "path": {
+            "type": "string",
+            "maxLength": 500,
+            "minLength": 1,
+            "title": "Path"
+          },
+          "expected_text": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 500,
+                "minLength": 1
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expected Text"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "check_id",
+          "kind",
+          "path",
+          "expected_text"
+        ],
+        "title": "AgentCompletionCheck"
+      },
+      "AgentCompletionCheckResult": {
+        "properties": {
+          "check_id": {
+            "type": "string",
+            "title": "Check Id"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "file_exists",
+              "file_changed",
+              "contains_text",
+              "valid_json"
+            ],
+            "title": "Kind"
+          },
+          "path": {
+            "type": "string",
+            "title": "Path"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "passed",
+              "failed",
+              "not_verifiable"
+            ],
+            "title": "Status"
+          },
+          "message": {
+            "type": "string",
+            "maxLength": 240,
+            "title": "Message"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "check_id",
+          "kind",
+          "path",
+          "status",
+          "message"
+        ],
+        "title": "AgentCompletionCheckResult"
       },
       "AgentEvent": {
         "properties": {
@@ -1943,17 +2059,6 @@
               }
             ],
             "title": "Base Sha256"
-          },
-          "diff": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Diff"
           }
         },
         "additionalProperties": false,
@@ -1966,8 +2071,7 @@
           "summary",
           "content",
           "before_text",
-          "base_sha256",
-          "diff"
+          "base_sha256"
         ],
         "title": "AgentPendingAction"
       },
@@ -2034,111 +2138,37 @@
             "type": "integer",
             "title": "Max Steps"
           },
-          "review_interval": {
+          "checkpoint_sequence": {
             "type": "integer",
-            "title": "Review Interval",
-            "default": 5
+            "minimum": 1.0,
+            "title": "Checkpoint Sequence",
+            "default": 1
           },
-          "max_elapsed_seconds": {
-            "type": "integer",
-            "title": "Max Elapsed Seconds",
-            "default": 3600
-          },
-          "checkpoints": {
-            "items": {
-              "$ref": "#/components/schemas/AgentCheckpoint"
-            },
-            "type": "array",
-            "title": "Checkpoints"
-          },
-          "observations": {
-            "items": {
-              "$ref": "#/components/schemas/AgentObservation"
-            },
-            "type": "array",
-            "title": "Observations"
-          },
-          "revisions": {
-            "items": {
-              "$ref": "#/components/schemas/AgentRevision"
-            },
-            "type": "array",
-            "title": "Revisions"
-          },
-          "review_required": {
-            "type": "boolean",
-            "title": "Review Required",
-            "default": false
-          },
-          "checklist": {
-            "items": {
-              "type": "string"
-            },
-            "type": "array",
-            "title": "Checklist"
-          },
-          "completed_items": {
-            "items": {
-              "type": "integer"
-            },
-            "type": "array",
-            "title": "Completed Items"
-          },
-          "completion_reviewed": {
-            "type": "boolean",
-            "title": "Completion Reviewed",
-            "default": false
-          },
-          "input_tokens": {
-            "anyOf": [
-              {
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Input Tokens"
-          },
-          "output_tokens": {
-            "anyOf": [
-              {
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Output Tokens"
-          },
-          "estimated_cost_usd": {
-            "anyOf": [
-              {
-                "type": "number",
-                "minimum": 0.0
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Estimated Cost Usd"
-          },
-          "provider_latency_ms": {
-            "anyOf": [
-              {
-                "type": "number",
-                "minimum": 0.0
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Provider Latency Ms"
+          "checkpoint_at": {
+            "type": "string",
+            "title": "Checkpoint At",
+            "default": ""
           },
           "model_calls": {
             "type": "integer",
             "title": "Model Calls",
             "default": 0
+          },
+          "repeated_failure_count": {
+            "type": "integer",
+            "title": "Repeated Failure Count",
+            "default": 0
+          },
+          "last_failure_fingerprint": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Failure Fingerprint"
           },
           "steps_completed": {
             "type": "integer",
@@ -2161,6 +2191,45 @@
             },
             "type": "array",
             "title": "Events"
+          },
+          "completion_checks": {
+            "items": {
+              "$ref": "#/components/schemas/AgentCompletionCheck-Output"
+            },
+            "type": "array",
+            "title": "Completion Checks"
+          },
+          "completion_check_baselines": {
+            "additionalProperties": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "type": "object",
+            "title": "Completion Check Baselines"
+          },
+          "completion_check_results": {
+            "items": {
+              "$ref": "#/components/schemas/AgentCompletionCheckResult"
+            },
+            "type": "array",
+            "title": "Completion Check Results"
+          },
+          "verification_status": {
+            "type": "string",
+            "enum": [
+              "not_requested",
+              "pending",
+              "verified",
+              "failed"
+            ],
+            "title": "Verification Status",
+            "default": "not_requested"
           },
           "final_text": {
             "anyOf": [
@@ -2223,23 +2292,18 @@
           "read_paths",
           "write_paths",
           "max_steps",
-          "review_interval",
-          "max_elapsed_seconds",
-          "checkpoints",
-          "observations",
-          "revisions",
-          "review_required",
-          "checklist",
-          "completed_items",
-          "completion_reviewed",
-          "input_tokens",
-          "output_tokens",
-          "estimated_cost_usd",
-          "provider_latency_ms",
+          "checkpoint_sequence",
+          "checkpoint_at",
           "model_calls",
+          "repeated_failure_count",
+          "last_failure_fingerprint",
           "steps_completed",
           "pending_action",
           "events",
+          "completion_checks",
+          "completion_check_baselines",
+          "completion_check_results",
+          "verification_status",
           "final_text",
           "stop_reason",
           "created_at",
@@ -2287,32 +2351,18 @@
           },
           "max_steps": {
             "type": "integer",
-            "maximum": 1000.0,
-            "minimum": 1.0,
-            "title": "Max Steps",
-            "default": 12
-          },
-          "review_interval": {
-            "type": "integer",
             "maximum": 20.0,
             "minimum": 1.0,
-            "title": "Review Interval",
-            "default": 5
+            "title": "Max Steps",
+            "default": 8
           },
-          "max_elapsed_seconds": {
-            "type": "integer",
-            "maximum": 86400.0,
-            "minimum": 60.0,
-            "title": "Max Elapsed Seconds",
-            "default": 3600
-          },
-          "checklist": {
+          "completion_checks": {
             "items": {
-              "type": "string"
+              "$ref": "#/components/schemas/AgentCompletionCheck-Input"
             },
             "type": "array",
-            "maxItems": 30,
-            "title": "Checklist"
+            "maxItems": 10,
+            "title": "Completion Checks"
           }
         },
         "additionalProperties": false,
@@ -4873,215 +4923,57 @@
         ],
         "title": "TaskConstraints"
       },
-      "AgentCheckpoint": {
+      "LocalProviderSettings": {
+        "additionalProperties": false,
         "properties": {
-          "sequence": {
-            "type": "integer",
-            "title": "Sequence"
+          "local_setup_available": {
+            "title": "Local Setup Available",
+            "type": "boolean"
           },
-          "created_at": {
-            "type": "string",
-            "title": "Created At"
+          "provider_key_configured": {
+            "title": "Provider Key Configured",
+            "type": "boolean"
           },
-          "model_calls": {
-            "type": "integer",
-            "title": "Model Calls"
+          "provider_key_saved_in_env": {
+            "title": "Provider Key Saved In Env",
+            "type": "boolean"
           },
-          "event_cursor": {
-            "type": "integer",
-            "title": "Event Cursor"
+          "restart_required": {
+            "title": "Restart Required",
+            "type": "boolean"
           },
-          "observation_cursor": {
-            "type": "integer",
-            "title": "Observation Cursor"
-          },
-          "new_reads": {
-            "type": "integer",
-            "title": "New Reads"
-          },
-          "changed_writes": {
-            "type": "integer",
-            "title": "Changed Writes"
-          },
-          "failures": {
-            "type": "integer",
-            "title": "Failures"
-          },
-          "assessment": {
-            "type": "string",
-            "enum": [
-              "observed_progress",
-              "stalled",
-              "uncertain"
-            ],
-            "title": "Assessment"
-          },
-          "summary": {
-            "type": "string",
-            "title": "Summary"
+          "environment_override": {
+            "title": "Environment Override",
+            "type": "boolean"
           }
         },
-        "additionalProperties": false,
-        "type": "object",
         "required": [
-          "sequence",
-          "created_at",
-          "model_calls",
-          "event_cursor",
-          "observation_cursor",
-          "new_reads",
-          "changed_writes",
-          "failures",
-          "assessment",
-          "summary"
+          "local_setup_available",
+          "provider_key_configured",
+          "provider_key_saved_in_env",
+          "restart_required",
+          "environment_override"
         ],
-        "title": "AgentCheckpoint"
+        "title": "LocalProviderSettings",
+        "type": "object"
       },
-      "AgentContinueRequest": {
-        "properties": {
-          "guidance": {
-            "type": "string",
-            "maxLength": 2000,
-            "title": "Guidance",
-            "default": ""
-          }
-        },
+      "ProviderKeyInput": {
         "additionalProperties": false,
-        "type": "object",
-        "title": "AgentContinueRequest"
-      },
-      "AgentExtendRequest": {
         "properties": {
-          "additional_steps": {
-            "type": "integer",
-            "maximum": 1000.0,
-            "minimum": 1.0,
-            "title": "Additional Steps"
-          },
-          "reason": {
-            "type": "string",
-            "maxLength": 500,
+          "api_key": {
+            "format": "password",
+            "maxLength": 512,
             "minLength": 1,
-            "title": "Reason"
+            "title": "Api Key",
+            "type": "string",
+            "writeOnly": true
           }
         },
-        "additionalProperties": false,
-        "type": "object",
         "required": [
-          "additional_steps",
-          "reason"
+          "api_key"
         ],
-        "title": "AgentExtendRequest"
-      },
-      "AgentObservation": {
-        "properties": {
-          "model_call": {
-            "type": "integer",
-            "title": "Model Call"
-          },
-          "operation": {
-            "type": "string",
-            "enum": [
-              "read_file",
-              "write_file"
-            ],
-            "title": "Operation"
-          },
-          "path": {
-            "type": "string",
-            "title": "Path"
-          },
-          "before_sha256": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Before Sha256"
-          },
-          "after_sha256": {
-            "type": "string",
-            "title": "After Sha256"
-          }
-        },
-        "additionalProperties": false,
-        "type": "object",
-        "required": [
-          "model_call",
-          "operation",
-          "path",
-          "before_sha256",
-          "after_sha256"
-        ],
-        "title": "AgentObservation"
-      },
-      "AgentReviewRequest": {
-        "properties": {
-          "completed_items": {
-            "items": {
-              "type": "integer"
-            },
-            "type": "array",
-            "maxItems": 30,
-            "title": "Completed Items"
-          },
-          "accept_completion": {
-            "type": "boolean",
-            "title": "Accept Completion",
-            "default": false
-          },
-          "note": {
-            "type": "string",
-            "maxLength": 1000,
-            "minLength": 1,
-            "title": "Note"
-          }
-        },
-        "additionalProperties": false,
-        "type": "object",
-        "required": [
-          "note"
-        ],
-        "title": "AgentReviewRequest"
-      },
-      "AgentRevision": {
-        "properties": {
-          "path": {
-            "type": "string",
-            "title": "Path"
-          },
-          "created_at": {
-            "type": "string",
-            "title": "Created At"
-          },
-          "before_text": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Before Text"
-          },
-          "after_text": {
-            "type": "string",
-            "title": "After Text"
-          }
-        },
-        "additionalProperties": false,
-        "type": "object",
-        "required": [
-          "path",
-          "created_at",
-          "before_text",
-          "after_text"
-        ],
-        "title": "AgentRevision"
+        "title": "ProviderKeyInput",
+        "type": "object"
       }
     }
   }

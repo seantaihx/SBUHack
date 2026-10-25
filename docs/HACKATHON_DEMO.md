@@ -10,6 +10,18 @@
 
 Do not present fixture savings as an achieved reduction. Do not show Live as working merely because a control exists. Keep the simulated/observed and Demo/Live badges in any screenshots or recording.
 
+### Optional Workspace Agent segment (only when safely configured)
+
+This is not required for the core 90-second Demo. If the backend has deliberately enabled the local Workspace Agent and a disposable workspace is configured, show its exact read/write scope, one pending file action, the approval preview, and the human-readable event log. State that each operation needs approval and code is not executed. Do not improvise with a real company directory or confidential data. The agent uses Live inference and may incur provider charges; if it is not already configured, skip this segment rather than trying to enable it during judging.
+
+### Likely judge questions
+
+- **Are these savings guaranteed?** No. Demo usage and latency are simulated. Live runs show available provider usage and timing for that run; broader savings require representative workloads and repeated evaluation.
+- **Do you measure energy or emissions?** No. The energy coefficients and carbon-intensity scenario are illustrative inputs, not hardware telemetry or live grid data.
+- **How do you know the optimized answers are as good?** We do not assume equivalence. The interface exposes both answers and deterministic validation when configured; broader semantic quality needs held-out tests and human review.
+- **Does the agent protect every tool or agent in a company?** No. The current opt-in Workspace Agent mediates its own local file read/write actions. It has no shell/network/delete/code-execution tool and does not govern unrelated agents.
+- **How would a company adopt it?** Agree on the workload, provider API, data handling, and deployment boundary; configure the provider on the backend; validate the API contract; then evaluate routing against representative cases. This is a proposed integration path, not a completed enterprise deployment.
+
 ## Customer integration process (current prototype)
 
 1. Agree on the API v1 contract, deployment origin, supported task types, and data handling with the customer and backend owner.
@@ -36,4 +48,4 @@ This is an integration checklist for the prototype, not a claim that a productio
 - Capture one result view with both policy outputs and one narrow viewport after visual review.
 - Do not crop away unavailable/failed results or provenance labels in a way that changes their meaning.
 
-Screenshots have not yet been captured or visually reviewed in this checkout.
+The interface was visually inspected in a browser at desktop and 320px phone widths during implementation, but no screenshot files have been saved for Devpost. Capture the integrated views above after restarting the current-branch backend and completing the final demo walkthrough.

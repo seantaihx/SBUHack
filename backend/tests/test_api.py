@@ -196,9 +196,13 @@ def test_generated_response_schema_requires_every_shared_response_field():
         if name in (
             'CreateRun', 'CreateTextSource', 'CreateWebpageSource',
             'StartBenchmarkRequest', 'AgentStartRequest', 'AgentApprovalRequest',
-        ) or name.startswith(('Task', 'Body_')):
+        ) or name.endswith('-Input') or name.startswith(('Task', 'Body_')):
             continue
-        model = getattr(schemas, name, None) or getattr(benchmark_schemas, name, None) or getattr(agent_schemas, name)
+        # Pydantic emits split schemas for a model used as both a validated
+        # request and a serialized response. Check the output variant against
+        # the source model just like its unsuffixed response schemas.
+        model_name = name.removesuffix('-Output')
+        model = getattr(schemas, model_name, None) or getattr(benchmark_schemas, model_name, None) or getattr(agent_schemas, model_name)
         generated = model.model_json_schema(mode='serialization')
         assert set(generated['required']) == set(shared['required']), name
         assert set(generated['properties']) == set(shared['properties']), name

@@ -119,14 +119,25 @@ class Store:
         self._create(record.run.run_id, record.run.status, record.run.created_at, record.model_dump_json(), 'benchmark', rate_limit)
 
     def create_agent(self, run):
+        run.checkpoint_sequence = max(1, run.checkpoint_sequence)
+        run.checkpoint_at = now()
         self._create(str(run.run_id), run.status, run.created_at, run.model_dump_json(), 'agent')
 
     def get_agent(self, run_id):
         from .agent_schemas import AgentRun
         snapshot = self._get(run_id, 'agent')
-        return AgentRun.model_validate_json(snapshot) if snapshot else None
+        if not snapshot:
+            return None
+        run = AgentRun.model_validate_json(snapshot)
+        if not run.checkpoint_at:  # Backward-compatible restore of pre-checkpoint snapshots.
+            run.checkpoint_at = run.created_at
+        if run.completion_checks and run.verification_status == 'not_requested':
+            run.verification_status = 'pending'
+        return run
 
     def save_agent(self, run):
+        run.checkpoint_sequence += 1
+        run.checkpoint_at = now()
         self._save(str(run.run_id), run.status, run.model_dump_json())
 
     def get_benchmark(self, run_id):
@@ -159,13 +170,11 @@ class Store:
                 if kind == 'agent':
                     from .agent_schemas import AgentEvent, AgentRun
                     agent = AgentRun.model_validate_json(snapshot)
-                    if agent.phase == 'planning' and agent.model_calls:
-                        agent.input_tokens = agent.output_tokens = agent.estimated_cost_usd = agent.provider_latency_ms = None
                     agent.status = 'running'
                     agent.phase = 'paused'
-                    agent.pending_action = None
-                    if agent.stop_reason not in ('COMPLETION_REVIEW_REQUIRED', 'STEP_LIMIT_REACHED', 'TIME_LIMIT_REACHED'):
-                        agent.stop_reason = 'APPLICATION_RESTARTED_REVIEW_REQUIRED'
+                    agent.stop_reason = 'APPLICATION_RESTARTED_REVIEW_REQUIRED'
+                    agent.checkpoint_sequence += 1
+                    agent.checkpoint_at = now()
                     agent.events.append(AgentEvent(sequence=len(agent.events) + 1, occurred_at=now(), actor='policy',
                                                    operation='pause', target=None, decision='stopped',
                                                    summary='Application restarted; no action resumed automatically.'))

@@ -31,6 +31,20 @@ describe('backend source preview flow', () => {
     await waitFor(() => expect(onSourceChange).toHaveBeenLastCalledWith(expect.objectContaining({ source_id: snapshot.source_id }), true, true));
   });
 
+  it('keeps backend source parsing failures visible and does not create a preview', async () => {
+    const fetchMock = vi.fn(async () => ({ ok: false, status: 422, json: async () => ({ error: { code: 'SOURCE_PARSE_FAILED', message: 'The PDF has no extractable text.', details: {} } }) }));
+    vi.stubGlobal('fetch', fetchMock);
+    const user = userEvent.setup();
+    render(<SourceInput fixtureMode={false} onSourceChange={vi.fn()} />);
+    await user.selectOptions(screen.getByLabelText('Source type'), 'text');
+    await user.type(screen.getByLabelText('Pasted source text'), 'Unparseable source sample');
+    await user.click(screen.getByRole('button', { name: 'Preview source' }));
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('The PDF has no extractable text.');
+    expect(screen.queryByRole('heading', { name: 'Content preview' })).not.toBeInTheDocument();
+    expect(fetchMock).toHaveBeenCalledWith('/api/v1/sources/text', expect.objectContaining({ method: 'POST' }));
+  });
+
   it('uploads a selected PDF only after the explicit parse action', async () => {
     const fetchMock = vi.fn(async (_input: RequestInfo | URL, _init?: RequestInit) => ok({ source: { ...snapshot, kind: 'pdf', name: 'report.pdf' } }));
     vi.stubGlobal('fetch', fetchMock);
