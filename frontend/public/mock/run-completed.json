@@ -65,7 +65,12 @@
       "gpu_average_power_w": null,
       "gpu_sample_count": null,
       "output_tokens_per_second": null,
-      "output_speed_source": null
+      "output_speed_source": null,
+      "gpu_idle_baseline_power_w": null,
+      "gpu_idle_baseline_utilization_pct": null,
+      "gpu_idle_baseline_sample_count": null,
+      "gpu_idle_baseline_duration_ms": null,
+      "gpu_power_delta_w": null
     },
     {
       "task_id": "classify-1",
@@ -100,7 +105,12 @@
       "gpu_average_power_w": null,
       "gpu_sample_count": null,
       "output_tokens_per_second": null,
-      "output_speed_source": null
+      "output_speed_source": null,
+      "gpu_idle_baseline_power_w": null,
+      "gpu_idle_baseline_utilization_pct": null,
+      "gpu_idle_baseline_sample_count": null,
+      "gpu_idle_baseline_duration_ms": null,
+      "gpu_power_delta_w": null
     },
     {
       "task_id": "extract-1",
@@ -135,7 +145,12 @@
       "gpu_average_power_w": null,
       "gpu_sample_count": null,
       "output_tokens_per_second": null,
-      "output_speed_source": null
+      "output_speed_source": null,
+      "gpu_idle_baseline_power_w": null,
+      "gpu_idle_baseline_utilization_pct": null,
+      "gpu_idle_baseline_sample_count": null,
+      "gpu_idle_baseline_duration_ms": null,
+      "gpu_power_delta_w": null
     },
     {
       "task_id": "extract-1",
@@ -170,7 +185,12 @@
       "gpu_average_power_w": null,
       "gpu_sample_count": null,
       "output_tokens_per_second": null,
-      "output_speed_source": null
+      "output_speed_source": null,
+      "gpu_idle_baseline_power_w": null,
+      "gpu_idle_baseline_utilization_pct": null,
+      "gpu_idle_baseline_sample_count": null,
+      "gpu_idle_baseline_duration_ms": null,
+      "gpu_power_delta_w": null
     },
     {
       "task_id": "summarize-1",
@@ -205,7 +225,12 @@
       "gpu_average_power_w": null,
       "gpu_sample_count": null,
       "output_tokens_per_second": null,
-      "output_speed_source": null
+      "output_speed_source": null,
+      "gpu_idle_baseline_power_w": null,
+      "gpu_idle_baseline_utilization_pct": null,
+      "gpu_idle_baseline_sample_count": null,
+      "gpu_idle_baseline_duration_ms": null,
+      "gpu_power_delta_w": null
     },
     {
       "task_id": "summarize-1",
@@ -240,7 +265,12 @@
       "gpu_average_power_w": null,
       "gpu_sample_count": null,
       "output_tokens_per_second": null,
-      "output_speed_source": null
+      "output_speed_source": null,
+      "gpu_idle_baseline_power_w": null,
+      "gpu_idle_baseline_utilization_pct": null,
+      "gpu_idle_baseline_sample_count": null,
+      "gpu_idle_baseline_duration_ms": null,
+      "gpu_power_delta_w": null
     }
   ],
   "comparison": {

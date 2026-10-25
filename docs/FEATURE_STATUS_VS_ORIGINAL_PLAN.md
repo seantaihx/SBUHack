@@ -54,8 +54,8 @@ Evidence: `backend/app/providers/live.py`, `backend/app/settings.py`, `backend/a
 ### Benchmarks and analysis
 
 - `starter-v1`: 5 cases, version 1.0.0.
-- `starter-v2`: **26 cases**, version 2.1.0: classification 5, arithmetic 5, extraction 5, summarization 3, reasoning 2, formatting 2, fact retrieval 2, writing 1, coding 1.
-- Fixed baseline model selection; candidate model selection or `eco-auto` task-category routing.
+- `starter-v2`: **40 synthetic cases**, version 2.2.0, spanning classification, arithmetic, extraction, summarization, reasoning, formatting, fact retrieval, writing and coding. Its first 20 cases span every category; the hard per-run cap is 20, subject to request/spend guards.
+- Fixed baseline model selection; candidate fixed model or live AI auto-routing through the configured small model. Simulated routing is explicitly fixture-based.
 - Catalog/detail, start, history, snapshot, case pagination and analysis-export APIs.
 - Default server cap is 10 cases per run, further constrained by request/spend budgets. Having 26 catalog cases does not mean all 26 run in one default job.
 - Exact matching, authored JSON-value checks and lexical required-fact checks.
@@ -113,10 +113,10 @@ Original section numbers are retained for traceability.
 | 4. OpenAI + Anthropic + Groq (P0) | Partial | Groq-compatible adapter | Native OpenAI Responses and Anthropic Messages, provider capability registry and provider-specific normalization; streaming not implemented |
 | 5. Accurate configurable pricing (P0) | Partial | Three hardcoded input/output rate pairs, unknown price/usage returns null | Decimal arithmetic/storage, immutable execution-time rates, custom prices, caching/tier/context/region/tool rules and editable catalog |
 | 6. Request-cost dashboard (P0) | Partial | Backend comparison costs; benchmark aggregate costs | Compare UI cost display/breakdown, per-case cost inspection, pricing assumptions and complete token-cost panels |
-| 7. Intelligent routing (P1) | Partial | Fixed category routing, manual benchmark selection, validation-triggered fallback | Cost-aware optimization, quality thresholds from relevant historical evidence, capability/latency constraints and calibrated evidence |
+| 7. Intelligent routing (P1) | Partial | Fixed task-type routing in the comparison flow; live AI auto-route in benchmark mode; validation-triggered fallback | Cost-aware optimization, quality thresholds from relevant historical evidence, capability/latency constraints and calibrated evidence |
 | 8. Evaluation vs production cost (P1) | Partial | Both sides retain costs; comparison fallback combines attempt costs | Explicit total evaluation expenditure, production-policy cost model and savings/overhead dashboard |
 | 9. Business simulator (P1) | Missing | No simulator found | Volume/task-mix/cache/custom-rate/quality/fallback projections, monthly/annual savings and cost per validated request |
-| 10. Better benchmarks (P1) | Partial | 26 synthetic cases, deterministic evaluation, dataset snapshots and export | Representative reviewed workloads, repeat runs, broad semantic evaluation, latency distributions, quality-adjusted cost and failure-sensitive policy metrics |
+| 10. Better benchmarks (P1) | Partial | 40 synthetic cases, live AI auto-route option, deterministic evaluation, dataset snapshots and export | Representative reviewed workloads, repeat runs, broad semantic evaluation, latency distributions, quality-adjusted cost and failure-sensitive policy metrics |
 | 11. Document/web inputs (P2) | Partial, substantially implemented | Text/PDF/CSV/web import, previews, immutable captured text and locators | Validated answer citations/not-found outcomes, bound retention/deletion, real-site failure reproduction and stronger extraction acceptance evidence |
 | 12. Reports/export (P2) | Partial | Comparison JSON/CSV and print report; benchmark analysis JSON | Complete cost/fallback CSV fields, selectable full/summary payloads, execution-time price provenance and dedicated PDF generation if required |
 | 13. Environmental calculations | Implemented illustrative baseline | Token coefficients, chosen carbon intensity, caveats and negative savings | Persist coefficient snapshots; no measured provider electricity/carbon telemetry |
@@ -185,7 +185,7 @@ Raising the default output cap removes the earlier 256-token restriction but is 
 
 ### Benchmark subsets need clearer coverage
 
-Execution takes the first `max_cases` cases. The default cap is 10, so a larger catalog alone does not ensure later categories are exercised. Add deliberate subset/category selection or a documented full-suite process before claiming coverage of all 26 cases.
+Execution takes the first `max_cases` cases. The hard cap is 20 and starter-v2 orders its first 20 cases to cover all task categories, including writing and code. Live request and spend budgets can reduce the effective limit; the dataset catalog returns that limit.
 
 ### Documentation contains stale branch/feature statements
 

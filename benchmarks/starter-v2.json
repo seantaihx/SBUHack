@@ -1,6 +1,6 @@
 {
   "dataset_id": "starter-v2",
-  "version": "2.1.0",
+  "version": "2.2.0",
   "provenance": "synthetic",
   "cases": [
     {
@@ -24,26 +24,6 @@
       }
     },
     {
-      "case_id": "classify-general-001",
-      "category": "classification",
-      "input": "Classify as billing, technical, or general. Message: What are your weekend hours?",
-      "expected": "general",
-      "evaluation": {
-        "method": "exact_match",
-        "case_sensitive": false
-      }
-    },
-    {
-      "case_id": "classify-refund-001",
-      "category": "classification",
-      "input": "Classify as billing, technical, or general. Message: Please refund the duplicate invoice.",
-      "expected": "billing",
-      "evaluation": {
-        "method": "exact_match",
-        "case_sensitive": false
-      }
-    },
-    {
       "case_id": "arithmetic-multiply-001",
       "category": "arithmetic",
       "input": "What is 12 times 12? Return only the integer.",
@@ -58,26 +38,6 @@
       "category": "arithmetic",
       "input": "What is 15% of 200? Return only the number.",
       "expected": "30",
-      "evaluation": {
-        "method": "exact_match",
-        "case_sensitive": true
-      }
-    },
-    {
-      "case_id": "arithmetic-subtract-001",
-      "category": "arithmetic",
-      "input": "A budget is $950 and $275 is spent. Return the remaining amount as an integer.",
-      "expected": "675",
-      "evaluation": {
-        "method": "exact_match",
-        "case_sensitive": true
-      }
-    },
-    {
-      "case_id": "arithmetic-hours-001",
-      "category": "arithmetic",
-      "input": "A task takes 2.5 hours. Return the duration in minutes as an integer.",
-      "expected": "150",
       "evaluation": {
         "method": "exact_match",
         "case_sensitive": true
@@ -110,32 +70,6 @@
       }
     },
     {
-      "case_id": "extract-date-001",
-      "category": "extraction",
-      "input": "Return JSON with event and date. Text: The review meeting is on 2026-11-03.",
-      "expected": {
-        "event": "review meeting",
-        "date": "2026-11-03"
-      },
-      "evaluation": {
-        "method": "json_schema_and_values",
-        "additional_properties": false
-      }
-    },
-    {
-      "case_id": "extract-quantity-001",
-      "category": "extraction",
-      "input": "Return JSON with item and quantity. Text: Ship 18 filter cartridges.",
-      "expected": {
-        "item": "filter cartridges",
-        "quantity": 18
-      },
-      "evaluation": {
-        "method": "json_schema_and_values",
-        "additional_properties": false
-      }
-    },
-    {
       "case_id": "summarize-routing-001",
       "category": "summarization",
       "input": "Summarize: Simple classification moves to a smaller model; summaries remain on a larger model pending quality review.",
@@ -160,21 +94,6 @@
           "May pilot",
           "Priya owns setup",
           "April 20"
-        ]
-      }
-    },
-    {
-      "case_id": "summarize-incident-001",
-      "category": "summarization",
-      "input": "Summarize: The outage began at 09:10, affected report exports, and ended at 09:42 after a database connection pool restart.",
-      "expected": "Report exports were unavailable from 09:10 to 09:42; restarting the database connection pool resolved the outage.",
-      "evaluation": {
-        "method": "required_facts",
-        "required_facts": [
-          "09:10",
-          "09:42",
-          "report exports",
-          "connection pool"
         ]
       }
     },
@@ -229,6 +148,187 @@
       "evaluation": {
         "method": "exact_match",
         "case_sensitive": false
+      }
+    },
+    {
+      "case_id": "classify-mixed-issue-002",
+      "category": "classification",
+      "input": "Choose one label: billing, technical, or general. Message: The report page crashed after I was charged twice for the same export. Return only the label for the primary requested resolution.",
+      "expected": "billing",
+      "evaluation": {
+        "method": "exact_match",
+        "case_sensitive": false
+      }
+    },
+    {
+      "case_id": "arithmetic-discount-net-001",
+      "category": "arithmetic",
+      "input": "An invoice is $6,200. A 2% discount applies if paid within 10 days. Calculate the discount and net amount. Return JSON only with numeric keys discount_usd and net_usd.",
+      "expected": {
+        "discount_usd": 124,
+        "net_usd": 6076
+      },
+      "evaluation": {
+        "method": "json_schema_and_values",
+        "additional_properties": false
+      }
+    },
+    {
+      "case_id": "extract-invoice-multifield-002",
+      "category": "extraction",
+      "input": "Return JSON only with exactly: invoice_id, vendor, po_number, amount_usd, due_days. Use null when a field is absent. Text: Invoice INV-8831 from Harbor Reuse is $2,475.25 on net 30 terms. No purchase order number is shown.",
+      "expected": {
+        "invoice_id": "INV-8831",
+        "vendor": "Harbor Reuse",
+        "po_number": null,
+        "amount_usd": 2475.25,
+        "due_days": 30
+      },
+      "evaluation": {
+        "method": "json_schema_and_values",
+        "additional_properties": false
+      }
+    },
+    {
+      "case_id": "summarize-evidence-boundary-002",
+      "category": "summarization",
+      "input": "Summarize in two sentences using only these notes: A pilot covered 120 orders. 108 arrived on time. 12 were late, and 9 of those were resolved within two days. No emissions were measured and no independent supplier audit was performed. Do not infer a cause for late deliveries.",
+      "expected": "The pilot covered 120 orders: 108 arrived on time and 12 were late, with 9 late orders resolved within two days. The notes report no measured emissions or independent supplier audit and do not identify a cause for late deliveries.",
+      "evaluation": {
+        "method": "required_facts",
+        "required_facts": [
+          "120 orders",
+          "108 arrived on time",
+          "12 were late",
+          "9",
+          "no measured emissions",
+          "no independent supplier audit",
+          "do not identify a cause"
+        ]
+      }
+    },
+    {
+      "case_id": "reasoning-dependency-resource-002",
+      "category": "reasoning",
+      "input": "Tasks A (2 hours) and B (3 hours) can run in parallel. C (1 hour) depends on A. D (4 hours) depends on both B and C. E (2 hours) depends on D. Assuming unlimited workers and no gaps, what is the earliest project completion time? Return hours only.",
+      "expected": "9",
+      "evaluation": {
+        "method": "exact_match",
+        "case_sensitive": true
+      }
+    },
+    {
+      "case_id": "writing-compliance-followup-002",
+      "category": "writing",
+      "input": "Write a 60–90 word supplier follow-up using only these facts: invoice INV-8831 is $2,475.25, its purchase order number is missing, and the terms say net 30. Ask for the missing number. Do not invent a due date, approve payment, or claim certification or emissions savings.",
+      "expected": "Please provide the purchase order number for invoice INV-8831 so we can complete our records. The invoice amount is $2,475.25, and the supplied terms state net 30. We have not recorded a payment approval or a specific due date. Please also send current supporting documentation before making any certification or emissions-savings claim. Thank you for helping us verify the invoice details.",
+      "evaluation": {
+        "method": "required_facts",
+        "required_facts": [
+          "INV-8831",
+          "$2,475.25",
+          "purchase order number",
+          "net 30",
+          "not recorded a payment approval",
+          "specific due date"
+        ]
+      }
+    },
+    {
+      "case_id": "coding-parse-safe-amount-002",
+      "category": "coding",
+      "input": "Write a Python function parse_amount(text) that parses a dollar amount such as '$1,204.50' into Decimal('1204.50'). Reject malformed input with ValueError, remove commas only after validating the format, and include a short example test. Return code only; do not claim you executed it.",
+      "expected": "from decimal import Decimal\nimport re\n\ndef parse_amount(text):\n    if not isinstance(text, str) or not re.fullmatch(r'\\$?\\d{1,3}(?:,\\d{3})*(?:\\.\\d{2})?', text):\n        raise ValueError('invalid amount')\n    return Decimal(text.replace('$', '').replace(',', ''))",
+      "evaluation": {
+        "method": "required_facts",
+        "required_facts": [
+          "def parse_amount",
+          "Decimal",
+          "fullmatch",
+          "replace(',', '')",
+          "ValueError"
+        ]
+      }
+    },
+    {
+      "case_id": "classify-general-001",
+      "category": "classification",
+      "input": "Classify as billing, technical, or general. Message: What are your weekend hours?",
+      "expected": "general",
+      "evaluation": {
+        "method": "exact_match",
+        "case_sensitive": false
+      }
+    },
+    {
+      "case_id": "classify-refund-001",
+      "category": "classification",
+      "input": "Classify as billing, technical, or general. Message: Please refund the duplicate invoice.",
+      "expected": "billing",
+      "evaluation": {
+        "method": "exact_match",
+        "case_sensitive": false
+      }
+    },
+    {
+      "case_id": "arithmetic-subtract-001",
+      "category": "arithmetic",
+      "input": "A budget is $950 and $275 is spent. Return the remaining amount as an integer.",
+      "expected": "675",
+      "evaluation": {
+        "method": "exact_match",
+        "case_sensitive": true
+      }
+    },
+    {
+      "case_id": "arithmetic-hours-001",
+      "category": "arithmetic",
+      "input": "A task takes 2.5 hours. Return the duration in minutes as an integer.",
+      "expected": "150",
+      "evaluation": {
+        "method": "exact_match",
+        "case_sensitive": true
+      }
+    },
+    {
+      "case_id": "extract-date-001",
+      "category": "extraction",
+      "input": "Return JSON with event and date. Text: The review meeting is on 2026-11-03.",
+      "expected": {
+        "event": "review meeting",
+        "date": "2026-11-03"
+      },
+      "evaluation": {
+        "method": "json_schema_and_values",
+        "additional_properties": false
+      }
+    },
+    {
+      "case_id": "extract-quantity-001",
+      "category": "extraction",
+      "input": "Return JSON with item and quantity. Text: Ship 18 filter cartridges.",
+      "expected": {
+        "item": "filter cartridges",
+        "quantity": 18
+      },
+      "evaluation": {
+        "method": "json_schema_and_values",
+        "additional_properties": false
+      }
+    },
+    {
+      "case_id": "summarize-incident-001",
+      "category": "summarization",
+      "input": "Summarize: The outage began at 09:10, affected report exports, and ended at 09:42 after a database connection pool restart.",
+      "expected": "Report exports were unavailable from 09:10 to 09:42; restarting the database connection pool resolved the outage.",
+      "evaluation": {
+        "method": "required_facts",
+        "required_facts": [
+          "09:10",
+          "09:42",
+          "report exports",
+          "connection pool"
+        ]
       }
     },
     {
@@ -299,6 +399,105 @@
           "def is_even",
           "return",
           "n % 2 == 0"
+        ]
+      }
+    },
+    {
+      "case_id": "extract-unknown-fields-002",
+      "category": "extraction",
+      "input": "Return JSON only with exactly the keys meeting_date, timezone, owner, and decision. Use null for information that is not stated. Notes: The review is scheduled for 2026-11-03. Jordan Lee owns preparation. The team has not selected a timezone or made a decision.",
+      "expected": {
+        "meeting_date": "2026-11-03",
+        "timezone": null,
+        "owner": "Jordan Lee",
+        "decision": null
+      },
+      "evaluation": {
+        "method": "json_schema_and_values",
+        "additional_properties": false
+      }
+    },
+    {
+      "case_id": "reasoning-carbon-scenario-001",
+      "category": "reasoning",
+      "input": "In an illustrative scenario, execution A uses 20 Wh and execution B uses 8 Wh. At an assumed carbon intensity of 400 g/kWh, what is the difference in estimated carbon? Convert Wh to kWh. Return grams as a number only and do not call it measured emissions.",
+      "expected": "4.8",
+      "evaluation": {
+        "method": "exact_match",
+        "case_sensitive": true
+      }
+    },
+    {
+      "case_id": "summarize-mixed-evidence-003",
+      "category": "summarization",
+      "input": "Produce a concise summary and separate confirmed facts from unknowns. Confirmed: 42 devices were inspected; 38 passed the visual check; 4 need reinspection next week. Unknown: electrical energy use and carbon intensity were not recorded. No independent verification was done.",
+      "expected": "Confirmed: 42 devices were inspected; 38 passed the visual check and 4 need reinspection next week. Unknown: energy use and carbon intensity were not recorded, and no independent verification was performed.",
+      "evaluation": {
+        "method": "required_facts",
+        "required_facts": [
+          "42 devices",
+          "38 passed",
+          "4 need reinspection",
+          "energy use",
+          "carbon intensity",
+          "not recorded",
+          "no independent verification"
+        ]
+      }
+    },
+    {
+      "case_id": "writing-audit-checklist-001",
+      "category": "writing",
+      "input": "Create a four-item audit checklist from these requirements: verify invoice ID and amount; request a missing PO instead of guessing; check whether manager approval is required for purchases above $5,000; do not treat a sustainability claim as verified without a current certificate. Return four numbered items and add no other requirements.",
+      "expected": "1. Verify the invoice ID and amount.\n2. Request a missing purchase order number; do not guess it.\n3. Check for manager approval when a purchase is above $5,000.\n4. Treat a sustainability claim as unverified unless a current certificate is provided.",
+      "evaluation": {
+        "method": "required_facts",
+        "required_facts": [
+          "invoice ID and amount",
+          "request a missing purchase order number",
+          "do not guess",
+          "$5,000",
+          "current certificate"
+        ]
+      }
+    },
+    {
+      "case_id": "coding-bounded-retry-001",
+      "category": "coding",
+      "input": "Write a Python helper bounded_retry_count(failures, limit) that returns min(failures, limit), rejects negative values with ValueError, and never retries on its own. Include type hints. Return code only; do not claim execution.",
+      "expected": "def bounded_retry_count(failures: int, limit: int) -> int:\n    if failures < 0 or limit < 0:\n        raise ValueError('values must be non-negative')\n    return min(failures, limit)",
+      "evaluation": {
+        "method": "required_facts",
+        "required_facts": [
+          "def bounded_retry_count",
+          "failures: int",
+          "limit: int",
+          "raise ValueError",
+          "return min(failures, limit)"
+        ]
+      }
+    },
+    {
+      "case_id": "arithmetic-token-cost-001",
+      "category": "arithmetic",
+      "input": "A request uses 12,000 input tokens and 3,000 output tokens. The illustrative rates are $0.15 per million input tokens and $0.60 per million output tokens. Calculate total estimated cost in USD. Return the decimal number only.",
+      "expected": "0.0036",
+      "evaluation": {
+        "method": "exact_match",
+        "case_sensitive": true
+      }
+    },
+    {
+      "case_id": "reasoning-approval-order-001",
+      "category": "reasoning",
+      "input": "A purchase request is $7,200. The supplied rule says purchases above $5,000 require department-manager approval before purchase. The invoice is missing its PO number. List the two required next actions in order. Do not say either action has already happened.",
+      "expected": "1. Obtain department-manager approval before purchase. 2. Request the missing PO number; do not invent one.",
+      "evaluation": {
+        "method": "required_facts",
+        "required_facts": [
+          "manager approval before purchase",
+          "request the missing PO number",
+          "do not invent one"
         ]
       }
     }

@@ -27,7 +27,7 @@ class Settings:
     agent_max_steps: int = 100
     small_model_id: str = 'openai/gpt-oss-20b'
     large_model_id: str = 'openai/gpt-oss-120b'
-    benchmark_max_cases: int = 10
+    benchmark_max_cases: int = 20
     benchmark_extra_model_ids: tuple[str, ...] = ('qwen/qwen3.8-27b',)
     agent_role_models: dict[str, str] = field(default_factory=dict)
     benchmark_mode: str = 'simulated'
@@ -39,9 +39,10 @@ class Settings:
     anthropic_api_key: str = field(default='', repr=False)
     ollama_api_key: str = field(default='', repr=False)
     ollama_base_url: str = 'http://127.0.0.1:11434/v1'
+    gpu_idle_baseline_seconds: float = 3.0
     request_timeout_seconds: float = 30
     max_completion_tokens: int = 65536
-    max_requests_per_run: int = 20
+    max_requests_per_run: int = 60
     max_requests_per_minute: int = 60
     max_run_cost_usd: float = 0.50
     max_agent_task_cost_usd: float = 0.25
@@ -70,6 +71,8 @@ class Settings:
             raise ValueError('BENCHMARK_INFERENCE_MODE must be simulated, groq, or live.')
         if type(self.max_completion_tokens) is not int or not 1 <= self.max_completion_tokens <= 65536:
             raise ValueError('INFERENCE_MAX_COMPLETION_TOKENS must be an integer from 1 to 65536.')
+        if not math.isfinite(self.gpu_idle_baseline_seconds) or not 0 <= self.gpu_idle_baseline_seconds <= 10:
+            raise ValueError('GPU_IDLE_BASELINE_SECONDS must be between 0 and 10.')
         if (type(self.max_agent_tokens_per_run) is not int or not 1024 <= self.max_agent_tokens_per_run <= 200000
                 or type(self.max_agent_tokens_per_task) is not int or not 1024 <= self.max_agent_tokens_per_task <= self.max_agent_tokens_per_run):
             raise ValueError('Agent token budgets must be integers from 1024 to 200000, with the task budget no larger than the workflow budget.')
@@ -192,15 +195,16 @@ class Settings:
                        anthropic_api_key=value('ANTHROPIC_API_KEY', '') or '',
                        ollama_api_key=value('OLLAMA_API_KEY', '') or '',
                        ollama_base_url=value('OLLAMA_BASE_URL', 'http://127.0.0.1:11434/v1') or 'http://127.0.0.1:11434/v1',
+                       gpu_idle_baseline_seconds=float(value('GPU_IDLE_BASELINE_SECONDS', 3)),
                        base_url=value('INFERENCE_BASE_URL', cls.base_url) or cls.base_url,
                        live_enabled=value('LIVE_ENABLED', 'false').lower() == 'true',
                        benchmark_mode=value('BENCHMARK_INFERENCE_MODE', 'simulated'),
                        max_completion_tokens=int(value('INFERENCE_MAX_COMPLETION_TOKENS', 65536)),
-                       benchmark_max_cases=int(value('BENCHMARK_MAX_CASES', 10)),
+                       benchmark_max_cases=int(value('BENCHMARK_MAX_CASES', 20)),
                        benchmark_extra_model_ids=tuple(part.strip() for part in value('BENCHMARK_EXTRA_MODEL_IDS', 'qwen/qwen3.8-27b').split(',') if part.strip()),
                        benchmark_runs_per_minute=int(value('BENCHMARK_RUNS_PER_MINUTE', 10)),
                        request_timeout_seconds=float(value('INFERENCE_TIMEOUT_SECONDS', 30)),
-                       max_requests_per_run=int(value('INFERENCE_MAX_REQUESTS_PER_RUN', 20)),
+                       max_requests_per_run=int(value('INFERENCE_MAX_REQUESTS_PER_RUN', 60)),
                        max_requests_per_minute=int(value('INFERENCE_REQUESTS_PER_MINUTE', 60)),
                        max_run_cost_usd=float(value('INFERENCE_MAX_RUN_COST_USD', 0.50)),
                        max_agent_task_cost_usd=float(value('AGENT_MAX_TASK_COST_USD', 0.25)),

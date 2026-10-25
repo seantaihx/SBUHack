@@ -124,7 +124,7 @@ Use synthetic/public text only.
 ### D. Expanded catalog, analysis export, and quality handling — merged v1.1
 
 1. Fetch `GET /api/v1/benchmarks/datasets` and `GET /api/v1/benchmarks/datasets/starter-v2`.
-   - **Pass:** `starter-v1` has 5 cases; `starter-v2` version 2.1.0 has 26 cases and lists writing/code categories. The effective per-run limit is returned and respected.
+   - **Pass:** `starter-v1` has 5 cases; `starter-v2` version 2.2.0 has 40 cases, the first 20 cover writing/code and all other categories, and the effective per-run limit is at most 20 and respects request/spend budgets.
 2. Run a simulated bounded `starter-v2` benchmark with the automatic candidate and export it.
    - **Pass:** baseline remains fixed large; automatic candidate follows the task category. Export contains full case definitions/expected values/evaluators, run outputs, model assumptions, provenance, and `data_completeness`.
    - **Pass:** simulated outputs are labeled synthetic. `required_facts` is described as lexical, not semantic; generated code is not executed; no claim of quality equivalence is made.

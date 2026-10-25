@@ -54,7 +54,7 @@ class Runner:
 
     async def _provider_attempt(self, run: Run, task: Task, policy: str, role: str, model_id: str, prompt: str):
         try:
-            async with asyncio.timeout(ATTEMPT_TIMEOUT_SECONDS):
+            async with asyncio.timeout(ATTEMPT_TIMEOUT_SECONDS + self.settings.gpu_idle_baseline_seconds):
                 output = (await self.provider.execute(task, policy, role) if run.mode == 'demo' else
                           await self.live.infer(prompt, model_id, str(run.id),
                                                 allowed_models=(run.small_model_id, run.large_model_id),
@@ -76,6 +76,11 @@ class Runner:
                                gpu_utilization_pct=output.gpu_utilization_pct,
                                gpu_average_power_w=output.gpu_average_power_w,
                                gpu_sample_count=output.gpu_sample_count,
+                               gpu_idle_baseline_power_w=output.gpu_idle_baseline_power_w,
+                               gpu_idle_baseline_utilization_pct=output.gpu_idle_baseline_utilization_pct,
+                               gpu_idle_baseline_sample_count=output.gpu_idle_baseline_sample_count,
+                               gpu_idle_baseline_duration_ms=output.gpu_idle_baseline_duration_ms,
+                               gpu_power_delta_w=output.gpu_power_delta_w,
                                output_tokens_per_second=output.output_tokens_per_second,
                                output_speed_source=output.output_speed_source, error=None,
                                provider_finish_reason=output.finish_reason,
@@ -146,6 +151,11 @@ class Runner:
                           gpu_utilization_pct=gpu_utilization,
                           gpu_average_power_w=gpu_average_power,
                           gpu_sample_count=gpu_samples_total,
+                          gpu_idle_baseline_power_w=selected.gpu_idle_baseline_power_w,
+                          gpu_idle_baseline_utilization_pct=selected.gpu_idle_baseline_utilization_pct,
+                          gpu_idle_baseline_sample_count=selected.gpu_idle_baseline_sample_count,
+                          gpu_idle_baseline_duration_ms=selected.gpu_idle_baseline_duration_ms,
+                          gpu_power_delta_w=selected.gpu_power_delta_w,
                           output_tokens_per_second=selected.output_tokens_per_second,
                           output_speed_source=selected.output_speed_source,
                           provider_finish_reason=selected.provider_finish_reason,
@@ -162,6 +172,9 @@ class Runner:
                           estimated_carbon_g=None, measured_gpu_energy_wh=None,
                           gpu_energy_measurement=None, gpu_device_index=None, gpu_device_name=None,
                           gpu_utilization_pct=None, gpu_average_power_w=None, gpu_sample_count=None,
+                          gpu_idle_baseline_power_w=None, gpu_idle_baseline_utilization_pct=None,
+                          gpu_idle_baseline_sample_count=None, gpu_idle_baseline_duration_ms=None,
+                          gpu_power_delta_w=None,
                           output_tokens_per_second=None, output_speed_source=None,
                           error=exc.error, provider_finish_reason=None,
                           output_truncated=None, output_validation='not_configured', validation_notes=[],

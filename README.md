@@ -1,6 +1,6 @@
 # EcoAgent
 
-EcoAgent compares a fixed baseline model policy with task-aware routing. It records the outputs and available usage and timing data, then displays illustrative energy and carbon estimates. A React interface connects to a FastAPI backend that supports deterministic simulated runs and optional provider-backed inference.
+EcoAgent compares a fixed large-model baseline with an AI-routed candidate. In live benchmarks, a bounded router-model call selects the configured small or large model for each task; simulated runs use an explicitly labeled routing fixture. It records the outputs and available usage and timing data, then displays illustrative energy and carbon estimates. A React interface connects to a FastAPI backend that supports deterministic simulated runs and optional provider-backed inference.
 
 The app also includes benchmark runs, text/PDF/CSV/webpage source import, provider settings, and an opt-in local workspace agent with approval-gated file actions. See [limitations and safety](#limitations) before using Live inference or the workspace agent.
 
@@ -19,7 +19,7 @@ Status means implementation and local verification, not production certification
 | Policy comparison | Paired outputs, model IDs, routing reasons, usage, latency, progress, stop, run restoration | Core simulated path verified over HTTP. Baseline uses large; optimized classify/extract use small, summarize/write/code use large. |
 | Live inference | Hosted-provider adapters and local Ollama; selectable small/large routes | Implemented and tested with fake transports; real provider/model access needs a smoke test on the demo machine. |
 | Quality checks and fallback | Label/JSON constraints; optional single large-model escalation for eligible small-model failures | Deterministic checks work; no general semantic quality guarantee. |
-| Benchmark lab | starter-v1 (5 cases), starter-v2 (26 cases), fixed or auto candidates, case results, history, analysis export | Simulated HTTP flow verified; default limit is 10 cases per run. Lexical checks do not establish general accuracy. |
+| Benchmark lab | starter-v1 (5 cases), starter-v2 (40 cases), fixed or AI auto-route candidates, case results, history, analysis export | Live auto-route includes a separate router call; simulated runs use fixtures. Hard cap: 20 cases, subject to request and spend budgets. Lexical checks do not establish general accuracy. |
 | Source import | Text, text-selectable PDF, CSV, public webpage preview and source snapshots | Automated coverage; source-grounded inference requires Live. No OCR or JavaScript webpage rendering. |
 | Review and exports | Answer search/copy, local human review labels, JSON/CSV export, browser Print / Save PDF | Automated UI coverage; final browser/download rehearsal still needed. |
 | Environmental views | Illustrative energy/carbon, footprint map, scenario slider, local ledger and informational target | Implemented; estimates are not measured emissions and the target does not enforce a budget. |

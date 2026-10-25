@@ -46,8 +46,8 @@ def test_benchmark_catalog_creation_progress_results(client):
     assert any(model.startswith('ollama::') for model in catalog[0]['supported_models'])
     assert catalog[0]['provenance'] == 'synthetic'
     expanded = catalog[1]
-    assert expanded['case_count'] == 26
-    assert expanded['max_cases_per_run'] == 10
+    assert expanded['case_count'] == 40
+    assert expanded['max_cases_per_run'] == 20
     assert expanded['preview_models'] == ['qwen/qwen3.8-27b']
     path = start(client)
     initial = client.get(path).json()
@@ -61,11 +61,13 @@ def test_benchmark_catalog_creation_progress_results(client):
         assert run[side]['passed_cases'] == 5
         assert run[side]['pass_rate'] == 1
         assert run[side]['error_count'] == 0
-        assert run[side]['total_requests'] == 5
+        assert run[side]['total_requests'] == (5 if side == 'baseline_metrics' else 10)
     response = client.get(path + '/cases')
     validate(response.json(), 'BenchmarkCasesResponse')
     cases = response.json()['items']
     assert len(cases) == 5
+    assert all(c['candidate']['router_model_id'] == 'openai/gpt-oss-20b' for c in cases)
+    assert all(c['candidate']['request_count'] == 2 for c in cases)
     assert [c['candidate']['model_id'] for c in cases] == [
         'openai/gpt-oss-20b', 'openai/gpt-oss-120b', 'openai/gpt-oss-20b',
         'openai/gpt-oss-20b', 'openai/gpt-oss-120b']
@@ -119,7 +121,7 @@ def test_active_benchmark_can_be_stopped_and_releases_global_slot(tmp_path):
 def test_expanded_dataset_and_export_are_self_contained(client):
     definition = client.get(BASE + '/datasets/starter-v2')
     validate(definition.json(), 'BenchmarkDatasetDefinition')
-    assert len(definition.json()['cases']) == 26
+    assert len(definition.json()['cases']) == 40
     path = start(client, dataset_id='starter-v2', baseline={'model_id': 'qwen/qwen3.8-27b', 'optimization_enabled': False}, max_cases=10)
     run = wait(client, path)
     assert run['status'] == 'completed'
@@ -127,7 +129,7 @@ def test_expanded_dataset_and_export_are_self_contained(client):
     validate(export_response.json(), 'BenchmarkExport')
     export = export_response.json()
     assert export['data_completeness'] == 'partial'
-    assert len(export['dataset']['cases']) == 26
+    assert len(export['dataset']['cases']) == 40
     assert len(export['cases']) == 10
     assert export['cases'][0]['definition']['input']
     assert export['cases'][0]['result']['baseline']['provider_id'] == 'synthetic_fixture'

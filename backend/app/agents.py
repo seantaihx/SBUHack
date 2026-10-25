@@ -35,6 +35,59 @@ Return exactly one JSON object with keys summary and tasks. Each task has task_i
 Use only exact paths from the allowed scopes. Writer and coder tasks must each have at least one permitted write path. Reviewer tasks are read-only. Create only tasks that are needed, at most max_tasks. Use dependencies when one task needs another's output. Prefer non-overlapping write paths. Do not claim parallel execution; all workers run sequentially. Do not create researcher or other roles. Do not invent network, shell, or execution tools."""
 MANAGER_REVIEW_MESSAGE = """You are EcoAgent's Manager performing a bounded final review. Compare the original request and each task's stated success criteria with the actual completed task summaries and deterministic completion-check results.
 Return exactly one JSON object with keys summary, status, and open_items. status must be ready or needs_attention; open_items is a list of concise unresolved items. Do not claim code was run, semantic correctness was proven, cost is an actual provider bill, or carbon is measured. Be conservative: report needs_attention when evidence is incomplete."""
+MANAGER_PLAN_JSON_SCHEMA = {
+    'type': 'json_schema',
+    'json_schema': {
+        'name': 'ecoagent_manager_plan',
+        'strict': True,
+        'schema': {
+            'type': 'object',
+            'properties': {
+                'summary': {'type': 'string'},
+                'tasks': {
+                    'type': 'array',
+                    'items': {
+                        'type': 'object',
+                        'properties': {
+                            'task_id': {'type': 'string'},
+                            'agent_name': {'type': 'string'},
+                            'role': {'type': 'string', 'enum': ['writer', 'coder', 'reviewer']},
+                            'title': {'type': 'string'},
+                            'instruction': {'type': 'string'},
+                            'read_paths': {'type': 'array', 'items': {'type': 'string'}},
+                            'write_paths': {'type': 'array', 'items': {'type': 'string'}},
+                            'depends_on': {'type': 'array', 'items': {'type': 'string'}},
+                            'success_criteria': {'type': 'array', 'items': {'type': 'string'}},
+                        },
+                        'required': ['task_id', 'agent_name', 'role', 'title', 'instruction',
+                                     'read_paths', 'write_paths', 'depends_on', 'success_criteria'],
+                        'additionalProperties': False,
+                    },
+                },
+            },
+            'required': ['summary', 'tasks'],
+            'additionalProperties': False,
+        },
+    },
+}
+MANAGER_REVIEW_JSON_SCHEMA = {
+    'type': 'json_schema',
+    'json_schema': {
+        'name': 'ecoagent_manager_review',
+        'strict': True,
+        'schema': {
+            'type': 'object',
+            'properties': {
+                'summary': {'type': 'string'},
+                'status': {'type': 'string', 'enum': ['ready', 'needs_attention']},
+                'open_items': {'type': 'array', 'items': {'type': 'string'}},
+            },
+            'required': ['summary', 'status', 'open_items'],
+            'additionalProperties': False,
+        },
+    },
+}
+GROQ_STRICT_JSON_MODELS = {'openai/gpt-oss-20b', 'openai/gpt-oss-120b', 'qwen/qwen3.8-27b'}
 WORKER_ROLE_GUIDANCE = {
     'writer': 'You are the assigned writing specialist. Complete only the assigned writing task and save the result through an approved write_file proposal.',
     'coder': 'You are the assigned coding specialist. Generate text changes only for the assigned paths; do not execute code or claim tests were run.',
@@ -100,6 +153,16 @@ class AgentService:
     def _model_for_role(self, role: str, run: AgentRun | None = None) -> str:
         assigned = run.role_model_ids if run and run.role_model_ids else self.settings.agent_role_models
         return assigned.get(role, self.settings.large_model_id)
+
+    def _manager_response_format(self, model_id: str, stage: str) -> dict | None:
+        spec = get_model(model_id)
+        if spec is None or spec.provider != 'groq' or spec.model_id not in GROQ_STRICT_JSON_MODELS:
+            return None
+        if stage == 'planning':
+            return MANAGER_PLAN_JSON_SCHEMA
+        if stage == 'reviewing':
+            return MANAGER_REVIEW_JSON_SCHEMA
+        return None
 
     @property
     def disabled_reason(self):
@@ -643,6 +706,7 @@ class AgentService:
         remaining_agent_tokens = run.max_tokens_per_task - measured_agent_tokens - agent_reserved
         model_role = task.role if task else 'manager'
         model_id = self._model_for_role(model_role, run)
+        response_format = self._manager_response_format(model_id, run.workflow_stage or '') if task is None else None
         completion_limit = min(self.settings.completion_limit_for(model_id),
                                remaining_run_tokens, remaining_agent_tokens)
         if completion_limit < 1:
@@ -725,7 +789,8 @@ class AgentService:
                                            allowed_models=self.settings.available_agent_models,
                                            system_message=system_message,
                                            task_id=task.task_id if task else 'manager',
-                                           max_completion_tokens=completion_limit)
+                                           max_completion_tokens=completion_limit,
+                                           response_format=response_format)
             if output.output_tokens is not None:
                 run.reserved_output_tokens = max(0, run.reserved_output_tokens - completion_limit)
                 if task:
@@ -753,6 +818,7 @@ class AgentService:
                 self._workflow_review(run, parsed)
             else:
                 self._handle_model_action(run, parsed)
+            self._clear_failure_streak(run)
         except ProviderError as exc:
             # No token-usage response exists for a provider error. The store keeps
             # its conservative spend reservation; release the output-token hold so
@@ -762,10 +828,21 @@ class AgentService:
                 task.reserved_output_tokens = max(0, task.reserved_output_tokens - completion_limit)
             else:
                 run.manager_reserved_output_tokens = max(0, run.manager_reserved_output_tokens - completion_limit)
-            self._pause_after_failure(run, exc.error.code, exc.error.code, exc.error.message)
+            details = exc.error.details
+            status = details.get('provider_http_status') if isinstance(details, dict) else None
+            stage = details.get('failure_stage') if isinstance(details, dict) else None
+            diagnostic = (f' Provider HTTP status: {status}; failure stage: {stage}. Response body and credentials are not logged.'
+                          if type(status) is int and stage in ('http', 'response_body') else '')
+            self._pause_after_failure(run, exc.error.code, exc.error.code, exc.error.message + diagnostic)
         except (ValueError, TypeError, KeyError):
+            if run.workflow_stage == 'planning':
+                summary = 'The Manager plan was invalid JSON or failed required role, dependency, task, or exact-path validation; no unapproved action ran.'
+            elif run.workflow_stage == 'reviewing':
+                summary = 'The Manager review did not match the required response structure; no further action ran.'
+            else:
+                summary = 'The agent response did not match the required action structure; no tool action ran.'
             self._pause_after_failure(run, 'INVALID_WORKFLOW_RESPONSE', 'INVALID_WORKFLOW_RESPONSE',
-                                      'The manager or specialist returned an invalid workflow response; no unapproved action ran.')
+                                      summary)
         finally:
             self._tasks.pop(run_id, None)
 
@@ -793,6 +870,14 @@ class AgentService:
                     task.status = 'paused'; task.stop_reason = stop_reason
             self._append(run, 'policy', 'model_call', None, 'failed', summary)
         self._save_agent(run)
+
+    def _clear_failure_streak(self, run: AgentRun):
+        """Clear repeated-failure tracking only after the response passes validation."""
+        run.repeated_failure_count = 0
+        run.last_failure_fingerprint = None
+        # Terminal snapshots were already persisted by their completion handler.
+        if run.status in ('queued', 'running'):
+            self._save_agent(run)
 
     async def _next_action(self, run_id: str):
         run = self.store.get_agent(run_id)
@@ -855,9 +940,8 @@ class AgentService:
                                           'The model response was truncated or its completion status was unavailable; no action was executed.')
                 return
             parsed = json.loads(output.output_text)
-            run.repeated_failure_count = 0
-            run.last_failure_fingerprint = None
             self._handle_model_action(run, parsed)
+            self._clear_failure_streak(run)
         except ProviderError as exc:
             # There is no usage response to reconcile; keep the spend reservation
             # in Store but make room for one explicit, still-bounded retry.

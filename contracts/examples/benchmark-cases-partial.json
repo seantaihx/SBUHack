@@ -17,11 +17,18 @@
         "error": null,
         "provider_id": "synthetic_fixture",
         "finish_reason": null,
-        "output_truncated": false
+        "output_truncated": false,
+        "request_count": 1,
+        "router_model_id": null,
+        "router_latency_ms": null,
+        "router_input_tokens": null,
+        "router_output_tokens": null,
+        "router_cost_usd": null,
+        "router_finish_reason": null
       },
       "candidate": {
         "model_id": "openai/gpt-oss-20b",
-        "routing_reason": "simple_task_small",
+        "routing_reason": "simulated_small_fixture",
         "output": null,
         "latency_ms": null,
         "input_tokens": null,
@@ -34,7 +41,14 @@
         },
         "provider_id": "synthetic_fixture",
         "finish_reason": null,
-        "output_truncated": null
+        "output_truncated": null,
+        "request_count": 2,
+        "router_model_id": "openai/gpt-oss-20b",
+        "router_latency_ms": 35,
+        "router_input_tokens": 24,
+        "router_output_tokens": 8,
+        "router_cost_usd": 4.2e-06,
+        "router_finish_reason": "stop"
       },
       "evaluation_details": "Deterministic lexical/JSON checks only; not semantic quality equivalence."
     }

@@ -4,7 +4,7 @@
       "dataset_id": "starter-v1",
       "name": "EcoAgent Starter",
       "version": "1.0.0",
-      "description": "Synthetic objective-check workload; simulated inference is the default.",
+      "description": "Synthetic deterministic checks; live inference is explicit and preview model access may vary by account.",
       "case_count": 5,
       "categories": [
         "classification",
@@ -15,11 +15,62 @@
       ],
       "supported_models": [
         "openai/gpt-oss-20b",
-        "openai/gpt-oss-120b"
+        "openai/gpt-oss-120b",
+        "qwen/qwen3.8-27b",
+        "groq::openai/gpt-oss-20b",
+        "groq::openai/gpt-oss-120b",
+        "groq::qwen/qwen3.8-27b",
+        "openai::gpt-6-luna",
+        "openai::gpt-6.1-sol",
+        "gemini::gemini-3.8-flash",
+        "anthropic::claude-haiku-5-5",
+        "anthropic::claude-sonnet-5-5",
+        "ollama::qwen3:8b",
+        "ollama::gpt-oss:20b"
       ],
-      "provenance": "synthetic",
-      "preview_models": [],
-      "max_cases_per_run": 5
+      "preview_models": [
+        "qwen/qwen3.8-27b"
+      ],
+      "max_cases_per_run": 5,
+      "provenance": "synthetic"
+    },
+    {
+      "dataset_id": "starter-v2",
+      "name": "EcoAgent Starter",
+      "version": "2.2.0",
+      "description": "Synthetic deterministic checks; live inference is explicit and preview model access may vary by account.",
+      "case_count": 40,
+      "categories": [
+        "classification",
+        "arithmetic",
+        "extraction",
+        "summarization",
+        "reasoning",
+        "formatting",
+        "fact_retrieval",
+        "writing",
+        "coding"
+      ],
+      "supported_models": [
+        "openai/gpt-oss-20b",
+        "openai/gpt-oss-120b",
+        "qwen/qwen3.8-27b",
+        "groq::openai/gpt-oss-20b",
+        "groq::openai/gpt-oss-120b",
+        "groq::qwen/qwen3.8-27b",
+        "openai::gpt-6-luna",
+        "openai::gpt-6.1-sol",
+        "gemini::gemini-3.8-flash",
+        "anthropic::claude-haiku-5-5",
+        "anthropic::claude-sonnet-5-5",
+        "ollama::qwen3:8b",
+        "ollama::gpt-oss:20b"
+      ],
+      "preview_models": [
+        "qwen/qwen3.8-27b"
+      ],
+      "max_cases_per_run": 20,
+      "provenance": "synthetic"
     }
   ]
 }

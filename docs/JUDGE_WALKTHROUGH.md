@@ -6,7 +6,7 @@ Budget: **3:00 presentation and demo + 2:00 Q&A = 5:00 total.** One person speak
 
 - Start the current backend and production frontend build. Use the integrated app, not the frontend mock. Confirm health, sample tasks and a completed Demo comparison.
 - Keep a completed Demo run URL ready in a second tab, and a completed simulated benchmark ready in another. Label both simulated. Do not depend on waiting for a hosted provider during the presentation.
-- Choose starter-v1 with 5 cases for the benchmark. The 26-case starter-v2 catalog has a default 10-case run cap; do not say one default run evaluated all 26.
+- For a quick benchmark, choose starter-v1 with 5 cases. To show broader coverage, choose starter-v2 and set up to 20 cases; the hard cap is 20 and live request/spending budgets may lower the allowed number. A run evaluates only the selected count, not all 40 catalog cases.
 - If showing a Live result, verify that exact provider/model first and retain its provenance and errors. Use synthetic prompts. Keep credentials out of view.
 - The Workspace Agent is optional: prepare a disposable workspace and a reviewed pending proposal ahead of time. Skip it if it has not been rehearsed. No setup or key entry during judging.
 

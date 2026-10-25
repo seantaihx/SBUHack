@@ -192,6 +192,11 @@ class FallbackAttempt(Model):
     gpu_utilization_pct: Annotated[float, Field(ge=0, le=100)] | None = None
     gpu_average_power_w: Nonnegative | None = None
     gpu_sample_count: Count | None = None
+    gpu_idle_baseline_power_w: Nonnegative | None = None
+    gpu_idle_baseline_utilization_pct: Annotated[float, Field(ge=0, le=100)] | None = None
+    gpu_idle_baseline_sample_count: Count | None = None
+    gpu_idle_baseline_duration_ms: Nonnegative | None = None
+    gpu_power_delta_w: float | None = None
     output_tokens_per_second: Nonnegative | None = None
     output_speed_source: Literal['ollama_eval_duration'] | None = None
     error: ErrorInfo | None
@@ -290,6 +295,11 @@ class Result(Model):
     gpu_utilization_pct: Annotated[float, Field(ge=0, le=100)] | None = None
     gpu_average_power_w: Nonnegative | None = None
     gpu_sample_count: Count | None = None
+    gpu_idle_baseline_power_w: Nonnegative | None = None
+    gpu_idle_baseline_utilization_pct: Annotated[float, Field(ge=0, le=100)] | None = None
+    gpu_idle_baseline_sample_count: Count | None = None
+    gpu_idle_baseline_duration_ms: Nonnegative | None = None
+    gpu_power_delta_w: float | None = None
     output_tokens_per_second: Nonnegative | None = None
     output_speed_source: Literal['ollama_eval_duration'] | None = None
     error: ErrorInfo | None

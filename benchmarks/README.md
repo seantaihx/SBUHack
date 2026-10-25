@@ -2,7 +2,7 @@
 
 These fixtures describe reproducible checks for the v1 comparison API. They are test inputs and acceptance criteria, not evidence that a backend benchmark has run. Execute them against an isolated development service and preserve the run snapshots with the API version, policy version, and fixture version. Do not use fixture-derived carbon estimates as measured emissions. The shared kit has example request/run snapshots but no standalone `sample-tasks` JSON; fetch the task definitions from the API before creating the run.
 
-`starter-v2` version 2.1.0 has 26 synthetic cases, including coding and writing prompts. Its deterministic checks do not establish semantic quality; the coding case does not execute generated code. Use isolated, resource-limited evaluators and held-out cases before making quality claims.
+`starter-v2` version 2.2.0 has 40 synthetic cases, including coding, writing, extraction, arithmetic, evidence summarization and multi-step reasoning. The first 20 cases cover every category; the hard run cap is 20, further limited by server request and spend budgets. Live `eco-auto` uses a bounded AI routing call to choose the configured small or large model; simulated mode uses a deterministic fixture and is not an AI-routing evaluation. Its deterministic checks do not establish semantic quality; the coding case does not execute generated code. Use isolated, resource-limited evaluators and held-out cases before making quality claims.
 
 ## Running the v1 scenarios
 

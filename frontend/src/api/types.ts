@@ -49,6 +49,8 @@ export type Result = {
   measured_gpu_energy_wh: number | null; gpu_energy_measurement: 'nvidia_smi_power_draw' | null;
   gpu_device_index: number | null; gpu_device_name: string | null; gpu_utilization_pct: number | null;
   gpu_average_power_w: number | null; gpu_sample_count: number | null;
+  gpu_idle_baseline_power_w: number | null; gpu_idle_baseline_utilization_pct: number | null;
+  gpu_idle_baseline_sample_count: number | null; gpu_idle_baseline_duration_ms: number | null; gpu_power_delta_w: number | null;
   output_tokens_per_second: number | null; output_speed_source: 'ollama_eval_duration' | null;
   provider_finish_reason: string | null; output_truncated: boolean | null;
   output_validation: 'passed' | 'failed' | 'not_configured'; validation_notes: string[];
@@ -62,6 +64,8 @@ export type FallbackAttempt = {
   measured_gpu_energy_wh: number | null; gpu_energy_measurement: 'nvidia_smi_power_draw' | null;
   gpu_device_index: number | null; gpu_device_name: string | null; gpu_utilization_pct: number | null;
   gpu_average_power_w: number | null; gpu_sample_count: number | null;
+  gpu_idle_baseline_power_w: number | null; gpu_idle_baseline_utilization_pct: number | null;
+  gpu_idle_baseline_sample_count: number | null; gpu_idle_baseline_duration_ms: number | null; gpu_power_delta_w: number | null;
   output_tokens_per_second: number | null; output_speed_source: 'ollama_eval_duration' | null;
   provider_finish_reason: string | null; output_truncated: boolean | null;
   output_validation: 'passed' | 'failed' | 'not_configured'; validation_notes: string[];
@@ -208,7 +212,10 @@ export type BenchmarkRunsResponse = { items: BenchmarkRun[]; next_cursor: string
 export type BenchmarkCaseSide = {
   model_id: string; provider_id: string; finish_reason: string | null; output_truncated: boolean | null;
   routing_reason: string | null; output: string | null; latency_ms: number | null;
-  input_tokens: number | null; output_tokens: number | null; cost_usd: number | null; error: ApiErrorInfo | null;
+  input_tokens: number | null; output_tokens: number | null; cost_usd: number | null; request_count: number;
+  router_model_id: string | null; router_latency_ms: number | null; router_input_tokens: number | null;
+  router_output_tokens: number | null; router_cost_usd: number | null; router_finish_reason: string | null;
+  error: ApiErrorInfo | null;
 };
 export type BenchmarkCase = {
   case_id: string; category: string; status: 'passed' | 'failed' | 'skipped' | 'error' | 'incomplete';

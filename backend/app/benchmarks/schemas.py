@@ -29,7 +29,7 @@ class BenchmarkDataset(Model):
     categories: list[str]
     supported_models: list[str]
     preview_models: list[str] = Field(default_factory=list)
-    max_cases_per_run: Count = 10
+    max_cases_per_run: Count = 20
     provenance: Literal['synthetic', 'curated']
 
 
@@ -101,6 +101,13 @@ class BenchmarkCaseSide(Model):
     input_tokens: Count | None
     output_tokens: Count | None
     cost_usd: Nonnegative | None
+    request_count: Count = 1
+    router_model_id: str | None = None
+    router_latency_ms: Nonnegative | None = None
+    router_input_tokens: Count | None = None
+    router_output_tokens: Count | None = None
+    router_cost_usd: Nonnegative | None = None
+    router_finish_reason: str | None = None
     error: ErrorInfo | None
 
 

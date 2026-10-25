@@ -23,7 +23,9 @@ class LiveProvider:
     async def infer(self, prompt: str, model_id: str, run_id: str, allowed_models=None,
                     system_message: str = SYSTEM_MESSAGE, task_id: str | None = None,
                     max_completion_tokens: int | None = None,
-                    measure_gpu_energy: bool = False) -> InferenceResult:
+                    measure_gpu_energy: bool = False,
+                    response_format: dict | None = None,
+                    input_token_ceiling: int | None = None) -> InferenceResult:
         allowed = allowed_models or (self.settings.small_model_id, self.settings.large_model_id)
         if not self.settings.live_enabled or model_id not in allowed:
             raise ProviderError('PROVIDER_UNAVAILABLE')
@@ -55,7 +57,12 @@ class LiveProvider:
             completion_limit = min(completion_limit, max_completion_tokens)
         # Comparisons keep the historic full-context reservation. Agent calls reserve
         # a conservative UTF-8 byte ceiling for the actual submitted prompt, plus framing.
-        input_ceiling = 131072 if task_id is None else min(131072, len((system_message + prompt).encode('utf-8')) + 512)
+        if input_token_ceiling is not None:
+            if type(input_token_ceiling) is not int or input_token_ceiling < 1:
+                raise ProviderError('PROVIDER_BAD_REQUEST')
+            input_ceiling = min(131072, input_token_ceiling)
+        else:
+            input_ceiling = 131072 if task_id is None else min(131072, len((system_message + prompt).encode('utf-8')) + 512)
         ceiling = cost(model_id, input_ceiling, completion_limit)
         reservation = self.store.reserve_inference(run_id, ceiling, self.settings, task_id=task_id)
         api_key = self.settings.api_key_for_model(model_id)
@@ -76,17 +83,34 @@ class LiveProvider:
                                     {'role': 'user', 'content': prompt}],
                        'options': {'temperature': 0, 'num_predict': completion_limit},
                        'think': False, 'stream': False}
+            if response_format is not None:
+                if response_format.get('type') == 'json_schema':
+                    schema = response_format.get('json_schema', {}).get('schema')
+                    if isinstance(schema, dict):
+                        # Ollama's native /api/chat accepts a JSON Schema directly
+                        # in `format`; the OpenAI wrapper is not its native shape.
+                        payload['format'] = schema
+                elif response_format.get('type') == 'json_object':
+                    payload['format'] = 'json'
         else:
             headers = {'Authorization': 'Bearer ' + api_key} if api_key else {}
             token_field = 'max_tokens' if provider_id == 'gemini' else 'max_completion_tokens'
             payload = {'model': actual_model_id, 'messages': [{'role': 'system', 'content': system_message},
                        {'role': 'user', 'content': prompt}], 'temperature': 0,
                        token_field: completion_limit, 'stream': False}
+            # Structured-output support varies by provider/model. Callers only pass
+            # this for an explicitly supported combination; other adapters retain
+            # their existing request formats.
+            if provider_id == 'groq' and response_format is not None:
+                payload['response_format'] = response_format
             url = endpoint.rstrip('/') + '/chat/completions'
         sampler = await NvidiaGpuPowerSampler.start() if provider_id == 'ollama' and measure_gpu_energy else None
         gpu_measurement = None
-        started = perf_counter()
+        started = None
         try:
+            if sampler is not None:
+                await sampler.sample_idle_baseline(self.settings.gpu_idle_baseline_seconds)
+            started = perf_counter()
             async with asyncio.timeout(self.settings.request_timeout_seconds):
                 async with httpx.AsyncClient(timeout=self.settings.request_timeout_seconds, follow_redirects=False,
                                              transport=self.transport) as client:
@@ -102,7 +126,10 @@ class LiveProvider:
             if sampler is not None:
                 ended = perf_counter()
                 try:
-                    gpu_measurement = await sampler.measure(started, ended)
+                    if started is None:
+                        await sampler.close()
+                    else:
+                        gpu_measurement = await sampler.measure(started, ended)
                 except (OSError, ProcessLookupError, RuntimeError):
                     # Optional telemetry must never turn a successful inference into an error.
                     gpu_measurement = None
@@ -114,7 +141,7 @@ class LiveProvider:
         if status >= 500:
             raise ProviderError('PROVIDER_UNAVAILABLE')
         if status != 200:
-            raise ProviderError('PROVIDER_BAD_RESPONSE')
+            raise ProviderError('PROVIDER_BAD_RESPONSE', {'provider_http_status': status, 'failure_stage': 'http'})
         try:
             body = response.json()
             if provider_id == 'anthropic':
@@ -135,7 +162,7 @@ class LiveProvider:
             if not isinstance(output, str) or not output:
                 raise ValueError()
         except (ValueError, TypeError, KeyError, IndexError):
-            raise ProviderError('PROVIDER_BAD_RESPONSE') from None
+            raise ProviderError('PROVIDER_BAD_RESPONSE', {'provider_http_status': 200, 'failure_stage': 'response_body'}) from None
         usage = usage if isinstance(usage, dict) else {}
         def tokens(name):
             value = usage.get(name)
@@ -168,5 +195,12 @@ class LiveProvider:
                                gpu_measurement.utilization_pct if gpu_measurement else None,
                                gpu_measurement.average_power_w if gpu_measurement else None,
                                gpu_measurement.sample_count if gpu_measurement else None,
+                               gpu_measurement.idle_baseline_power_w if gpu_measurement else None,
+                               gpu_measurement.idle_baseline_utilization_pct if gpu_measurement else None,
+                               gpu_measurement.idle_baseline_sample_count if gpu_measurement else None,
+                               gpu_measurement.idle_baseline_duration_ms if gpu_measurement else None,
+                               (gpu_measurement.average_power_w - gpu_measurement.idle_baseline_power_w
+                                if gpu_measurement and gpu_measurement.average_power_w is not None
+                                and gpu_measurement.idle_baseline_power_w is not None else None),
                                output_tokens_per_second,
                                'ollama_eval_duration' if output_tokens_per_second is not None else None)
