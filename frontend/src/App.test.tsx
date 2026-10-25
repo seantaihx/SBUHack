@@ -24,6 +24,8 @@ const benchmarkCases = benchmarkCasesFixture as BenchmarkCasesResponse;
 type FetchResponse = { ok: boolean; status: number; json: () => Promise<unknown> };
 type FetchOptions = {
   caps?: Capabilities;
+  active?: FetchResponse;
+  stop?: FetchResponse;
   settings?: FetchResponse;
   providerSave?: () => FetchResponse | Promise<FetchResponse>;
   post?: (body: CreateRun) => FetchResponse | Promise<FetchResponse>;
@@ -38,6 +40,8 @@ function mockApi(options: FetchOptions = {}) {
     const url = String(input);
     const method = init?.method ?? 'GET';
     if (url.endsWith('/capabilities')) return response(caps);
+    if (url.endsWith('/active-run/stop') && method === 'POST') return options.stop ?? response({ id: completedRun.id, kind: 'comparison', status: 'cancelled' });
+    if (url.endsWith('/active-run')) return options.active ?? response(null);
     if (url.endsWith('/local-settings/provider') && method === 'GET') return options.settings ?? response({ local_setup_available: true, provider_key_configured: false, provider_key_saved_in_env: false, restart_required: false, environment_override: false });
     if (url.endsWith('/local-settings/provider-key') && method === 'PUT') return options.providerSave ? options.providerSave() : response({ local_setup_available: true, provider_key_configured: false, provider_key_saved_in_env: true, restart_required: true, environment_override: false });
     if (url.endsWith('/sample-tasks')) return response(sampleTasks);
@@ -80,7 +84,7 @@ describe('EcoAgent frontend contract flows', () => {
     const user = userEvent.setup();
     await loadApp();
     await user.click(screen.getByRole('button', { name: 'Provider settings' }));
-    const dialog = await screen.findByRole('dialog', { name: 'Provider setup' });
+    const dialog = await screen.findByRole('dialog', { name: 'Provider & agent models' });
     const key = 'gsk_example_secret_test_1234567890';
     expect(within(dialog).getByLabelText('Groq API key')).toHaveFocus();
     await user.type(within(dialog).getByLabelText('Groq API key'), key);
@@ -103,8 +107,8 @@ describe('EcoAgent frontend contract flows', () => {
     await loadApp();
     await user.click(screen.getByRole('button', { name: 'Provider settings' }));
 
-    const dialog = await screen.findByRole('dialog', { name: 'Provider setup' });
-    expect(await within(dialog).findByRole('alert')).toHaveTextContent(/restart it from the current branch/i);
+    const dialog = await screen.findByRole('dialog', { name: 'Provider & agent models' });
+    expect(await within(dialog).findByText(/This backend does not expose the local provider setup route yet/i)).toHaveTextContent(/restart it from the current branch/i);
     expect(within(dialog).getByLabelText('Groq API key')).toBeDisabled();
     expect(within(dialog).getByRole('button', { name: 'Save to backend' })).toBeDisabled();
   });
@@ -122,6 +126,62 @@ describe('EcoAgent frontend contract flows', () => {
     expect(posted?.tasks).toHaveLength(2);
     expect(posted?.tasks).toEqual(sampleTasks.tasks.slice(1));
     expect(posted?.carbon_intensity_g_per_kwh).toBe(400);
+  });
+
+  it('lets the user stop an active comparison and displays its cancelled state', async () => {
+    const cancelled = { ...queuedRun, status: 'cancelled' as const, run_error: { code: 'RUN_CANCELLED', message: 'The comparison was stopped by the user.', details: {} } };
+    const fetchMock = mockApi({
+      post: (body) => response({ ...queuedRun, tasks: body.tasks, total_attempts: body.tasks.length * 2 }, 202),
+      active: response({ id: queuedRun.id, kind: 'comparison', status: 'running' }),
+      stop: response({ id: queuedRun.id, kind: 'comparison', status: 'cancelled' }),
+      getRun: () => response(cancelled),
+    });
+    const user = userEvent.setup();
+    await loadApp();
+    await user.click(screen.getByRole('button', { name: /Compare policies/ }));
+    const stopButton = await screen.findByRole('button', { name: 'Stop run' });
+    await user.click(stopButton);
+    expect(await screen.findByText('Stopped')).toBeInTheDocument();
+    expect(fetchMock).toHaveBeenCalledWith('/api/v1/active-run/stop', expect.objectContaining({ method: 'POST' }));
+  });
+
+  it('can request a backend-selected stop when a conflict cannot be looked up', async () => {
+    const cancelled = { ...queuedRun, status: 'cancelled' as const, run_error: { code: 'RUN_CANCELLED', message: 'Stopped by user.', details: {} } };
+    const fetchMock = mockApi({
+      post: () => response({ error: { code: 'RUN_ALREADY_ACTIVE', message: 'Another run is active.', details: {} } }, 409),
+      active: response({ error: { code: 'NOT_FOUND', message: 'Active-run lookup is unavailable.', details: {} } }, 404),
+      stop: response({ id: queuedRun.id, kind: 'comparison', status: 'cancelled' }),
+      getRun: () => response(cancelled),
+    });
+    const user = userEvent.setup();
+    await loadApp();
+    await user.click(screen.getByRole('button', { name: /Compare policies/ }));
+    await user.click(await screen.findByRole('button', { name: 'Stop active run' }));
+    expect(await screen.findByText('Stopped')).toBeInTheDocument();
+    const stopCall = fetchMock.mock.calls.find(([input]) => String(input).endsWith('/active-run/stop'));
+    expect(JSON.parse(String(stopCall?.[1]?.body))).toEqual({});
+  });
+
+  it('submits explicit Live role models while leaving route choice to the backend', async () => {
+    const caps: Capabilities = {
+      ...capabilities, live_enabled: true, live_disabled_reason: null,
+      models: [
+        { role: 'small', live_model_id: 'groq::openai/gpt-oss-20b' },
+        { role: 'large', live_model_id: 'groq::openai/gpt-oss-120b' },
+      ],
+      supported_models: ['groq::openai/gpt-oss-20b', 'groq::openai/gpt-oss-120b', 'openai::gpt-6-luna'],
+    };
+    let posted: CreateRun | undefined;
+    mockApi({ caps, post: (body) => { posted = body; return response({ ...queuedRun, mode: 'live', tasks: body.tasks, small_model_id: body.small_model_id ?? null, large_model_id: body.large_model_id ?? null }, 202); } });
+    const user = userEvent.setup();
+    await loadApp();
+    await user.click(screen.getByRole('button', { name: /Live/ }));
+    await user.selectOptions(screen.getByLabelText('Small-route model'), 'openai::gpt-6-luna');
+    await user.type(screen.getByRole('textbox', { name: /Prompt/ }), 'Classify a billing request');
+    await user.click(screen.getByRole('button', { name: /Compare policies/ }));
+    await screen.findByText('Queued');
+    expect(posted?.small_model_id).toBe('openai::gpt-6-luna');
+    expect(posted?.large_model_id).toBe('groq::openai/gpt-oss-120b');
   });
 
   it('polls a run and renders plain-text outputs with simulated provenance', async () => {
@@ -205,18 +265,20 @@ describe('EcoAgent frontend contract flows', () => {
     expect(within(card!).getAllByText('Unavailable')).toHaveLength(4);
   });
 
-  it('does not guess an active run type when a comparison 409 omits it', async () => {
+  it('looks up and opens the active run when a comparison 409 omits its kind', async () => {
     const activeId = completedRun.id;
     const fetchMock = mockApi({
       post: () => response({ error: { code: 'RUN_ALREADY_ACTIVE', message: 'Another run is already active.', details: { active_run_id: activeId } } }, 409),
+      active: response({ id: activeId, kind: 'comparison', status: 'running' }),
     });
     const user = userEvent.setup();
     await loadApp();
     await user.click(screen.getByRole('button', { name: /Compare policies/ }));
 
-    expect(await screen.findByRole('alert')).toHaveTextContent(/did not identify the active run type/i);
-    expect(new URL(window.location.href).searchParams.get('run')).toBeNull();
-    expect(fetchMock.mock.calls.filter(([url]) => String(url).includes(`/runs/${activeId}`))).toHaveLength(0);
+    expect(await screen.findByText('Completed')).toBeInTheDocument();
+    expect(new URL(window.location.href).searchParams.get('run')).toBe(activeId);
+    expect(fetchMock).toHaveBeenCalledWith('/api/v1/active-run', expect.any(Object));
+    expect(fetchMock.mock.calls.filter(([url]) => String(url).includes(`/runs/${activeId}`))).toHaveLength(1);
   });
 
   it('opens a comparison run when a 409 identifies active_run_kind', async () => {

@@ -147,6 +147,55 @@ def test_live_is_truthfully_disabled(client):
     assert response.json()['error']['code'] == 'LIVE_UNAVAILABLE'
 
 
+def test_active_comparison_can_be_identified_and_stopped(tmp_path):
+    import asyncio
+    from backend.app.main import create_app
+    from backend.app.settings import Settings
+    with TestClient(create_app(Settings(database_path=tmp_path / 'stop-comparison.sqlite3'))) as client:
+        async def wait_forever(*args):
+            await asyncio.sleep(30)
+        client.app.state.runner._attempt = wait_forever
+        created = client.post('/api/v1/runs', json={'mode': 'demo', 'tasks': SAMPLES['tasks'][:1]})
+        assert created.status_code == 202
+        active = client.get('/api/v1/active-run').json()
+        assert active['id'] == created.json()['id']
+        assert active['kind'] == 'comparison'
+        assert active['status'] in {'queued', 'running'}
+        mismatch = client.post('/api/v1/active-run/stop', json={'run_id': '00000000-0000-0000-0000-000000000000'})
+        assert mismatch.status_code == 409
+        stopped = client.post('/api/v1/active-run/stop', json={})
+        assert stopped.status_code == 200, stopped.text
+        assert stopped.json()['status'] == 'cancelled'
+        assert client.get('/api/v1/runs/' + active['id']).json()['status'] == 'cancelled'
+        assert client.get('/api/v1/active-run').json() is None
+
+
+def test_live_comparison_uses_selected_provider_models_and_snapshots_them(tmp_path):
+    from backend.app.main import create_app
+    from backend.app.providers.base import InferenceResult
+    from backend.app.settings import Settings
+    settings = Settings(database_path=tmp_path / 'provider-model-run.sqlite3', live_enabled=True,
+                        openai_api_key='test-placeholder', anthropic_api_key='test-placeholder')
+    with TestClient(create_app(settings)) as client:
+        sent = []
+        async def infer(prompt, model_id, run_id, **kwargs):
+            sent.append(model_id)
+            return InferenceResult('billing', 10, 4, 1, 'stop', False)
+        client.app.state.runner.live.infer = infer
+        response = client.post('/api/v1/runs', json={
+            'mode': 'live', 'tasks': SAMPLES['tasks'][:1],
+            'small_model_id': 'openai::gpt-6-luna',
+            'large_model_id': 'anthropic::claude-haiku-5-5',
+        })
+        assert response.status_code == 202, response.text
+        run = wait_run(client, response.headers['location'])
+        assert run['small_model_id'] == 'openai::gpt-6-luna'
+        assert run['large_model_id'] == 'anthropic::claude-haiku-5-5'
+        assert [result['model_id'] for result in run['results']] == [
+            'anthropic::claude-haiku-5-5', 'openai::gpt-6-luna']
+        assert set(sent) == {'openai::gpt-6-luna', 'anthropic::claude-haiku-5-5'}
+
+
 def test_concurrent_submissions_reserve_exactly_one_slot(client):
     from concurrent.futures import ThreadPoolExecutor
     from threading import Barrier
@@ -196,6 +245,7 @@ def test_generated_response_schema_requires_every_shared_response_field():
         if name in (
             'CreateRun', 'CreateTextSource', 'CreateWebpageSource',
             'StartBenchmarkRequest', 'AgentStartRequest', 'AgentApprovalRequest',
+                'AgentWorkflowStartRequest', 'AgentPlanApprovalRequest', 'StopActiveRunRequest',
         ) or name.endswith('-Input') or name.startswith(('Task', 'Body_')):
             continue
         # Pydantic emits split schemas for a model used as both a validated

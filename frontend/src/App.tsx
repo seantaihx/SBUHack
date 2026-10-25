@@ -4,10 +4,11 @@ import BenchmarkDashboard from './BenchmarkDashboard';
 import AgentDashboard from './AgentDashboard';
 import SourceInput from './SourceInput';
 import ProviderKeySettings from './ProviderKeySettings';
+import EcoImpactPanel from './EcoImpactPanel';
 import type { Capabilities, ComparisonMetric, CreateRun, Mode, Run, SampleTasks, SourceSnapshot, Task, TaskConstraints, TaskType } from './api/types';
 import { clearTaskReviews, createRunCsv, createRunExport, latencyChange, promptContainsUrl, readTaskReviews, reviewChoices, taskReview, writeTaskReviews, type ReviewChoice, type ReviewSide, type TaskReviews } from './comparisonUtils';
 
-const terminal = (status: Run['status']) => ['completed', 'partial', 'failed'].includes(status);
+const terminal = (status: Run['status']) => ['completed', 'partial', 'failed', 'cancelled'].includes(status);
 const typeNames: Record<TaskType, string> = { classify: 'Classification', extract: 'Data extraction', summarize: 'Summarization', write: 'Writing', code: 'Code generation' };
 const missing = 'Unavailable';
 const fixed = (value: number | null, digits: number) => value === null ? missing : value > 0 && value < 10 ** -digits ? `<${(10 ** -digits).toFixed(digits)}` : value.toFixed(digits);
@@ -23,6 +24,8 @@ function App() {
   const [benchmarkRunToOpen, setBenchmarkRunToOpen] = useState<string | null>(() => new URLSearchParams(window.location.search).get('benchmark'));
   const [agentRunToOpen, setAgentRunToOpen] = useState<string | null>(() => new URLSearchParams(window.location.search).get('agent'));
   const [capabilities, setCapabilities] = useState<Capabilities | null>(null);
+  const [smallModelId, setSmallModelId] = useState('');
+  const [largeModelId, setLargeModelId] = useState('');
   const [samples, setSamples] = useState<SampleTasks | null>(null);
   const [selected, setSelected] = useState<string[]>([]);
   const [mode, setMode] = useState<Mode>('demo');
@@ -33,6 +36,8 @@ function App() {
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [showStopActiveAction, setShowStopActiveAction] = useState(false);
+  const [stoppingRun, setStoppingRun] = useState(false);
   const [networkError, setNetworkError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [manualReviews, setManualReviews] = useState<TaskReviews>({});
@@ -57,7 +62,7 @@ function App() {
     let alive = true;
     Promise.all([api.capabilities(), api.sampleTasks()]).then(([caps, sample]) => {
       if (!alive) return;
-      setCapabilities(caps); setSamples(sample); setSelected(sample.tasks.map((task) => task.id)); setCarbon(caps.energy_profile.default_carbon_intensity_g_per_kwh);
+      setCapabilities(caps); setSmallModelId(caps.models.find((model) => model.role === 'small')?.live_model_id ?? ''); setLargeModelId(caps.models.find((model) => model.role === 'large')?.live_model_id ?? ''); setSamples(sample); setSelected(sample.tasks.map((task) => task.id)); setCarbon(caps.energy_profile.default_carbon_intensity_g_per_kwh);
       const query = new URLSearchParams(window.location.search);
       const benchmarkId = query.get('benchmark');
       if (benchmarkId) setPage('benchmarks');
@@ -214,8 +219,9 @@ function App() {
     if (mode === 'demo' && selectedTasks.length === 0) { setError('Select at least one sample task to compare.'); return; }
     if (api.isMock && mode === 'demo' && selectedTasks.length !== (samples?.tasks.length ?? 0)) { setError('The frontend mock only contains the complete sample run. Select all sample tasks or turn off VITE_USE_FRONTEND_MOCK.'); return; }
     if (mode === 'live' && (customTasks.length === 0 || customTasks.some((task) => !task.prompt.trim()))) { setError('Add a prompt for every live task.'); return; }
-    requestLock.current = true; setSubmitting(true); setError(null); setNetworkError(null); setNotice(null); setRun(null); updateUrl(null);
+    requestLock.current = true; setSubmitting(true); setError(null); setShowStopActiveAction(false); setNetworkError(null); setNotice(null); setRun(null); updateUrl(null);
     const payload: CreateRun = { mode, tasks: mode === 'demo' ? selectedTasks : customTasks.map((task) => ({ ...task, prompt: task.prompt.trim() })), carbon_intensity_g_per_kwh: carbon, quality_fallback: mode === 'live' && qualityFallback,
+      ...(mode === 'live' ? { small_model_id: smallModelId, large_model_id: largeModelId } : {}),
       ...(sourceSnapshot ? { source_snapshot_id: sourceSnapshot.source_id, confirm_source_submission: true } : {}) };
     try {
       const created = await api.createRun(payload); setRun(created); updateUrl(created.id); setNow(0);
@@ -230,11 +236,38 @@ function App() {
         } else if (typeof activeId === 'string' && activeKind === 'agent') {
           navigateToAgent(activeId);
         } else {
-          setError(`${e.message} The backend did not identify the active run type, so it cannot be opened safely. No request was resubmitted. This contract gap is documented for Sean.`);
+          try {
+            const active = await api.activeRun();
+            if (active?.kind === 'comparison') await openComparisonRun(active.id, 'Reopened the active comparison identified by the backend.');
+            else if (active?.kind === 'benchmark') navigateToBenchmark(active.id);
+            else if (active?.kind === 'agent') navigateToAgent(active.id);
+            else setError('The backend reports no active run now. Refresh the page and try again; no request was resubmitted.');
+          } catch {
+            setError(`${e.message} The active run could not be looked up. You can ask the backend to stop its current run, then retry.`);
+            setShowStopActiveAction(true);
+          }
         }
       } else if (e instanceof ApiError && e.status === 503) setError(e.message);
       else setError(`${e instanceof Error ? e.message : 'The request failed.'} It may have started; check the active run before submitting again.`);
     } finally { requestLock.current = false; setSubmitting(false); }
+  };
+
+  const stopActiveRun = async (expectedId?: string) => {
+    setStoppingRun(true);
+    try {
+      const active = expectedId ? await api.activeRun() : null;
+      if (expectedId && !active) { setShowStopActiveAction(false); setError('There is no active run to stop. Refresh the page and try again.'); return; }
+      if (expectedId && active?.id !== expectedId) { setError('The active run changed. Refresh before stopping it.'); return; }
+      const stopped = await api.stopActiveRun(expectedId);
+      setShowStopActiveAction(false);
+      if (stopped.kind === 'comparison') await openComparisonRun(stopped.id, 'The active comparison was stopped.');
+      else if (stopped.kind === 'benchmark') navigateToBenchmark(stopped.id);
+      else navigateToAgent(stopped.id);
+    } catch (reason) {
+      setError(reason instanceof ApiError && reason.status === 404
+        ? 'The backend is running an older version without Stop active run. Stop it with Ctrl+C in its terminal, then restart the backend from the current project folder.'
+        : reason instanceof Error ? reason.message : 'Could not stop the active run.');
+    } finally { setStoppingRun(false); }
   };
 
   const retry = async () => {
@@ -245,7 +278,7 @@ function App() {
 
   const reset = () => { setRun(null); setError(null); setNetworkError(null); setNotice(null); setSourceSelected(false); setSourceSnapshot(null); setSourceConfirmed(false); updateUrl(null); };
   const updateTask = (index: number, change: Partial<Task>) => setCustomTasks((tasks) => tasks.map((task, i) => i === index ? { ...task, ...change } : task));
-  const statusLabel = run ? ({ queued: 'Queued', running: 'In progress', completed: 'Completed', partial: 'Partial results', failed: 'Failed' } as const)[run.status] : '';
+  const statusLabel = run ? ({ queued: 'Queued', running: 'In progress', completed: 'Completed', partial: 'Partial results', failed: 'Failed', cancelled: 'Stopped' } as const)[run.status] : '';
 
   return <div className="app-shell"><a className="skip-link" href="#main-content">Skip to main content</a>
     <header className="topbar"><a className="brand" href="#top" aria-label="EcoAgent home" onClick={() => setPage('compare')}><span className="brand-mark"><PixelBrandIcon /></span><span>ecoagent<span className="brand-period">.</span></span></a><nav className="main-nav" aria-label="Main navigation"><button type="button" aria-current={page === 'compare' ? 'page' : undefined} onClick={() => setPage('compare')}>Compare</button><button type="button" aria-current={page === 'benchmarks' ? 'page' : undefined} onClick={() => setPage('benchmarks')}>Benchmarks</button><button type="button" aria-current={page === 'agent' ? 'page' : undefined} onClick={() => setPage('agent')}>Workspace agent</button></nav><div className="topbar-right"><span className="topbar-note"><span className={`live-dot ${!api.isMock && !capabilities ? 'offline-dot' : ''}`} />{api.isMock ? 'FIXTURE MOCK' : loading ? 'CONNECTING' : capabilities ? 'API READY' : 'API UNAVAILABLE'}</span><span className="topbar-divider" /><span className="version">API&nbsp; / &nbsp;{capabilities?.api_version ?? 'v1'}</span><button className="provider-settings-trigger" type="button" onClick={() => setProviderSettingsOpen(true)}>Provider settings</button></div></header>
@@ -261,18 +294,19 @@ function App() {
           <div className="mode-row"><div className="mode-label"><span className="label-main">Execution mode</span><span className="label-sub">Choose how this comparison runs</span></div><div className="mode-switch" role="group" aria-label="Execution mode"><button className={mode === 'demo' ? 'mode-option selected' : 'mode-option'} onClick={() => { setMode('demo'); setError(null); }} aria-pressed={mode === 'demo'}><span className="mode-icon"><PlayIcon /></span>Demo <span className="mode-mini">SIMULATED</span></button><button className={mode === 'live' ? 'mode-option selected' : 'mode-option'} onClick={() => { setMode('live'); setError(null); }} aria-pressed={mode === 'live'}><span className="mode-icon"><BoltIcon /></span>Live {!capabilities?.live_enabled && <span className="mode-mini disabled-text">UNAVAILABLE</span>}</button></div></div>
           <div className="mode-explanation"><p><strong>Frontend transport:</strong> {api.isMock ? 'Fixture mock is active: checked-in JSON is used without backend requests.' : 'The browser sends requests to the EcoAgent backend.'}</p><p><strong>Inference:</strong> Demo uses simulated backend answers and latency. Live sends prompt and any confirmed source text to the configured inference service and reports timing and usage when available. A successful response does not prove correctness.</p><p><strong>Routing:</strong> The backend selects the optimized model and returns its route reason; the frontend displays those results without choosing or predicting the destination. Baseline uses the large model. Coding and writing outputs are generated for review and are not executed here.</p><p><strong>Sources:</strong> Parsed source references describe locations in the input. The model does not return validated answer citations; verify claims against the preview.</p></div>
           {mode === 'live' && capabilities?.live_enabled && <label className="quality-fallback-setting"><input type="checkbox" checked={qualityFallback} onChange={(event) => setQualityFallback(event.target.checked)} /> Escalate optimized classify/extract to the large model if deterministic validation fails <span>May add one provider call per affected task. Truncated responses and provider errors are never retried.</span></label>}
+          {mode === 'live' && capabilities?.live_enabled && <div className="model-selection-grid"><label htmlFor="small-route-model">Small-route model<select id="small-route-model" value={smallModelId} onChange={(event) => setSmallModelId(event.target.value)}>{(capabilities.supported_models ?? []).map((id) => <option key={id} value={id} disabled={id === largeModelId}>{id}</option>)}</select></label><label htmlFor="large-route-model">Large-route model<select id="large-route-model" value={largeModelId} onChange={(event) => setLargeModelId(event.target.value)}>{(capabilities.supported_models ?? []).map((id) => <option key={id} value={id} disabled={id === smallModelId}>{id}</option>)}</select></label><p>The backend still selects the route for each task. These choices set the provider model used for each backend-selected role.</p></div>}
           {mode === 'live' && !capabilities?.live_enabled && <div className="info-strip"><LockIcon /><span>{capabilities?.live_disabled_reason ?? 'Live inference is unavailable.'} {!api.isMock && <button className="inline-settings-link" type="button" onClick={() => setProviderSettingsOpen(true)}>Provider setup</button>}</span></div>}
           <SourceInput key={run?.id ?? 'new'} fixtureMode={api.isMock} onSourceChange={onSourceChange} initialSource={run?.source_snapshot ?? null} />
           <div className="workload-heading"><div><span className="label-main">{mode === 'demo' ? 'Sample workload' : 'Your workload'}</span><span className="label-sub">{mode === 'demo' ? 'Select the requests to include in this run.' : 'Prompts are sent to the configured inference service.'}</span></div><span className={`provenance-pill ${mode === 'demo' ? 'simulated' : 'observed'}`}><span />{mode === 'demo' ? 'SIMULATED' : 'OBSERVED'}</span></div>
           {mode === 'demo' ? <div className="task-list">{(samples?.tasks ?? []).map((task, index) => <label className={`task-option ${selected.includes(task.id) ? 'checked' : ''}`} key={task.id}><input type="checkbox" checked={selected.includes(task.id)} onChange={() => setSelected((ids) => ids.includes(task.id) ? ids.filter((id) => id !== task.id) : [...ids, task.id])} /><span className="custom-checkbox"><CheckIcon /></span><span className="task-number">0{index + 1}</span><span className="task-info"><span className="task-name">{typeNames[task.type]}</span><span className="task-prompt">{task.prompt}</span></span><span className="task-type">{task.type}</span></label>)}</div> : <div className="live-editor">{customTasks.map((task, index) => <div className="live-task" key={task.id}><label>Task {index + 1} type<select value={task.type} disabled={!capabilities?.live_enabled} onChange={(e) => updateTask(index, { type: e.target.value as TaskType, constraints: null })}><option value="classify">Classify</option><option value="extract">Extract</option><option value="summarize">Summarize</option><option value="write">Writing</option><option value="code">Code generation</option></select></label><label className="prompt-label">Prompt<textarea aria-describedby={`prompt-guidance${promptContainsUrl(task.prompt) ? ` prompt-url-${task.id}` : ''}`} disabled={!capabilities?.live_enabled} maxLength={capabilities?.max_prompt_chars ?? 2000} value={task.prompt} onChange={(e) => updateTask(index, { prompt: e.target.value })} placeholder="Enter a task or question about your source…" /></label><TaskConstraintFields task={task} disabled={!capabilities?.live_enabled} onChange={(constraints) => updateTask(index, { constraints })} />{customTasks.length > 1 && <button className="remove-task" type="button" disabled={!capabilities?.live_enabled} onClick={() => setCustomTasks((items) => items.filter((item) => item.id !== task.id))} aria-label={`Remove task ${index + 1}`}>×</button>}</div>)}<div className="task-text-guidance" id="prompt-guidance"><strong>Attach a source above, or include synthetic text in your prompt.</strong><span>Routing follows task type: classify/extract use small; summarize uses large. Attached source text is sent as untrusted context.</span></div>{customTasks.map((task) => promptContainsUrl(task.prompt) && <p className="url-reminder" id={`prompt-url-${task.id}`} role="status" key={`url-${task.id}`}>A URL inside the prompt is not fetched. Add it as a public webpage source above if retrieval is intended.</p>)}<button className="add-task-button" type="button" disabled={!capabilities?.live_enabled || customTasks.length >= (capabilities?.max_tasks ?? 10)} onClick={() => setCustomTasks((items) => [...items, { id: `live-${Date.now()}`, type: 'classify', prompt: '' }])}>+ Add task <span>{customTasks.length}/{capabilities?.max_tasks ?? 10}</span></button><p className="privacy-note"><LockIcon /> Use synthetic samples. Do not submit sensitive prompts.</p></div>}
           <div className="carbon-control"><label htmlFor="carbon-intensity"><span className="label-main">Scenario carbon intensity</span><span className="label-sub">Illustrative input, not live grid data</span></label><div className="range-value"><input id="carbon-intensity" type="number" min="0" max="2000" step="25" value={carbon} onChange={(e) => setCarbon(Math.max(0, Math.min(2000, Number(e.target.value))))} disabled={!!run || submitting} /><span>gCO₂e / kWh</span></div></div>
-          {error && <div className="error-box compact" role="alert"><AlertIcon />{error}</div>}
+          {error && <div className="error-box compact" role="alert"><AlertIcon />{error}{showStopActiveAction && <button className="agent-stop-button" type="button" disabled={stoppingRun} onClick={() => void stopActiveRun()}>{stoppingRun ? 'Stopping…' : 'Stop active run'}</button>}</div>}
           <div className="panel-footer"><div className="selection-note"><span className="tiny-dot" />{mode === 'demo' ? `${selectedTasks.length} of ${samples?.tasks.length ?? 0} tasks selected` : `${customTasks.length} task${customTasks.length === 1 ? '' : 's'} ready`}</div><div className="actions">{run && <button className="secondary-button" onClick={reset}>New comparison</button>}<button className="compare-button" onClick={() => void start()} disabled={loading || submitting || !capabilities?.demo_enabled || (mode === 'live' && !capabilities.live_enabled) || !!run || (sourceSelected && (!sourceSnapshot || mode !== 'live' || !sourceConfirmed))}><span>{submitting ? 'Starting…' : sourceSelected && !sourceSnapshot ? 'Preview source first' : sourceSnapshot && mode !== 'live' ? 'Switch to Live' : sourceSnapshot && !sourceConfirmed ? 'Confirm source first' : 'Compare policies'}</span>{submitting ? <span className="button-spinner" /> : <ArrowIcon />}</button></div></div>
         </>}
       </section>
 
       {notice && <div className="notice-strip" role="status"><CheckIcon />{notice}</div>}
-      {run && <section className="results-section"><p className="sr-only" role="status" aria-live="polite" aria-atomic="true">Comparison status: {statusLabel}.</p><div className="results-heading"><div><div className="section-kicker">02 / RESULTS</div><h2>Your comparison</h2><p className="run-meta">Run <span>{run.id.slice(0, 8)}</span> · {run.tasks.length} tasks · {new Date(run.created_at).toLocaleString()}</p></div><div className="results-actions"><div className="run-badges"><span className={`mode-badge ${run.mode}`}><span />{run.mode === 'demo' ? 'DEMO' : 'LIVE'}</span><span className={`provenance-pill ${run.measurement_source === 'simulated' ? 'simulated' : 'observed'}`}><span />{run.measurement_source === 'simulated' ? 'SIMULATED' : 'OBSERVED'}</span><span className={`status-badge ${run.status}`}><span className="status-dot" />{statusLabel}</span></div><div className="export-actions"><button className="secondary-button export-button" type="button" onClick={exportSnapshot}>Export JSON</button><button className="secondary-button export-button" type="button" onClick={exportCsv}>Export CSV</button><button className="secondary-button export-button" type="button" onClick={printReport}>Print / Save PDF</button></div></div></div>
+      {run && <section className="results-section"><p className="sr-only" role="status" aria-live="polite" aria-atomic="true">Comparison status: {statusLabel}.</p><div className="results-heading"><div><div className="section-kicker">02 / RESULTS</div><h2>Your comparison</h2><p className="run-meta">Run <span>{run.id.slice(0, 8)}</span> · {run.tasks.length} tasks · {new Date(run.created_at).toLocaleString()}</p></div><div className="results-actions"><div className="run-badges"><span className={`mode-badge ${run.mode}`}><span />{run.mode === 'demo' ? 'DEMO' : 'LIVE'}</span><span className={`provenance-pill ${run.measurement_source === 'simulated' ? 'simulated' : 'observed'}`}><span />{run.measurement_source === 'simulated' ? 'SIMULATED' : 'OBSERVED'}</span><span className={`status-badge ${run.status}`}><span className="status-dot" />{statusLabel}</span></div><div className="export-actions">{!terminal(run.status) && <button className="agent-stop-button" type="button" disabled={stoppingRun} onClick={() => void stopActiveRun(run.id)}>{stoppingRun ? 'Stopping…' : 'Stop run'}</button>}<button className="secondary-button export-button" type="button" onClick={exportSnapshot}>Export JSON</button><button className="secondary-button export-button" type="button" onClick={exportCsv}>Export CSV</button><button className="secondary-button export-button" type="button" onClick={printReport}>Print / Save PDF</button></div></div></div>
         {networkError && <div className="error-box compact" role="alert"><AlertIcon /><span>{networkError}</span><button className="text-button" onClick={() => void retry()}>Retry now</button></div>}
         {run.run_error && <div className="error-box compact" role="alert"><AlertIcon />{run.run_error.message} <span className="error-code">{run.run_error.code}</span></div>}
         <div className="progress-panel panel"><div className="progress-top"><div><span className="label-main">Run progress</span><span className="label-sub">{run.completed_attempts} of {run.total_attempts} attempts completed</span></div><span className="progress-time"><span className="clock-icon" aria-hidden="true">◷</span> {terminal(run.status) ? 'Finished' : `Running ${Math.floor(now / 60).toString().padStart(2, '0')}:${(now % 60).toString().padStart(2, '0')}`}</span></div><div className="progress-track" role="progressbar" aria-label="Comparison progress" aria-valuemin={0} aria-valuemax={run.total_attempts} aria-valuenow={run.completed_attempts}><div className={`progress-fill ${run.status}`} style={{ width: `${run.total_attempts ? Math.min(100, run.completed_attempts / run.total_attempts * 100) : 0}%` }} /></div>{run.status === 'partial' && <p className="progress-caption">Some attempts failed. Metrics use only backend-defined matching cohorts.</p>}</div>
@@ -280,6 +314,7 @@ function App() {
         <div className="metrics-heading"><div><h3>Impact overview</h3><span className="incomplete-note">{run.status === 'completed' ? 'Backend-provided comparison · answer quality not evaluated' : 'Incomplete comparison · values update as attempts finish'}</span></div><span className="metrics-count">{run.comparison.successful_pairs} matched pairs</span></div>
         <div className="metric-grid"><MetricCard title="Illustrative energy" unit="Wh" values={run.comparison.energy_wh} count={run.comparison.energy_pairs} cohort="complete usage pairs" format={(v) => fixed(v, 6)} icon={<EnergyIcon />} tint="sage" /><MetricCard title="Illustrative carbon" unit="gCO₂e" values={run.comparison.carbon_g} count={run.comparison.energy_pairs} cohort="complete usage pairs" format={(v) => fixed(v, 6)} icon={<LeafIcon />} tint="mint" /><MetricCard title={run.mode === 'demo' ? 'Simulated latency' : 'Observed latency'} unit="ms" values={run.comparison.latency_ms} count={run.comparison.latency_pairs} cohort="successful pairs" format={integer} icon={<ClockIcon />} tint="blue" changeType="latency" /></div>
         <div className="metric-caveat"><InfoIcon /><span>{run.mode === 'demo' ? 'Demo latency, token usage and outputs are simulated fixtures. Energy and carbon figures are illustrative estimates; they are not provider telemetry or measured emissions.' : 'Latency is client timing and token counts are provider usage where available. Energy and carbon are illustrative estimates, not electrical telemetry or verified emissions.'} Latency totals sum successful attempt timings and are not necessarily elapsed job duration.</span><span className="caveat-tag">ESTIMATE ONLY</span></div>
+        <EcoImpactPanel run={run} />
         <section className="comparison-panel panel"><div className="table-heading"><div><span className="section-kicker">03 / ATTEMPTS</span><h3 id="routing-breakdown-title">Routing breakdown</h3></div><span className="table-side-note">Policy decisions per task</span></div><div className="table-scroll" role="region" aria-labelledby="routing-breakdown-title" tabIndex={0}><table><thead><tr><th>Task</th><th>Policy</th><th>Model</th><th>Route reason</th><th>Latency</th><th>Tokens in / out</th><th>Energy · estimate</th><th>Carbon · estimate</th><th>Status</th></tr></thead><tbody>{run.tasks.flatMap((task) => (['baseline', 'optimized'] as const).map((policy) => {
           const result = run.results.find((item) => item.task_id === task.id && item.policy === policy);
           return <tr key={`${task.id}-${policy}`}><td><span className="table-task-id">{task.id}</span><span className="table-task-type">{task.type}</span></td><td><span className={`policy-label ${policy}`}>{policy}</span></td><td><span className={`model-label ${result?.model_role ?? ''}`}>{result ? result.model_role : missing}</span><span className="model-id">{result?.model_id ?? 'Pending'}</span></td><td className="route-reason">{result?.routing_reason ?? missing}</td><td>{result ? `${integer(result.latency_ms)} ms` : missing}</td><td>{result ? `${integer(result.input_tokens)} / ${integer(result.output_tokens)}` : missing}</td><td>{result ? fixed(result.estimated_energy_wh, 6) : missing}</td><td>{result ? fixed(result.estimated_carbon_g, 6) : missing}</td><td>{result ? <span className={`attempt-status ${result.status}`}>{result.status === 'succeeded' ? 'Succeeded' : 'Failed'}</span> : <span className="pending-status">Pending</span>}{result?.error && <span className="attempt-error">{result.error.code}: {result.error.message}</span>}</td></tr>;
@@ -293,7 +328,7 @@ function App() {
       <footer className="footer"><span>ecoagent<span className="brand-period">.</span> <span className="footer-separator">/</span> Inference, considered.</span><span>ESTIMATES ARE ILLUSTRATIVE. RESULTS ARE NOT QUALITY EVALUATIONS.</span></footer>
     </div>
     {page === 'benchmarks' && <div className="content"><BenchmarkDashboard initialRunId={benchmarkRunToOpen} onOpenComparisonRun={(id) => { void openComparisonRun(id, 'A comparison run is active. Opened it from the benchmark conflict response.'); }} onOpenProviderSettings={() => setProviderSettingsOpen(true)} /></div>}
-    {page === 'agent' && <div className="content"><AgentDashboard initialRunId={agentRunToOpen} onOpenProviderSettings={() => setProviderSettingsOpen(true)} /></div>}
+    {page === 'agent' && <div className="content"><AgentDashboard initialRunId={agentRunToOpen} onOpenProviderSettings={() => setProviderSettingsOpen(true)} onOpenActiveRun={navigateToAgent} /></div>}
     </main>
   </div>;
 }

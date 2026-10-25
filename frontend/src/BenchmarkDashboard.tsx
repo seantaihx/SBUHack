@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { ApiError, benchmarkApi } from './api/client';
+import { ApiError, api, benchmarkApi } from './api/client';
 import type { BenchmarkCase, BenchmarkDataset, BenchmarkRun, StartBenchmarkRequest } from './api/types';
 
 const missing = 'Unavailable';
@@ -27,6 +27,8 @@ export default function BenchmarkDashboard({ initialRunId = null, onOpenComparis
   const [notice, setNotice] = useState<string | null>(null);
   const [pollError, setPollError] = useState<string | null>(null);
   const [loadingCases, setLoadingCases] = useState(false);
+  const [showStopActiveAction, setShowStopActiveAction] = useState(false);
+  const [stoppingRun, setStoppingRun] = useState(false);
   const lock = useRef(false);
   const openedInitialRun = useRef<string | null>(null);
   const selectedDataset = datasets.find((item) => item.dataset_id === datasetId);
@@ -139,7 +141,7 @@ export default function BenchmarkDashboard({ initialRunId = null, onOpenComparis
 
   const start = async () => {
     if (lock.current || !selectedDataset || !baselineModel) return;
-    lock.current = true; setSubmitting(true); setError(null); setPollError(null); setCases([]); setCasesCursor(null);
+    lock.current = true; setSubmitting(true); setError(null); setShowStopActiveAction(false); setPollError(null); setCases([]); setCasesCursor(null);
     const config: StartBenchmarkRequest = {
       dataset_id: selectedDataset.dataset_id,
       baseline: { model_id: baselineModel, optimization_enabled: false },
@@ -158,7 +160,18 @@ export default function BenchmarkDashboard({ initialRunId = null, onOpenComparis
         const activeKind = reason.details?.active_run_kind;
         if (typeof activeId === 'string' && activeKind === 'benchmark') await openRun(activeId, true);
         else if (typeof activeId === 'string' && activeKind === 'comparison') onOpenComparisonRun(activeId);
-        else setError(`${reason.message} The backend did not identify the active run type, so it cannot be opened safely. No request was resubmitted. This contract gap is documented for Sean.`);
+        else {
+          try {
+            const active = await api.activeRun();
+            if (active?.kind === 'benchmark') await openRun(active.id, true);
+            else if (active?.kind === 'comparison') onOpenComparisonRun(active.id);
+            else if (active?.kind === 'agent') setError('A Workspace Agent run is active. Open that page to review or stop it.');
+            else setError('The backend reports no active run now. Refresh the page and try again; no request was resubmitted.');
+          } catch {
+            setError(`${reason.message} The active run could not be looked up. You can ask the backend to stop its current run, then retry.`);
+            setShowStopActiveAction(true);
+          }
+        }
       } else if (reason instanceof ApiError && reason.status === 422 && typeof reason.details?.max_cases_per_run === 'number') {
         const allowed = Math.max(0, Math.trunc(reason.details.max_cases_per_run));
         setMaxCases(allowed); setMaxCasesInput(String(Math.max(1, allowed)));
@@ -170,6 +183,25 @@ export default function BenchmarkDashboard({ initialRunId = null, onOpenComparis
     finally { lock.current = false; setSubmitting(false); }
   };
 
+  const stopActiveRun = async (expectedId?: string) => {
+    setStoppingRun(true);
+    try {
+      const active = expectedId ? await api.activeRun() : null;
+      if (expectedId && !active) { setShowStopActiveAction(false); setError('There is no active run to stop. Refresh the page and try again.'); return; }
+      if (expectedId && active?.id !== expectedId) { setError('The active run changed. Refresh before stopping it.'); return; }
+      const stopped = await api.stopActiveRun(expectedId);
+      setShowStopActiveAction(false);
+      if (stopped.kind === 'benchmark') await openRun(stopped.id, true);
+      else if (stopped.kind === 'comparison') onOpenComparisonRun(stopped.id);
+      else setError('The Workspace Agent run was stopped. Open its page to review the run log.');
+    } catch (reason) {
+      setError(reason instanceof ApiError && reason.status === 404
+        ? 'The backend is running an older version without Stop active run. Stop it with Ctrl+C in its terminal, then restart the backend from the current project folder.'
+        : reason instanceof Error ? reason.message : 'Could not stop the active run.');
+    }
+    finally { setStoppingRun(false); }
+  };
+
   const costBase = run?.baseline_metrics?.total_cost_usd ?? null;
   const costCandidate = run?.candidate_metrics?.total_cost_usd ?? null;
   const costSavedPct = costBase !== null && costBase > 0 && costCandidate !== null ? ((costBase - costCandidate) / costBase) * 100 : null;
@@ -177,9 +209,9 @@ export default function BenchmarkDashboard({ initialRunId = null, onOpenComparis
 
   return <section className="benchmark-page" aria-labelledby="benchmark-title">
     {benchmarkApi.isMock && <div className="benchmark-mock" role="status">SIMULATED BENCHMARK FIXTURES · NO INFERENCE REQUESTS</div>}
-    <div className="benchmark-intro"><div><span className="section-kicker">BENCHMARK LAB</span><h1 id="benchmark-title">Compare model configurations</h1><p>Submit workloads to the EcoAgent backend and review its evaluation results. The browser never calls Groq directly.</p></div><span className={`provenance-pill ${run?.measurement_source ?? (benchmarkApi.isMock ? 'simulated' : 'pending')}`}><span />{run?.measurement_source.toUpperCase() ?? (benchmarkApi.isMock ? 'SIMULATED FIXTURES' : 'SOURCE PENDING')}</span></div>
+    <div className="benchmark-intro"><div><span className="section-kicker">BENCHMARK LAB</span><h1 id="benchmark-title">Compare model configurations</h1><p>Submit workloads to the EcoAgent backend and review its evaluation results. Provider credentials remain on the backend; hosted providers and configured local Ollama models use the same benchmark controls.</p></div><span className={`provenance-pill ${run?.measurement_source ?? (benchmarkApi.isMock ? 'simulated' : 'pending')}`}><span />{run?.measurement_source.toUpperCase() ?? (benchmarkApi.isMock ? 'SIMULATED FIXTURES' : 'SOURCE PENDING')}</span></div>
 
-    {error && <div className="error-box compact" role="alert"><span>{error}</span>{onOpenProviderSettings && /GROQ_API_KEY|provider credentials|inference is not configured/i.test(error) && <button className="inline-settings-link" type="button" onClick={onOpenProviderSettings}>Provider setup</button>}{pendingRunId && <button className="text-button" onClick={() => void retryProgress()}>Check submitted run</button>}</div>}
+    {error && <div className="error-box compact" role="alert"><span>{error}</span>{showStopActiveAction && <button className="agent-stop-button" type="button" disabled={stoppingRun || benchmarkApi.isMock} onClick={() => void stopActiveRun()}>{stoppingRun ? 'Stopping…' : 'Stop active run'}</button>}{onOpenProviderSettings && /API key is missing|provider credentials|inference is not configured/i.test(error) && <button className="inline-settings-link" type="button" onClick={onOpenProviderSettings}>Provider setup</button>}{pendingRunId && <button className="text-button" onClick={() => void retryProgress()}>Check submitted run</button>}</div>}
     {notice && <div className="notice-strip" role="status">{notice}</div>}
     {pollError && <div className="error-box compact" role="alert"><span>{pollError}</span><button className="text-button" onClick={() => void retryProgress()}>Retry progress</button></div>}
     {loading ? <div className="loading-row" role="status">Loading benchmark datasets…</div> : datasets.length === 0 ? <div className="empty-state"><p>NO DATASETS AVAILABLE</p><span>The benchmark API returned no datasets.</span></div> : <>
@@ -206,7 +238,7 @@ export default function BenchmarkDashboard({ initialRunId = null, onOpenComparis
         <div className="benchmark-actions"><span>Results depend on the same dataset and evaluation criteria for both configurations.</span><button className="compare-button" type="button" onClick={() => void start()} disabled={loading || submitting || !!pendingRunId || !baselineModel || (!!run && !done(run.status))}>{submitting ? 'Starting…' : 'Run benchmark'}</button></div>
       </section>
 
-      {run && <section className="benchmark-results"><p className="sr-only" role="status" aria-live="polite" aria-atomic="true">Benchmark status: {statusText[run.status]}, {run.progress.completed} of {run.progress.total} cases completed.</p><div className="benchmark-run-heading"><div><span className="section-kicker">02 / RUN {run.run_id}</span><h2>{statusText[run.status]}</h2></div><div className="run-badges"><span className={`provenance-pill ${run.measurement_source}`}><span />{run.measurement_source.toUpperCase()}</span><span className={`status-badge ${run.status}`}>{statusText[run.status]}</span>{done(run.status) && <button className="secondary-button export-button" type="button" disabled={benchmarkApi.isMock} onClick={() => void exportAnalysis()}>{benchmarkApi.isMock ? 'Export requires backend' : 'Download analysis JSON'}</button>}</div></div>
+      {run && <section className="benchmark-results"><p className="sr-only" role="status" aria-live="polite" aria-atomic="true">Benchmark status: {statusText[run.status]}, {run.progress.completed} of {run.progress.total} cases completed.</p><div className="benchmark-run-heading"><div><span className="section-kicker">02 / RUN {run.run_id}</span><h2>{statusText[run.status]}</h2></div><div className="run-badges"><span className={`provenance-pill ${run.measurement_source}`}><span />{run.measurement_source.toUpperCase()}</span><span className={`status-badge ${run.status}`}>{statusText[run.status]}</span>{!done(run.status) && !benchmarkApi.isMock && <button className="agent-stop-button" type="button" disabled={stoppingRun} onClick={() => void stopActiveRun(run.run_id)}>{stoppingRun ? 'Stopping…' : 'Stop run'}</button>}{done(run.status) && <button className="secondary-button export-button" type="button" disabled={benchmarkApi.isMock} onClick={() => void exportAnalysis()}>{benchmarkApi.isMock ? 'Export requires backend' : 'Download analysis JSON'}</button>}</div></div>
         <div className="benchmark-progress panel"><div><strong>{run.progress.completed}</strong> of {run.progress.total} cases completed</div><div className="progress-track" role="progressbar" aria-label="Benchmark progress" aria-valuemin={0} aria-valuemax={run.progress.total} aria-valuenow={run.progress.completed}><div className={`progress-fill ${run.status}`} style={{ width: `${run.progress.total ? Math.min(100, run.progress.completed / run.progress.total * 100) : 0}%` }} /></div>{run.error && <p role="alert">{run.error.code}: {run.error.message}</p>}</div>
         {run.baseline_metrics && run.candidate_metrics && <>
           <div className="benchmark-provenance">{run.measurement_source === 'simulated' ? 'Simulated fixture results; not measured model performance.' : 'Backend reported observed provider usage and timing. Cost is an estimate unless confirmed by provider billing.'} Evaluation: deterministic authored checks, not semantic answer-quality evaluation. This run covers {run.max_cases} cases; use Download analysis JSON for the exact definitions and pass/fail rules.</div>

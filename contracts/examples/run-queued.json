@@ -59,5 +59,7 @@
   "source_snapshot": null,
   "source_submission_confirmed": false,
   "task_profile_version": "task-instructions-v1",
-  "quality_fallback": false
+  "quality_fallback": false,
+  "small_model_id": null,
+  "large_model_id": null
 }

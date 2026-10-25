@@ -38,5 +38,6 @@
     "summarize",
     "write",
     "code"
-  ]
+  ],
+  "supported_models": []
 }

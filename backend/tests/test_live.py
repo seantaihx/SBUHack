@@ -48,6 +48,54 @@ def test_groq_wire_and_cost(tmp_path):
     assert cost('openai/gpt-oss-20b', None, 20) is None
 
 
+@pytest.mark.parametrize(('provider_id', 'model_id', 'key_field', 'response_body', 'expected_url', 'expected_auth'), [
+    ('openai', 'gpt-6-luna', 'openai_api_key', success(), 'https://api.openai.com/v1/chat/completions', 'Bearer provider-secret'),
+    ('gemini', 'gemini-3.8-flash', 'gemini_api_key', success(), 'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions', 'Bearer provider-secret'),
+    ('ollama', 'qwen3:8b', None, success(), 'http://127.0.0.1:11434/v1/chat/completions', None),
+])
+def test_openai_compatible_provider_adapters(tmp_path, provider_id, model_id, key_field, response_body, expected_url, expected_auth):
+    from backend.app.settings import Settings
+    from backend.app.store import Store
+    from backend.app.providers.live import LiveProvider
+    calls = []
+    def handler(request):
+        calls.append(request)
+        return httpx.Response(200, json=response_body)
+    kwargs = {key_field: 'provider-secret'} if key_field else {}
+    settings = Settings(database_path=tmp_path / f'{provider_id}.sqlite3', live_enabled=True, **kwargs)
+    provider = LiveProvider(settings, Store(settings.database_path), transport=httpx.MockTransport(handler))
+    result = asyncio.run(provider.infer('synthetic prompt', f'{provider_id}::{model_id}', 'provider-test',
+                                        allowed_models=settings.available_agent_models))
+    assert result.output_text == 'billing'
+    assert str(calls[0].url) == expected_url
+    assert calls[0].headers.get('authorization') == expected_auth
+    payload = json.loads(calls[0].content)
+    assert payload['model'] == model_id
+    assert payload['max_tokens' if provider_id in ('gemini', 'ollama') else 'max_completion_tokens'] > 0
+
+
+def test_anthropic_messages_adapter_and_usage(tmp_path):
+    from backend.app.settings import Settings
+    from backend.app.store import Store
+    from backend.app.providers.live import LiveProvider
+    calls = []
+    body = {'content': [{'type': 'text', 'text': 'result'}], 'stop_reason': 'end_turn',
+            'usage': {'input_tokens': 12, 'output_tokens': 7}}
+    settings = Settings(database_path=tmp_path / 'anthropic.sqlite3', live_enabled=True,
+                        anthropic_api_key='provider-secret')
+    provider = LiveProvider(settings, Store(settings.database_path), transport=httpx.MockTransport(
+        lambda request: (calls.append(request) or httpx.Response(200, json=body))))
+    result = asyncio.run(provider.infer('prompt', 'anthropic::claude-haiku-5-5', 'anthropic-test',
+                                        allowed_models=settings.available_agent_models))
+    assert result.output_text == 'result'
+    assert result.input_tokens == 12 and result.output_tokens == 7
+    assert result.finish_reason == 'end_turn' and result.output_truncated is False
+    assert str(calls[0].url) == 'https://api.anthropic.com/v1/messages'
+    assert calls[0].headers['anthropic-version'] == '2023-06-01'
+    assert calls[0].headers['authorization'] == 'Bearer provider-secret'
+    assert json.loads(calls[0].content)['max_tokens'] > 0
+
+
 @pytest.mark.parametrize(('status', 'code'), [(401, 'PROVIDER_AUTH_ERROR'), (403, 'PROVIDER_AUTH_ERROR'),
     (429, 'PROVIDER_RATE_LIMITED'), (500, 'PROVIDER_UNAVAILABLE'), (400, 'PROVIDER_BAD_RESPONSE'),
     (302, 'PROVIDER_BAD_RESPONSE')])
