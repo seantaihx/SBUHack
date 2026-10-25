@@ -180,7 +180,12 @@ class Store:
                     from .agent_schemas import AgentEvent, AgentRun
                     agent = AgentRun.model_validate_json(snapshot)
                     agent.status = 'running'
-                    agent.phase = 'paused'
+                    agent.phase = ('awaiting_plan_approval'
+                                   if agent.run_mode == 'team' and agent.workflow_stage == 'plan_review'
+                                   else 'paused')
+                    # A proposal from the interrupted process must not block
+                    # explicit continuation or remain usable as an approval.
+                    agent.pending_action = None
                     agent.stop_reason = 'APPLICATION_RESTARTED_REVIEW_REQUIRED'
                     agent.checkpoint_sequence += 1
                     agent.checkpoint_at = now()

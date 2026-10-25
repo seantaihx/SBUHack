@@ -1,6 +1,6 @@
 # EcoAgent feature acceptance test plan
 
-Use this checklist to verify behavior, not just that the app builds. It covers features on `main` and the additional features on `Muffin_branch`. Run the branch-only checks on `Muffin_branch`; they are not present in `main` until merged.
+Use this checklist to verify behavior, not just that the app builds. It covers the merged v1.1 implementation. All sections below now apply to the current merged branch. For the latest executed checks and remaining gaps, see [the readiness review](READINESS_REVIEW.md).
 
 ## Test safety and result recording
 
@@ -13,7 +13,7 @@ Record each manual case as `PASS`, `FAIL`, or `NOT RUN`, including branch, API v
 
 ## Automated test baseline
 
-Run from the repository root on `Muffin_branch`:
+Run from the repository root on the branch being presented:
 
 ```powershell
 .\.venv\Scripts\python.exe -m pytest -q
@@ -55,7 +55,7 @@ Invoke-RestMethod http://127.0.0.1:8000/api/v1/capabilities
 Invoke-RestMethod http://127.0.0.1:8000/api/v1/sample-tasks
 ```
 
-On `Muffin_branch`, health should report API `1.1.0`; capabilities should provide policy, supported task types and estimation assumptions. On `main`, expect the older API version and do not treat branch-only endpoints returning 404 as regressions in main.
+Health should report API `1.1.0`; capabilities should provide policy, supported task types and estimation assumptions.
 
 ## Feature-by-feature acceptance checklist
 
@@ -101,7 +101,7 @@ On `Muffin_branch`, health should report API `1.1.0`; capabilities should provid
 4. Submit an invalid model/configuration or exceed the server-reported case cap in a safe test environment.
    - **Pass:** the backend returns its validation/rate-limit message; no silent switch to simulation occurs for a requested live run.
 
-### C. Source import and source-grounded comparison — `Muffin_branch`
+### C. Source import and source-grounded comparison — merged v1.1
 
 Use synthetic/public text only.
 
@@ -121,7 +121,7 @@ Use synthetic/public text only.
    - **Pass:** selecting a source blocks comparison until a valid preview is attached; source-grounded runs require Live and explicit confirmation. No failed parse/retrieval substitutes fixture text. The same source is provided to both policies.
    - Optional real Live source run is billable: use synthetic text and confirm prompt/source submission deliberately.
 
-### D. Expanded catalog, analysis export, and quality handling — `Muffin_branch`
+### D. Expanded catalog, analysis export, and quality handling — merged v1.1
 
 1. Fetch `GET /api/v1/benchmarks/datasets` and `GET /api/v1/benchmarks/datasets/starter-v2`.
    - **Pass:** `starter-v1` has 5 cases; `starter-v2` version 2.1.0 has 26 cases and lists writing/code categories. The effective per-run limit is returned and respected.
@@ -134,7 +134,7 @@ Use synthetic/public text only.
    - **Pass:** eligible Live optimized classify/extract validation failure performs at most one large-model escalation; both attempts and reason are recorded; usage/cost/latency remain nullable when unavailable. Truncation/provider errors are not retried. Fallback adds to request/spend counts.
    - Do not use a real provider call just to force validation failure; deterministic tests cover this behavior.
 
-### E. Bounded local workspace agent — `Muffin_branch`
+### E. Bounded local workspace agent — merged v1.1
 
 First use a disposable sandbox, for example `C:\EcoAgent-agent-sandbox`, containing only synthetic `seed.txt` and a new output target. Set backend `AGENT_WORKSPACE_ROOT` to that folder and restart the backend. Keep it loopback-only. To test disabled state, set `AGENT_ENABLED=false`; to test enabled state, set it true and configure Live. A real agent planning call may use provider quota.
 
@@ -184,11 +184,11 @@ For Compare, Benchmarks, source panels, and Agent:
 
 | Area | Branch | Result (PASS/FAIL/NOT RUN) | Evidence/run ID | Notes or issue |
 |---|---|---|---|---|
-| Automated backend/frontend checks | `Muffin_branch` | | | |
-| Main comparison UI | `main` and `Muffin_branch` | | | |
-| Main benchmark UI | `main` and `Muffin_branch` | | | |
-| PDF/CSV/webpage source handling | `Muffin_branch` | | | |
-| Expanded benchmark/export/quality | `Muffin_branch` | | | |
-| Workspace-agent safety and workflow | `Muffin_branch` | | | |
+| Automated backend/frontend checks | current merged branch | | | |
+| Main comparison UI | current merged branch | | | |
+| Main benchmark UI | current merged branch | | | |
+| PDF/CSV/webpage source handling | current merged branch | | | |
+| Expanded benchmark/export/quality | current merged branch | | | |
+| Workspace-agent safety and workflow | current merged branch | | | |
 | Optional real Live provider | either | | | |
 | Responsive/keyboard/browser walkthrough | either | | | |

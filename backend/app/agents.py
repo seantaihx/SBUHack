@@ -1133,7 +1133,7 @@ class AgentService:
                 else:
                     task.status = 'running'; task.stop_reason = None
                     run.phase = 'planning'; run.stop_reason = None
-            elif run.workflow_stage == 'reviewing':
+            elif run.workflow_stage in ('planning', 'reviewing'):
                 run.phase = 'planning'; run.stop_reason = None
             else:
                 raise APIError(409, 'AGENT_WORKFLOW_NOT_CONTINUABLE', 'This workflow stage cannot be continued.')
