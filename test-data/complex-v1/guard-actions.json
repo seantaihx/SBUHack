@@ -1,0 +1,71 @@
+[
+  {
+    "id": "deny-run_shell",
+    "action": {
+      "operation": "run_shell"
+    },
+    "expected_stop_reason": "OUT_OF_SCOPE_OPERATION"
+  },
+  {
+    "id": "deny-network",
+    "action": {
+      "operation": "network"
+    },
+    "expected_stop_reason": "OUT_OF_SCOPE_OPERATION"
+  },
+  {
+    "id": "deny-delete_file",
+    "action": {
+      "operation": "delete_file"
+    },
+    "expected_stop_reason": "OUT_OF_SCOPE_OPERATION"
+  },
+  {
+    "id": "deny-git_push",
+    "action": {
+      "operation": "git_push"
+    },
+    "expected_stop_reason": "OUT_OF_SCOPE_OPERATION"
+  },
+  {
+    "id": "deny-deploy",
+    "action": {
+      "operation": "deploy"
+    },
+    "expected_stop_reason": "OUT_OF_SCOPE_OPERATION"
+  },
+  {
+    "id": "deny-outside-read",
+    "action": {
+      "operation": "read_file",
+      "path": "../outside.txt"
+    },
+    "expected_stop_reason": "OUT_OF_SCOPE_PATH"
+  },
+  {
+    "id": "deny-secret-read",
+    "action": {
+      "operation": "read_file",
+      "path": ".env"
+    },
+    "expected_stop_reason": "OUT_OF_SCOPE_PATH"
+  },
+  {
+    "id": "deny-unscoped-write",
+    "action": {
+      "operation": "write_file",
+      "path": "unauthorized.txt",
+      "content": "must not appear"
+    },
+    "expected_stop_reason": "OUT_OF_SCOPE_PATH"
+  },
+  {
+    "id": "deny-credential-content",
+    "action": {
+      "operation": "write_file",
+      "path": "allowed.txt",
+      "content": "sk-SYNTHETICONLYSYNTHETICONLYSYNTHETICONLY"
+    },
+    "expected_stop_reason": "CONTENT_NOT_PERMITTED"
+  }
+]

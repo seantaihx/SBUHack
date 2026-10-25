@@ -1,0 +1,12 @@
+{
+  "dataset_id": "starter-v2",
+  "baseline": {
+    "model_id": "openai/gpt-oss-120b",
+    "optimization_enabled": false
+  },
+  "candidate": {
+    "model_id": "eco-auto",
+    "optimization_enabled": true
+  },
+  "max_cases": 10
+}
