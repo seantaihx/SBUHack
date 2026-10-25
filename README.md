@@ -4,6 +4,31 @@ EcoAgent compares a fixed baseline model policy with task-aware routing. It reco
 
 The app also includes benchmark runs, text/PDF/CSV/webpage source import, provider settings, and an opt-in local workspace agent with approval-gated file actions. See [limitations and safety](#limitations) before using Live inference or the workspace agent.
 
+## For judges: the five-minute version
+
+**EcoAgent helps developers test whether a smaller model can handle a task before spending a larger model's resources.** It compares a fixed baseline with task-based routing, shows both answers, and exposes usage, timing, and environmental assumptions so the tradeoff can be reviewed.
+
+Use **three minutes for the pitch and demo, then two minutes for Q&A**. The [word-for-word judge script](docs/JUDGE_WALKTHROUGH.md) includes click instructions, fallback options, and short answers to likely questions. Start with Compare in Demo mode; show Benchmarks next. Demonstrate the Workspace Agent only if its Live setup has already been rehearsed.
+
+## Features and current completeness
+
+Status means implementation and local verification, not production certification. See the [readiness and debugging review](docs/READINESS_REVIEW.md) for evidence and remaining checks.
+
+| Feature | What works now | Completeness / boundary |
+|---|---|---|
+| Policy comparison | Paired outputs, model IDs, routing reasons, usage, latency, progress, stop, run restoration | Core simulated path verified over HTTP. Baseline uses large; optimized classify/extract use small, summarize/write/code use large. |
+| Live inference | Hosted-provider adapters and local Ollama; selectable small/large routes | Implemented and tested with fake transports; real provider/model access needs a smoke test on the demo machine. |
+| Quality checks and fallback | Label/JSON constraints; optional single large-model escalation for eligible small-model failures | Deterministic checks work; no general semantic quality guarantee. |
+| Benchmark lab | starter-v1 (5 cases), starter-v2 (26 cases), fixed or auto candidates, case results, history, analysis export | Simulated HTTP flow verified; default limit is 10 cases per run. Lexical checks do not establish general accuracy. |
+| Source import | Text, text-selectable PDF, CSV, public webpage preview and source snapshots | Automated coverage; source-grounded inference requires Live. No OCR or JavaScript webpage rendering. |
+| Review and exports | Answer search/copy, local human review labels, JSON/CSV export, browser Print / Save PDF | Automated UI coverage; final browser/download rehearsal still needed. |
+| Environmental views | Illustrative energy/carbon, footprint map, scenario slider, local ledger and informational target | Implemented; estimates are not measured emissions and the target does not enforce a budget. |
+| Local GPU telemetry | Optional NVIDIA power sampling for local Ollama comparisons, device energy and throughput fields | Hardware-dependent, not exercised in this review. Measures a whole GPU during the call, including other activity; not whole-system or per-request-exclusive energy. |
+| Workspace Agent | Exact file scopes, approval previews, pause/continue/stop, completion checks, logs and durable handoff | Automated coverage including restart recovery; opt-in Live demonstration needs rehearsal. No shell or code execution. |
+| Manager workflow | Manager plans Writer/Coder/Reviewer tasks with dependencies, role models, bounded usage and review | Implemented and tested with fake inference; specialists execute serially. Model review is not independent proof of correctness. |
+| Provider settings | Backend-only key storage and role-model assignments | Local setup only; restart required. A saved key does not verify access. |
+| Production deployment | Local React/FastAPI/SQLite prototype | Not production-ready: no user authentication or multi-tenant isolation; use one backend worker. |
+
 ## Repository layout
 
 - `backend/` — FastAPI application, provider adapters, SQLite storage, benchmarks, and tests.
@@ -82,13 +107,15 @@ Run equivalent commands on macOS/Linux with `.venv/bin/python` and `npm`.
 
 ## Limitations
 
-- Energy and carbon values are estimates based on illustrative coefficients; they are not measured electricity or verified emissions.
+- Coefficient-based energy and carbon values are illustrative estimates, not verified emissions. Optional local NVIDIA telemetry is separate: it measures whole-device power during an Ollama call, includes idle/other workloads, and excludes CPU, memory, and the rest of the system. Hosted-provider energy remains unmeasured.
 - Simulated runs and lexical benchmark checks do not establish model quality or semantic correctness. Inspect paired outputs.
 - Provider usage and cost figures depend on provider-reported data and configured price catalogs. Real provider access has not been verified by the presence of a model option or saved key.
 - The service has no user authentication. Keep it local; do not expose provider settings or the workspace agent publicly.
 - Source snapshots persist in the local SQLite database. Do not submit confidential or regulated material.
 
 ## Further reading
+
+- [Five-minute judge script](docs/JUDGE_WALKTHROUGH.md) and [readiness/debugging review](docs/READINESS_REVIEW.md)
 
 - [API contract](docs/API_CONTRACT.md) and [OpenAPI schema](contracts/openapi.json)
 - [Hackathon demo guide](docs/HACKATHON_DEMO.md)

@@ -24,6 +24,7 @@ class Settings:
     frontend_dist: Path = ROOT / 'frontend/dist'
     agent_workspace_root: Path | None = None
     agent_enabled: bool = False
+    agent_max_steps: int = 100
     small_model_id: str = 'openai/gpt-oss-20b'
     large_model_id: str = 'openai/gpt-oss-120b'
     benchmark_max_cases: int = 10

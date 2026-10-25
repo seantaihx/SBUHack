@@ -137,7 +137,9 @@ def test_confirmed_source_is_bound_and_sent_to_both_live_policies_without_provid
     from backend.app.providers.base import InferenceResult
     from backend.app.schemas import Run
     seen_prompts = []
-    async def fake_infer(prompt, model_id, run_id, allowed_models=None, system_message=None):
+    async def fake_infer(prompt, model_id, run_id, allowed_models=None, system_message=None,
+                         measure_gpu_energy=False):
+        assert measure_gpu_energy is True
         seen_prompts.append(prompt)
         assert system_message and 'Extract only facts' in system_message
         return InferenceResult('synthetic answer', 12, 90, 5, 'stop', False)

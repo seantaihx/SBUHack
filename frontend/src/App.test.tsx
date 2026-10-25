@@ -533,6 +533,9 @@ describe('EcoAgent frontend contract flows', () => {
     await screen.findByText('Completed');
 
     expect(Array.from(document.querySelectorAll('.answer-text')).some((element) => element.textContent === unsafeOutput)).toBe(true);
-    expect(screen.queryByRole('img')).not.toBeInTheDocument();
+    // The policy diagram legitimately has role="img"; inspect untrusted answers.
+    for (const answer of document.querySelectorAll('.answer-text')) {
+      expect(answer.querySelector('img, script, [onerror]')).toBeNull();
+    }
   });
 });

@@ -43,7 +43,9 @@ def test_validation_fallback_is_bounded_and_accounts_for_both_calls(tmp_path):
                         api_key='test-only-placeholder')
     with TestClient(create_app(settings)) as client:
         calls = []
-        async def infer(prompt, model_id, run_id, allowed_models=None, system_message=None):
+        async def infer(prompt, model_id, run_id, allowed_models=None, system_message=None,
+                        measure_gpu_energy=False):
+            assert measure_gpu_energy is True
             calls.append((model_id, system_message))
             content = 'not json' if model_id == settings.small_model_id else '{"order_id":"E-7"}'
             return InferenceResult(content, 12 if model_id == settings.small_model_id else 20, 10, 4, 'stop', False)
@@ -79,7 +81,9 @@ def test_truncated_output_is_not_automatically_retried(tmp_path):
                         api_key='test-only-placeholder')
     with TestClient(create_app(settings)) as client:
         calls = []
-        async def infer(prompt, model_id, run_id, allowed_models=None, system_message=None):
+        async def infer(prompt, model_id, run_id, allowed_models=None, system_message=None,
+                        measure_gpu_energy=False):
+            assert measure_gpu_energy is True
             calls.append(model_id)
             return InferenceResult('not json', 12, 10, 3, 'length', True)
         client.app.state.runner.live.infer = infer

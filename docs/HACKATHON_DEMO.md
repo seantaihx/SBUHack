@@ -1,5 +1,7 @@
 # Hackathon demo and integration walkthrough
 
+For the actual judging slot, use the [five-minute script](JUDGE_WALKTHROUGH.md): three minutes of pitch/demo and two minutes of Q&A. The shorter walkthrough below is a fallback. See [current readiness](READINESS_REVIEW.md) before choosing optional Live segments.
+
 ## Truthful 90-second demo
 
 1. **Problem (0–15 seconds):** AI requests vary in difficulty, while a fixed model choice can spend the same resources on every task. EcoAgent makes a comparison between a baseline policy and task-aware routing visible.
@@ -21,7 +23,7 @@ Use a disposable workspace with an empty `brief.txt` and `example.py` allowed as
 ### Likely judge questions
 
 - **Are these savings guaranteed?** No. Demo usage and latency are simulated. Live runs show available provider usage and timing for that run; broader savings require representative workloads and repeated evaluation.
-- **Do you measure energy or emissions?** No. The energy coefficients and carbon-intensity scenario are illustrative inputs, not hardware telemetry or live grid data.
+- **Do you measure energy or emissions?** Coefficient-based energy and carbon remain illustrative, with no live grid data. Optional local Ollama comparisons can report NVIDIA whole-device power/energy when supported; this includes idle/other activity and excludes the rest of the system. That hardware path was not exercised in this review.
 - **How do you know the optimized answers are as good?** We do not assume equivalence. The interface exposes both answers and deterministic validation when configured; broader semantic quality needs held-out tests and human review.
 - **Does the agent protect every tool or agent in a company?** No. The current opt-in Workspace Agent mediates its own local file read/write actions. It has no shell/network/delete/code-execution tool and does not govern unrelated agents.
 - **How would a company adopt it?** Agree on the workload, provider API, data handling, and deployment boundary; configure the provider on the backend; validate the API contract; then evaluate routing against representative cases. This is a proposed integration path, not a completed enterprise deployment.
