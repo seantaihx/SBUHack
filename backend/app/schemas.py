@@ -3,7 +3,7 @@ from typing import Annotated, Literal
 from uuid import UUID
 import re
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
+from pydantic import BaseModel, ConfigDict, Field, SecretStr, field_validator, model_validator
 
 Mode = Literal['demo', 'live']
 Role = Literal['small', 'large']
@@ -209,6 +209,18 @@ class Capabilities(Model):
     supported_task_types: list[TaskType] = Field(default_factory=lambda: ['classify', 'extract', 'summarize', 'write', 'code'])
     models: list[ModelInfo] = Field(min_length=2, max_length=2)
     energy_profile: EnergyProfile
+
+
+class ProviderKeyInput(Model):
+    api_key: SecretStr = Field(min_length=1, max_length=512)
+
+
+class LocalProviderSettings(Model):
+    local_setup_available: bool
+    provider_key_configured: bool
+    provider_key_saved_in_env: bool
+    restart_required: bool
+    environment_override: bool
 
 
 class Result(Model):

@@ -24,6 +24,8 @@ const benchmarkCases = benchmarkCasesFixture as BenchmarkCasesResponse;
 type FetchResponse = { ok: boolean; status: number; json: () => Promise<unknown> };
 type FetchOptions = {
   caps?: Capabilities;
+  settings?: FetchResponse;
+  providerSave?: () => FetchResponse | Promise<FetchResponse>;
   post?: (body: CreateRun) => FetchResponse | Promise<FetchResponse>;
   getRun?: (id: string) => FetchResponse | Promise<FetchResponse>;
 };
@@ -36,6 +38,8 @@ function mockApi(options: FetchOptions = {}) {
     const url = String(input);
     const method = init?.method ?? 'GET';
     if (url.endsWith('/capabilities')) return response(caps);
+    if (url.endsWith('/local-settings/provider') && method === 'GET') return options.settings ?? response({ local_setup_available: true, provider_key_configured: false, provider_key_saved_in_env: false, restart_required: false, environment_override: false });
+    if (url.endsWith('/local-settings/provider-key') && method === 'PUT') return options.providerSave ? options.providerSave() : response({ local_setup_available: true, provider_key_configured: false, provider_key_saved_in_env: true, restart_required: true, environment_override: false });
     if (url.endsWith('/sample-tasks')) return response(sampleTasks);
     if (url.endsWith('/runs') && method === 'POST') {
       const body = JSON.parse(String(init?.body)) as CreateRun;
@@ -70,6 +74,41 @@ describe('EcoAgent frontend contract flows', () => {
     expect(screen.getByRole('button', { name: /Compare policies/ })).toBeDisabled();
   });
 
+  it('provides a local provider-key settings dialog and clears the field after save', async () => {
+    let completeSave!: (result: FetchResponse) => void;
+    const fetchMock = mockApi({ providerSave: () => new Promise((resolve) => { completeSave = resolve; }) });
+    const user = userEvent.setup();
+    await loadApp();
+    await user.click(screen.getByRole('button', { name: 'Provider settings' }));
+    const dialog = await screen.findByRole('dialog', { name: 'Provider setup' });
+    const key = 'gsk_example_secret_test_1234567890';
+    expect(within(dialog).getByLabelText('Groq API key')).toHaveFocus();
+    await user.type(within(dialog).getByLabelText('Groq API key'), key);
+    await user.click(within(dialog).getByRole('button', { name: 'Save to backend' }));
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledWith('/api/v1/local-settings/provider-key', expect.objectContaining({ method: 'PUT' })));
+    expect(within(dialog).getByLabelText('Groq API key')).toHaveValue('');
+    expect(within(dialog).getByRole('button', { name: 'Saving securely…' })).toBeDisabled();
+    completeSave(response({ local_setup_available: true, provider_key_configured: false, provider_key_saved_in_env: true, restart_required: true, environment_override: false }));
+    expect(await within(dialog).findByText(/Saved to the backend .env file/i)).toBeInTheDocument();
+    expect(within(dialog).getByLabelText('Groq API key')).toHaveValue('');
+    const saveCall = fetchMock.mock.calls.find(([url, init]) => String(url).endsWith('/local-settings/provider-key') && init?.method === 'PUT');
+    expect(saveCall).toBeDefined();
+    expect(JSON.parse(String(saveCall?.[1]?.body))).toEqual({ api_key: key });
+    expect(localStorage.length).toBe(0);
+  });
+
+  it('explains an older backend route and keeps the key disabled until setup is available', async () => {
+    mockApi({ settings: response({ detail: 'Not Found' }, 404) });
+    const user = userEvent.setup();
+    await loadApp();
+    await user.click(screen.getByRole('button', { name: 'Provider settings' }));
+
+    const dialog = await screen.findByRole('dialog', { name: 'Provider setup' });
+    expect(await within(dialog).findByRole('alert')).toHaveTextContent(/restart it from the current branch/i);
+    expect(within(dialog).getByLabelText('Groq API key')).toBeDisabled();
+    expect(within(dialog).getByRole('button', { name: 'Save to backend' })).toBeDisabled();
+  });
+
   it('submits the exact selected demo tasks to POST /runs', async () => {
     let posted: CreateRun | undefined;
     mockApi({ post: (body) => { posted = body; return response({ ...queuedRun, tasks: body.tasks, total_attempts: body.tasks.length * 2 }, 202); } });
@@ -92,9 +131,17 @@ describe('EcoAgent frontend contract flows', () => {
     await user.click(screen.getByRole('button', { name: /Compare policies/ }));
 
     expect(await screen.findByText('Completed', {}, { timeout: 5000 })).toBeInTheDocument();
+    expect(screen.getByRole('progressbar', { name: 'Comparison progress' })).toHaveAttribute('aria-valuenow', '6');
+    expect(screen.getByText('Comparison status: Completed.')).toHaveAttribute('role', 'status');
     expect(document.querySelectorAll('.answer-text').length).toBeGreaterThanOrEqual(2);
     expect(Array.from(document.querySelectorAll<HTMLElement>('.metric-card')).some((card) => card.textContent?.includes('Simulated latency'))).toBe(true);
     expect(screen.getByText(/answer quality not evaluated/i)).toBeInTheDocument();
+    const routeTrace = document.querySelector('.routing-trace');
+    expect(routeTrace).not.toBeNull();
+    expect(within(routeTrace as HTMLElement).getAllByText('large').length).toBeGreaterThan(0);
+    expect(within(routeTrace as HTMLElement).getAllByText('baseline_large')).toHaveLength(3);
+    expect(within(routeTrace as HTMLElement).getAllByText('simple_task_small')).toHaveLength(2);
+    expect(within(routeTrace as HTMLElement).getByText(/decorative, not run progress/i)).toBeInTheDocument();
     expect(fetchMock).toHaveBeenCalledWith(expect.stringMatching(/\/api\/v1\/runs\//), expect.objectContaining({ signal: expect.any(AbortSignal) }));
   });
 
