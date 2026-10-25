@@ -53,11 +53,20 @@
       "optimized": null,
       "saved": null,
       "savings_pct": null
+    },
+    "measured_gpu_energy_pairs": 0,
+    "measured_gpu_energy_wh": {
+      "saved": null,
+      "optimized": null,
+      "baseline": null,
+      "savings_pct": null
     }
   },
   "run_error": null,
   "source_snapshot": null,
   "source_submission_confirmed": false,
   "task_profile_version": "task-instructions-v1",
-  "quality_fallback": false
+  "quality_fallback": false,
+  "small_model_id": null,
+  "large_model_id": null
 }

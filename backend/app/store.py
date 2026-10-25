@@ -31,7 +31,9 @@ class Store:
                        "WHERE status IN ('queued', 'running')")
             db.execute('CREATE INDEX IF NOT EXISTS runs_history ON runs (kind, created_at DESC, id DESC)')
             db.execute('CREATE TABLE IF NOT EXISTS inference_reservations '
-                       '(id INTEGER PRIMARY KEY, run_id TEXT NOT NULL, created_at TEXT NOT NULL, cost_usd REAL NOT NULL)')
+                       '(id INTEGER PRIMARY KEY, run_id TEXT NOT NULL, created_at TEXT NOT NULL, cost_usd REAL NOT NULL, task_id TEXT)')
+            if 'task_id' not in {row[1] for row in db.execute('PRAGMA table_info(inference_reservations)')}:
+                db.execute('ALTER TABLE inference_reservations ADD COLUMN task_id TEXT')
             db.execute('CREATE TABLE IF NOT EXISTS sources '
                        '(source_id TEXT PRIMARY KEY, created_at TEXT NOT NULL, expires_at TEXT, bound_run_id TEXT, snapshot TEXT NOT NULL)')
             db.execute('CREATE INDEX IF NOT EXISTS sources_expiry ON sources (expires_at) WHERE bound_run_id IS NULL')
@@ -100,6 +102,12 @@ class Store:
             row = db.execute('SELECT snapshot FROM runs WHERE id = ? AND kind = ?', (run_id, kind)).fetchone()
         return row[0] if row else None
 
+    def active_run(self):
+        """Return the single reserved active slot with its stored run kind."""
+        with self._lock, closing(self._connect()) as db:
+            row = db.execute("SELECT id, kind, status FROM runs WHERE status IN ('queued', 'running') LIMIT 1").fetchone()
+        return {'id': row[0], 'kind': row[1], 'status': row[2]} if row else None
+
     def _save(self, run_id, status, snapshot):
         with self._lock, closing(self._connect()) as db, db:
             db.execute("UPDATE runs SET status = ?, snapshot = ? WHERE id = ? "
@@ -163,6 +171,7 @@ class Store:
 
     def recover(self):
         from .benchmarks.schemas import BenchmarkRecord
+        recovered_agents = []
         with self._lock, closing(self._connect()) as db, db:
             db.execute('BEGIN IMMEDIATE')
             rows = db.execute("SELECT id, kind, snapshot FROM runs WHERE status IN ('queued', 'running')").fetchall()
@@ -180,6 +189,7 @@ class Store:
                                                    summary='Application restarted; no action resumed automatically.'))
                     db.execute('UPDATE runs SET status = ?, snapshot = ? WHERE id = ?',
                                ('running', agent.model_dump_json(), run_id))
+                    recovered_agents.append(run_id)
                     continue
                 record = BenchmarkRecord.model_validate_json(snapshot) if kind == 'benchmark' else Run.model_validate_json(snapshot)
                 run = record.run if kind == 'benchmark' else record
@@ -192,8 +202,9 @@ class Store:
                     run.run_error = error
                 db.execute('UPDATE runs SET status = ?, snapshot = ? WHERE id = ?',
                            (run.status, record.model_dump_json(), run_id))
+        return recovered_agents
 
-    def reserve_inference(self, run_id, ceiling, settings):
+    def reserve_inference(self, run_id, ceiling, settings, task_id=None):
         timestamp = now()
         minute_ago = (datetime.now(timezone.utc) - timedelta(minutes=1)).isoformat().replace('+00:00', 'Z')
         with self._lock, closing(self._connect()) as db, db:
@@ -206,8 +217,16 @@ class Store:
                 error = ProviderError('PROVIDER_RATE_LIMITED')
                 error.error.details = {'source': 'server_limits', 'request_dispatched': False}
                 raise error
-            return db.execute('INSERT INTO inference_reservations(run_id,created_at,cost_usd) VALUES (?,?,?)',
-                              (run_id, timestamp, ceiling)).lastrowid
+            if task_id is not None:
+                task_requests, task_cost = db.execute(
+                    'SELECT COUNT(*), COALESCE(SUM(cost_usd),0) FROM inference_reservations WHERE run_id = ? AND task_id = ?',
+                    (run_id, task_id)).fetchone()
+                if task_requests >= settings.max_requests_per_run or task_cost + ceiling > min(settings.max_agent_task_cost_usd, settings.max_run_cost_usd):
+                    error = ProviderError('PROVIDER_RATE_LIMITED')
+                    error.error.details = {'source': 'server_task_limits', 'request_dispatched': False}
+                    raise error
+            return db.execute('INSERT INTO inference_reservations(run_id,created_at,cost_usd,task_id) VALUES (?,?,?,?)',
+                              (run_id, timestamp, ceiling, task_id)).lastrowid
 
     def settle_inference(self, reservation_id, actual_cost):
         with self._lock, closing(self._connect()) as db, db:

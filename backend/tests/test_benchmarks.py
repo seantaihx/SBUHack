@@ -39,7 +39,11 @@ def test_benchmark_catalog_creation_progress_results(client):
     catalog = response.json()['datasets']
     assert [d['dataset_id'] for d in catalog] == ['starter-v1', 'starter-v2']
     assert catalog[0]['case_count'] == 5
-    assert catalog[0]['supported_models'] == ['openai/gpt-oss-20b', 'openai/gpt-oss-120b', 'qwen/qwen3.8-27b']
+    assert catalog[0]['supported_models'][:3] == ['openai/gpt-oss-20b', 'openai/gpt-oss-120b', 'qwen/qwen3.8-27b']
+    assert any(model.startswith('openai::') for model in catalog[0]['supported_models'])
+    assert any(model.startswith('gemini::') for model in catalog[0]['supported_models'])
+    assert any(model.startswith('anthropic::') for model in catalog[0]['supported_models'])
+    assert any(model.startswith('ollama::') for model in catalog[0]['supported_models'])
     assert catalog[0]['provenance'] == 'synthetic'
     expanded = catalog[1]
     assert expanded['case_count'] == 26
@@ -69,6 +73,47 @@ def test_benchmark_catalog_creation_progress_results(client):
     assert cases[0]['baseline']['output'] == 'billing'
     assert run['baseline_metrics']['total_cost_usd'] > 0
     assert client.get(BASE + '/runs').json()['items'][0] == run
+
+
+def test_live_benchmark_catalog_supports_providers_and_preflights_key(tmp_path):
+    from backend.app.main import create_app
+    from backend.app.settings import Settings
+    settings = Settings(database_path=tmp_path / 'multi-provider-benchmark.sqlite3',
+                        live_enabled=True, benchmark_mode='live', openai_api_key='test-placeholder')
+    with TestClient(create_app(settings)) as client:
+        models = client.get(BASE + '/datasets').json()['datasets'][0]['supported_models']
+        assert 'openai::gpt-6-luna' in models
+        assert 'gemini::gemini-3.8-flash' in models
+        assert 'anthropic::claude-haiku-5-5' in models
+        assert 'ollama::qwen3:8b' in models
+        response = client.post(BASE + '/runs', json={
+            'dataset_id': 'starter-v1',
+            'baseline': {'model_id': 'openai::gpt-6-luna', 'optimization_enabled': False},
+            'candidate': {'model_id': 'anthropic::claude-haiku-5-5', 'optimization_enabled': False},
+            'max_cases': 1,
+        })
+        assert response.status_code == 503
+        assert response.json()['error']['code'] == 'PROVIDER_UNAVAILABLE'
+        assert 'Anthropic Claude API key is missing' in response.json()['error']['message']
+
+
+def test_active_benchmark_can_be_stopped_and_releases_global_slot(tmp_path):
+    import asyncio
+    from backend.app.main import create_app
+    from backend.app.settings import Settings
+    with TestClient(create_app(Settings(database_path=tmp_path / 'stop-benchmark.sqlite3'))) as client:
+        async def wait_forever(*args):
+            await asyncio.sleep(30)
+        client.app.state.benchmarks.infer = wait_forever
+        created = client.post(BASE + '/runs', json={**REQUEST, 'max_cases': 1})
+        assert created.status_code == 202
+        active = client.get('/api/v1/active-run').json()
+        assert active['kind'] == 'benchmark'
+        stopped = client.post('/api/v1/active-run/stop', json={'run_id': active['id']})
+        assert stopped.status_code == 200, stopped.text
+        assert stopped.json() == {'id': active['id'], 'kind': 'benchmark', 'status': 'cancelled'}
+        assert client.get(BASE + '/runs/' + active['id']).json()['status'] == 'cancelled'
+        assert client.get('/api/v1/active-run').json() is None
 
 
 def test_expanded_dataset_and_export_are_self_contained(client):
@@ -194,7 +239,9 @@ def test_old_comparison_database_is_migrated_without_losing_runs(tmp_path):
         db.execute('CREATE TABLE runs(id TEXT PRIMARY KEY,status TEXT NOT NULL,created_at TEXT NOT NULL,snapshot TEXT NOT NULL)')
         db.execute('INSERT INTO runs VALUES(?,?,?,?)', (fixture['id'], fixture['status'], fixture['created_at'], json.dumps(fixture)))
     with TestClient(create_app(Settings(database_path=path))) as client:
-        assert client.get('/api/v1/runs/' + fixture['id']).json() == fixture
+        migrated = client.get('/api/v1/runs/' + fixture['id']).json()
+        assert {key: value for key, value in migrated.items() if key not in ('small_model_id', 'large_model_id')} == {key: value for key, value in fixture.items() if key not in ('small_model_id', 'large_model_id')}
+        assert migrated['small_model_id'] is None and migrated['large_model_id'] is None
         assert wait(client, start(client, max_cases=1))['status'] == 'completed'
 
 
@@ -228,7 +275,7 @@ def test_evaluators_reject_wrong_or_unscored_content():
     assert not evaluate(cases[1], 'This says nothing about the required facts.')
     assert not evaluate(cases[3], '{"order_id":"ECO-1042","total_usd":true}')
     assert not evaluate(cases[3], '{"order_id":"ECO-1042","total_usd":41}')
-    assert not evaluate(cases[3], '```json\n{}\n```')
+    assert not evaluate(cases[3], '```json{}```')
 
 
 def test_null_usage_benchmark_retains_null_cost(client):

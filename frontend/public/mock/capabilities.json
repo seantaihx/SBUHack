@@ -16,6 +16,7 @@
       "live_model_id": null
     }
   ],
+  "supported_models": [],
   "energy_profile": {
     "id": "illustrative-v1",
     "basis": "hypothetical_demo_coefficients_not_measurements",

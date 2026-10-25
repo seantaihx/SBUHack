@@ -9,7 +9,8 @@ from starlette.exceptions import HTTPException
 
 from .providers.demo import DemoProvider
 from .runner import Runner
-from .schemas import Capabilities, CreateRun, ErrorEnvelope, ErrorInfo, Health, ModelInfo, Run, SampleTasks
+from .schemas import (ActiveRunInfo, Capabilities, CreateRun, ErrorEnvelope, ErrorInfo, Health, ModelInfo,
+                      Run, SampleTasks, StopActiveRunRequest)
 from .settings import Settings
 from .store import RunActive, Store
 from .errors import APIError
@@ -17,10 +18,13 @@ from .benchmarks.service import BenchmarkService
 from .benchmarks.routes import router as benchmark_router
 from .sources import SourceFailure, parse_csv, parse_pdf, parse_text, parse_webpage
 from .schemas import CreateTextSource, CreateWebpageSource, SourceResponse, SourceSnapshot
-from .agent_schemas import AgentApprovalRequest, AgentCapabilities, AgentEventsResponse, AgentRun, AgentStartRequest
+from .agent_schemas import (AgentApprovalRequest, AgentCapabilities, AgentEventsResponse, AgentPlanApprovalRequest,
+                            AgentRun, AgentStartRequest, AgentWorkflowStartRequest)
 from .agents import AgentService, local_agent_request
-from .schemas import LocalProviderSettings, ProviderKeyInput
-from .local_settings import local_same_origin_request, provider_settings, save_provider_key
+from .schemas import (AgentRoleModelAssignments, AgentRoleModelSettings, LocalProviderSettings,
+                      ProviderKeyInput)
+from .local_settings import (agent_model_settings, local_same_origin_request, provider_settings,
+                             save_agent_role_models, save_provider_key, save_provider_api_key)
 
 def error_response(status: int, error: ErrorInfo) -> JSONResponse:
     return JSONResponse(status_code=status, content=ErrorEnvelope(error=error).model_dump(mode='json'))
@@ -33,10 +37,12 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     @asynccontextmanager
     async def lifespan(app: FastAPI):
         app.state.store = Store(settings.database_path)
-        app.state.store.recover()
+        recovered_agent_ids = app.state.store.recover()
         app.state.runner = Runner(app.state.store, demo, settings)
         app.state.benchmarks = BenchmarkService(app.state.store, settings)
         app.state.agents = AgentService(app.state.store, settings)
+        for run_id in recovered_agent_ids:
+            app.state.agents.refresh_recovered_handoff(run_id)
         try:
             yield
         finally:
@@ -74,11 +80,38 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     async def health():
         return Health()
 
+    @app.get('/api/v1/active-run', response_model=ActiveRunInfo | None,
+             responses={code: {'model': ErrorEnvelope} for code in (403, 500)})
+    async def active_run(request: Request):
+        active = request.app.state.store.active_run()
+        if active and active['kind'] == 'agent':
+            require_local_agent(request)
+        return ActiveRunInfo(**active) if active else None
+
+    @app.post('/api/v1/active-run/stop', response_model=ActiveRunInfo,
+              responses={code: {'model': ErrorEnvelope} for code in (403, 404, 409, 500)})
+    async def stop_active_run(body: StopActiveRunRequest, request: Request):
+        active = request.app.state.store.active_run()
+        if active is None:
+            raise APIError(404, 'NO_ACTIVE_RUN', 'There is no active EcoAgent run to stop.')
+        if body.run_id is not None and active['id'] != str(body.run_id):
+            raise APIError(409, 'ACTIVE_RUN_CHANGED', 'The active run changed. Refresh before stopping it.')
+        if active['kind'] == 'agent':
+            require_local_agent(request)
+            stopped = request.app.state.agents.stop(active['id'])
+            return ActiveRunInfo(id=str(stopped.run_id), kind='agent', status=stopped.status)
+        if active['kind'] == 'comparison':
+            stopped = await request.app.state.runner.stop(active['id'])
+            return ActiveRunInfo(id=str(stopped.id), kind='comparison', status=stopped.status)
+        stopped = await request.app.state.benchmarks.stop(active['id'])
+        return ActiveRunInfo(id=stopped.run_id, kind='benchmark', status=stopped.status)
+
     @app.get('/api/v1/capabilities', response_model=Capabilities)
     async def capabilities():
-        return Capabilities(live_enabled=settings.live_disabled_reason is None, live_disabled_reason=settings.live_disabled_reason,
+        return Capabilities(live_enabled=settings.live_enabled, live_disabled_reason=settings.live_enabled_reason,
                             models=[ModelInfo(role='small', live_model_id=settings.small_model_id),
-                                    ModelInfo(role='large', live_model_id=settings.large_model_id)], energy_profile=demo.profile)
+                                    ModelInfo(role='large', live_model_id=settings.large_model_id)],
+                            supported_models=settings.available_agent_models, energy_profile=demo.profile)
 
     @app.get('/api/v1/local-settings/provider', response_model=LocalProviderSettings,
              responses={code: {'model': ErrorEnvelope} for code in (403, 500)})
@@ -104,6 +137,49 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             raise APIError(500, 'LOCAL_SETUP_WRITE_FAILED', 'The backend could not safely update its ignored .env file.') from None
         return provider_settings(settings)
 
+    @app.put('/api/v1/local-settings/provider-keys/{provider}', response_model=LocalProviderSettings,
+             responses={code: {'model': ErrorEnvelope} for code in (403, 409, 422, 500)})
+    async def configure_local_provider_key_for(provider: str, body: ProviderKeyInput,
+                                               request: Request, response: Response):
+        if not local_same_origin_request(request):
+            raise APIError(403, 'LOCAL_SETUP_ONLY', 'Provider setup is available only from this app on the same computer.')
+        if provider not in {'groq', 'openai', 'gemini', 'anthropic'}:
+            raise APIError(422, 'UNSUPPORTED_PROVIDER', 'Choose a hosted provider supported by local setup.')
+        response.headers['Cache-Control'] = 'no-store'
+        try:
+            save_provider_api_key(provider, body.api_key.get_secret_value())
+        except ValueError:
+            raise APIError(422, 'INVALID_PROVIDER_KEY', 'The key format or backend .env path is not valid for local setup.') from None
+        except RuntimeError:
+            raise APIError(409, 'ENVIRONMENT_KEY_OVERRIDE', 'This provider key is set in the backend process environment, which takes precedence over .env.') from None
+        except (OSError, UnicodeError):
+            raise APIError(500, 'LOCAL_SETUP_WRITE_FAILED', 'The backend could not safely update its ignored .env file.') from None
+        return provider_settings(settings)
+
+    @app.get('/api/v1/local-settings/agent-models', response_model=AgentRoleModelSettings,
+             responses={code: {'model': ErrorEnvelope} for code in (403, 500)})
+    async def local_agent_model_settings(request: Request, response: Response):
+        if not local_same_origin_request(request, allow_missing_origin_for_read=True):
+            raise APIError(403, 'LOCAL_SETUP_ONLY', 'Agent model setup is available only from this app on the same computer.')
+        response.headers['Cache-Control'] = 'no-store'
+        return agent_model_settings(settings)
+
+    @app.put('/api/v1/local-settings/agent-models', response_model=AgentRoleModelSettings,
+             responses={code: {'model': ErrorEnvelope} for code in (403, 409, 422, 500)})
+    async def configure_local_agent_models(body: AgentRoleModelAssignments, request: Request, response: Response):
+        if not local_same_origin_request(request):
+            raise APIError(403, 'LOCAL_SETUP_ONLY', 'Agent model setup is available only from this app on the same computer.')
+        response.headers['Cache-Control'] = 'no-store'
+        try:
+            save_agent_role_models(body.model_dump(), settings)
+        except ValueError:
+            raise APIError(422, 'UNSUPPORTED_AGENT_MODEL', 'Choose models from the backend-supported model list.') from None
+        except RuntimeError:
+            raise APIError(409, 'AGENT_MODEL_ENVIRONMENT_OVERRIDE', 'Agent model settings are set in the backend process environment, which takes precedence over .env.') from None
+        except (OSError, UnicodeError):
+            raise APIError(500, 'LOCAL_SETUP_WRITE_FAILED', 'The backend could not safely update its ignored .env file.') from None
+        return agent_model_settings(settings)
+
     @app.get('/api/v1/agent/capabilities', response_model=AgentCapabilities)
     async def agent_capabilities(request: Request):
         service = request.app.state.agents
@@ -112,7 +188,9 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         root = settings.agent_workspace_root if local and service.disabled_reason is None else None
         return AgentCapabilities(enabled=reason is None, disabled_reason=reason,
                                  workspace_name=root.resolve().name if root else None,
-                                 max_steps=min(20, settings.max_requests_per_run))
+                                 max_steps=min(20, settings.max_requests_per_run),
+                                 max_tokens_per_run=settings.max_agent_tokens_per_run,
+                                 max_tokens_per_task=settings.max_agent_tokens_per_task)
 
     def require_local_agent(request: Request):
         if not local_agent_request(request):
@@ -125,6 +203,20 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         run = request.app.state.agents.start(body)
         response.headers['Location'] = f'/api/v1/agent-runs/{run.run_id}'
         return run
+
+    @app.post('/api/v1/agent-workflows', status_code=202, response_model=AgentRun,
+              responses={code: {'model': ErrorEnvelope} for code in (403, 409, 422, 503, 500)})
+    async def create_agent_workflow(body: AgentWorkflowStartRequest, request: Request, response: Response):
+        require_local_agent(request)
+        run = request.app.state.agents.start_workflow(body)
+        response.headers['Location'] = f'/api/v1/agent-runs/{run.run_id}'
+        return run
+
+    @app.post('/api/v1/agent-runs/{run_id}/plan-approvals', response_model=AgentRun,
+              responses={code: {'model': ErrorEnvelope} for code in (403, 404, 409, 422, 500)})
+    async def approve_agent_plan(run_id: UUID, body: AgentPlanApprovalRequest, request: Request):
+        require_local_agent(request)
+        return request.app.state.agents.approve_workflow_plan(str(run_id), body.plan_hash, body.approved)
 
     @app.get('/api/v1/agent-runs/{run_id}', response_model=AgentRun,
              responses={code: {'model': ErrorEnvelope} for code in (403, 404, 422, 500)})
@@ -233,8 +325,18 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     async def create_run(body: CreateRun, request: Request, response: Response):
         if len({task.id for task in body.tasks}) != len(body.tasks):
             raise APIError(422, 'DUPLICATE_TASK_ID', 'Task IDs must be unique.')
-        if body.mode == 'live' and settings.live_disabled_reason:
-            raise APIError(503, 'LIVE_UNAVAILABLE', settings.live_disabled_reason)
+        if body.mode == 'demo' and (body.small_model_id is not None or body.large_model_id is not None):
+            raise APIError(422, 'VALIDATION_ERROR', 'Provider model overrides are available only for Live comparisons.')
+        if body.mode == 'live':
+            selected_models = (body.small_model_id or settings.small_model_id,
+                               body.large_model_id or settings.large_model_id)
+            from .model_catalog import normalize_model_key
+            if normalize_model_key(selected_models[0]) == normalize_model_key(selected_models[1]):
+                raise APIError(422, 'VALIDATION_ERROR', 'Choose distinct models for small and large routing roles.')
+            for model_id in selected_models:
+                unavailable = settings.model_unavailable_reason(model_id)
+                if unavailable:
+                    raise APIError(503, 'LIVE_UNAVAILABLE', unavailable)
         if body.quality_fallback and body.mode != 'live':
             raise APIError(422, 'VALIDATION_ERROR', 'Quality fallback is available only for Live comparisons.')
         if len(body.tasks) * (2 + int(body.quality_fallback)) > settings.max_requests_per_run:

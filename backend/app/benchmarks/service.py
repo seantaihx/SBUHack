@@ -4,7 +4,8 @@ import math
 from uuid import uuid4
 
 from ..errors import APIError
-from ..pricing import PRICES, cost
+from ..pricing import cost
+from ..model_catalog import MODELS, get_model, normalize_model_key
 from ..providers.base import InferenceResult, ProviderError
 from ..providers.live import LiveProvider
 from ..schemas import ErrorInfo
@@ -24,8 +25,8 @@ class BenchmarkService:
         self.live = LiveProvider(settings, store)
 
     def catalog(self):
-        models = list(dict.fromkeys((self.settings.small_model_id, self.settings.large_model_id, *self.settings.benchmark_extra_model_ids)))
-        models = [model for model in models if model in PRICES]
+        configured = (self.settings.small_model_id, self.settings.large_model_id, *self.settings.benchmark_extra_model_ids)
+        models = list(dict.fromkeys((*configured, *MODELS.keys())))
         max_cases = min(self.settings.benchmark_max_cases, self.settings.max_requests_per_run // 2)
         return [BenchmarkDataset(dataset_id=data['dataset_id'], name='EcoAgent Starter',
                                  version=data['version'], provenance=data['provenance'],
@@ -51,8 +52,14 @@ class BenchmarkService:
             raise APIError(422, 'UNSUPPORTED_MODEL', 'Choose a supported model or the eco-auto candidate policy.')
         if request.baseline.optimization_enabled or request.candidate.optimization_enabled != (request.candidate.model_id == 'eco-auto'):
             raise APIError(422, 'VALIDATION_ERROR', 'Optimization is supported only by the eco-auto candidate.')
-        if self.settings.benchmark_mode == 'groq' and self.settings.live_disabled_reason:
-            raise APIError(503, 'PROVIDER_UNAVAILABLE', self.settings.live_disabled_reason)
+        if self.is_live:
+            selected = [request.baseline.model_id]
+            selected += ([self.settings.small_model_id, self.settings.large_model_id]
+                         if request.candidate.model_id == 'eco-auto' else [request.candidate.model_id])
+            for model_id in selected:
+                unavailable = self.settings.model_unavailable_reason(model_id)
+                if unavailable:
+                    raise APIError(503, 'PROVIDER_UNAVAILABLE', unavailable)
         effective_limit = min(effective_limit, self.effective_case_budget(request))
         if request.max_cases > effective_limit:
             raise APIError(422, 'VALIDATION_ERROR', 'The selected models and current server budgets allow fewer cases per run.',
@@ -68,7 +75,7 @@ class BenchmarkService:
 
     def effective_case_budget(self, request):
         limit = min(self.settings.benchmark_max_cases, self.settings.max_requests_per_run // 2)
-        if self.settings.benchmark_mode != 'groq':
+        if not self.is_live:
             return limit
         baseline_ceiling = cost(request.baseline.model_id, 131072,
                                 self.settings.completion_limit_for(request.baseline.model_id))
@@ -78,7 +85,7 @@ class BenchmarkService:
                                 for model in candidate_models)
         pair_ceiling = baseline_ceiling + candidate_ceiling
         if pair_ceiling <= 0:
-            return 0
+            return limit
         remaining = min(self.settings.max_run_cost_usd, self.store.remaining_daily_cost(self.settings))
         return min(limit, math.floor((remaining + 1e-12) / pair_ceiling))
 
@@ -89,12 +96,20 @@ class BenchmarkService:
         return (self.settings.small_model_id, 'simple_task_small') if simple else (self.settings.large_model_id, 'complex_task_large')
 
     async def infer(self, case, model, run_id):
-        if self.settings.benchmark_mode == 'groq':
+        if self.is_live:
             return await self.live.infer(case['input'], model, run_id, allowed_models=self.model_ids(),
                                          system_message=benchmark_system_instruction(case['category']))
         # These are deliberately synthetic counts and latencies; not a model-quality experiment.
         await asyncio.sleep(0.15)
         return InferenceResult(expected_text(case), 500 if model == self.settings.small_model_id else 1200, 60, 20, None, False)
+
+    @property
+    def is_live(self):
+        return self.settings.benchmark_mode in ('groq', 'live')
+
+    def provider_id(self, model):
+        spec = get_model(model)
+        return spec.provider if spec else 'groq'
 
     def metrics(self, record, side):
         rows = [(getattr(case, side), result.get(side)) for case, result in zip(record.cases, record.outcomes)
@@ -139,7 +154,7 @@ class BenchmarkService:
                             raise ProviderError('PROVIDER_TIMEOUT') from None
                         truncated = output.output_truncated is not False
                         value = BenchmarkCaseSide(model_id=model, routing_reason=reason, output=output.output_text,
-                                                  provider_id='groq' if self.settings.benchmark_mode == 'groq' else 'synthetic_fixture',
+                                                  provider_id=self.provider_id(model) if self.is_live else 'synthetic_fixture',
                                                   finish_reason=output.finish_reason, output_truncated=output.output_truncated,
                                                   latency_ms=output.latency_ms, input_tokens=output.input_tokens,
                                                   output_tokens=output.output_tokens,
@@ -147,7 +162,7 @@ class BenchmarkService:
                         record.outcomes[-1][side] = None if truncated else evaluate(case, output.output_text)
                     except ProviderError as exc:
                         value = BenchmarkCaseSide(model_id=model, routing_reason=reason, output=None,
-                                                  provider_id='groq' if self.settings.benchmark_mode == 'groq' else 'synthetic_fixture',
+                                                  provider_id=self.provider_id(model) if self.is_live else 'synthetic_fixture',
                                                   finish_reason=None, output_truncated=None, latency_ms=None,
                                                   input_tokens=None, output_tokens=None, cost_usd=None, error=exc.error)
                         record.outcomes[-1][side] = None
@@ -177,6 +192,26 @@ class BenchmarkService:
             self.store.save_benchmark(record)
         except Exception:
             logging.getLogger(__name__).error('Unable to persist benchmark failure; recovery is required.')
+
+    async def stop(self, run_id):
+        record = self.store.get_benchmark(run_id)
+        if record is None:
+            raise APIError(404, 'RUN_NOT_FOUND', 'The benchmark run was not found.')
+        if record.run.status not in ('queued', 'running'):
+            raise APIError(409, 'RUN_NOT_ACTIVE', 'This benchmark is no longer running.')
+        record.run.status = 'cancelled'
+        record.run.finished_at = now()
+        record.run.error = ErrorInfo(code='RUN_CANCELLED', message='The benchmark was stopped by the user.')
+        self.store.save_benchmark(record)
+        worker = self.worker
+        if worker is not None and not worker.done():
+            worker.cancel()
+            try:
+                await worker
+            except asyncio.CancelledError:
+                pass
+        current = self.store.get_benchmark(run_id)
+        return current.run if current else record.run
 
     async def close(self):
         if self.worker:

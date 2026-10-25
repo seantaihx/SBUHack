@@ -12,6 +12,15 @@ class InferenceResult:
     output_tokens: int | None
     finish_reason: str | None = None
     output_truncated: bool | None = None
+    measured_gpu_energy_wh: float | None = None
+    gpu_energy_measurement: str | None = None
+    gpu_device_index: int | None = None
+    gpu_device_name: str | None = None
+    gpu_utilization_pct: float | None = None
+    gpu_average_power_w: float | None = None
+    gpu_sample_count: int | None = None
+    output_tokens_per_second: float | None = None
+    output_speed_source: str | None = None
 
 
 _MESSAGES = {

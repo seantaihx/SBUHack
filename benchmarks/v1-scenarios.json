@@ -2,7 +2,7 @@
   "fixture_version": "1.0.0",
   "contract": "EcoAgent API v1",
   "execution_status": "prepared_not_run",
-  "source": "EcoAgent-repo-kit/contracts/examples and docs/02-api-and-data.md",
+  "source": "contracts/examples and docs/API_CONTRACT.md",
   "cases": [
     {
       "id": "demo-routing-baseline-optimized",

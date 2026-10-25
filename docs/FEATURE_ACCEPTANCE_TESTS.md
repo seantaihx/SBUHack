@@ -71,13 +71,18 @@ On `Muffin_branch`, health should report API `1.1.0`; capabilities should provid
 3. Check status and provenance labels.
    - **Pass:** Demo and simulated labels are visible; failed attempts and partial status are visible and readable.
    - **Pass:** unavailable/null values appear as “Unavailable,” never as zero.
-4. Check assumptions and arithmetic.
+4. Check Eco impact tools.
+   - **Pass:** the per-task footprint map uses paired backend estimates and names the backend-selected route; unavailable/pending values remain unavailable.
+   - **Pass:** moving the carbon-intensity slider changes only the what-if preview using `saved Wh × intensity ÷ 1,000`; it does not submit a request or change the run. The UI says the intensity is a scenario, not live grid data.
+   - **Pass:** the optional carbon target is compared with the optimized estimate, is labeled browser-local and informational, and does not claim to block or limit backend execution.
+   - **Pass:** the impact ledger stores summary metrics only, separates simulated from observed runs, deduplicates the current run, and clears through its local reset control. No prompts, answers, or keys are stored.
+5. Check assumptions and arithmetic.
    - **Pass:** energy coefficients, selected scenario carbon intensity, and illustrative estimate label are visible; carbon intensity is not described as live grid data.
    - **Pass:** backend metrics and cohort counts are shown. For any returned pair, `saved = baseline - optimized`; a negative value is shown as an increase and is not clamped. Missing values stay unavailable.
    - **Pass:** the UI does not claim equal answer quality or measured emissions reduction from fixture data.
-5. Try the result tools: response search, copy, human review labels, JSON export, CSV export, and Print/Save PDF.
+6. Try the result tools: response search, copy, human review labels, JSON export, CSV export, and Print/Save PDF.
    - **Pass:** search highlights matches without hiding the complete answer; copy targets the selected response; review labels are explicitly human review and browser-local; exports open/download valid data for the displayed run; Print/Save PDF opens the browser print workflow.
-6. Refresh and recovery.
+7. Refresh and recovery.
    - Open a completed run URL with `?run=<run UUID>` and refresh.
    - **Pass:** the exact run and tasks restore from GET; invalid/missing IDs show a useful error. Polling stops when terminal or page unmounts; network failure retains last data and offers retry.
    - Submit while another run is active.
@@ -145,6 +150,21 @@ First use a disposable sandbox, for example `C:\EcoAgent-agent-sandbox`, contain
    - **Pass:** repeated identical operations are rejected; one action is processed at a time; after an approval the run pauses; Continue triggers one planning call; step limit stops/finalizes the run; Stop prevents later actions; restart pauses active work and never auto-resumes.
    - **Pass:** generated code is displayed as text and is never run. No command execution or tests are claimed.
 5. Exercise all negative/edge behaviors with injected model responses in `backend/tests/test_agents.py`; avoid relying on the real model to produce a particular malicious action.
+6. Start a Manager workflow in a disposable workspace with two synthetic outputs, one Writer task and one dependent Coder task. Inspect the full plan before approval.
+   - In Provider Settings, assign Writer to the small model and Coder to the large model, save, restart the backend, then verify the plan and completed tasks show the model IDs actually used. Do not start a paid run unless provider use is intended.
+   - **Pass:** the plan shows task names, roles, exact scopes, success criteria and dependencies. Each task can be expanded to inspect its exact instruction and permitted read/write paths; tasks without dependencies are visibly identified as eligible after approval. No specialist operation starts before plan approval.
+   - **Pass:** conflicting writer/coder output paths are rejected, including case-only aliases on case-insensitive filesystems; tasks run sequentially. Provider Settings offers only backend-configured, price-supported model IDs for each role, and task/event snapshots identify the selected model. Roles can use different configured providers/models with provider-specific backend keys; local Ollama remains loopback-only. The UI does not claim parallel execution.
+7. Approve one exact file proposal, then exercise Continue, a denied action, and Stop while an approval is pending.
+   - **Pass:** the exact before/proposed content and path are shown; Stop remains available while a run is queued or running, including plan and file approvals; active-run inputs stay locked; denial/stop leaves no unapproved write; only the explicitly continued next model call runs.
+    - **Pass:** starting a second task during an active Workspace Agent run reopens the run identified by the 409 response, restoring its status, checkpoint, Continue, and Stop controls.
+8. Exercise maximum workflow calls, per-specialist calls, token budgets, estimated spend, and runtime deadline using deterministic backend tests or a disposable local run.
+   - **Pass:** reaching any bound records a safe stop reason and durable handoff; completion-token caps use remaining budget; missing output usage is reserved conservatively. Per-request provider timeout remains 30 seconds.
+9. Complete and interrupt workflows, including an application restart while active.
+   - **Pass:** the handoff contains the plain-language summary, human-readable task titles/names/roles/statuses, compact task-intent summaries, per-task permitted paths, assigned model IDs, criteria, result summaries, completed/remaining/blocked task IDs, path-only file list, action counts, retry counts, available reported usage and exact next steps. Restart pauses without auto-resuming and refreshes the handoff. Handoff never contains credentials, full model output, or private file contents.
+   - **Pass:** completed, paused, failed, stopped, or recovered single-agent runs also show a copyable durable handoff with a safe task summary, file paths, action history, completion/stop status, available usage and next steps; raw model output and file contents are excluded.
+   - **Pass:** credential-like text is rejected from agent instructions, exact paths and completion checks; model-proposed operation labels and targets are redacted from returned event/handoff logs. Provider credentials stay only in backend configuration and are never returned by capabilities or agent responses.
+10. Inspect the final review and verification status.
+   - **Pass:** deterministic file/format checks are separate from the manager's model-generated semantic review; absent deterministic checks remain `not_requested`. Agent carbon is Unavailable.
 
 ## Optional Live provider smoke test
 

@@ -41,6 +41,216 @@
         }
       }
     },
+    "/api/v1/local-settings/provider": {
+      "get": {
+        "summary": "Local Provider Settings",
+        "operationId": "local_provider_settings_api_v1_local_settings_provider_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LocalProviderSettings"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/local-settings/provider-key": {
+      "put": {
+        "summary": "Configure Local Provider Key",
+        "operationId": "configure_local_provider_key_api_v1_local_settings_provider_key_put",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ProviderKeyInput"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LocalProviderSettings"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Content",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/local-settings/agent-models": {
+      "get": {
+        "summary": "Local Agent Model Settings",
+        "operationId": "local_agent_model_settings_api_v1_local_settings_agent_models_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AgentRoleModelSettings"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "summary": "Configure Local Agent Models",
+        "operationId": "configure_local_agent_models_api_v1_local_settings_agent_models_put",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AgentRoleModelAssignments"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AgentRoleModelSettings"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Content",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/agent/capabilities": {
       "get": {
         "summary": "Agent Capabilities",
@@ -133,6 +343,174 @@
                 }
               }
             }
+          }
+        }
+      }
+    },
+    "/api/v1/agent-workflows": {
+      "post": {
+        "summary": "Create Agent Workflow",
+        "operationId": "create_agent_workflow_api_v1_agent_workflows_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AgentWorkflowStartRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AgentRun"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Content",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Service Unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/agent-runs/{run_id}/plan-approvals": {
+      "post": {
+        "summary": "Approve Agent Plan",
+        "operationId": "approve_agent_plan_api_v1_agent_runs__run_id__plan_approvals_post",
+        "parameters": [
+          {
+            "name": "run_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Run Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AgentPlanApprovalRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AgentRun"
+                }
+              }
+            }
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Internal Server Error"
           }
         }
       }
@@ -1497,48 +1875,10 @@
         }
       }
     },
-    "/api/v1/local-settings/provider": {
-      "get": {
-        "summary": "Get Local Provider Settings",
-        "operationId": "local_provider_settings_api_v1_local_settings_provider_get",
-        "responses": {
-          "200": {
-            "description": "Local provider setup status",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/LocalProviderSettings"
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "Error response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorEnvelope"
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "Error response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorEnvelope"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/v1/local-settings/provider-key": {
+    "/api/v1/local-settings/provider-keys/{provider}": {
       "put": {
-        "summary": "Save Local Provider Key",
-        "operationId": "configure_local_provider_key_api_v1_local_settings_provider_key_put",
+        "summary": "Configure Local Provider Key For",
+        "operationId": "configure_local_provider_key_for_api_v1_local_settings_provider_keys__provider__put",
         "requestBody": {
           "content": {
             "application/json": {
@@ -1551,7 +1891,7 @@
         },
         "responses": {
           "200": {
-            "description": "Local provider setup status",
+            "description": "Successful Response",
             "content": {
               "application/json": {
                 "schema": {
@@ -1561,7 +1901,7 @@
             }
           },
           "403": {
-            "description": "Error response",
+            "description": "Forbidden",
             "content": {
               "application/json": {
                 "schema": {
@@ -1571,7 +1911,7 @@
             }
           },
           "409": {
-            "description": "Error response",
+            "description": "Conflict",
             "content": {
               "application/json": {
                 "schema": {
@@ -1581,7 +1921,7 @@
             }
           },
           "422": {
-            "description": "Error response",
+            "description": "Unprocessable Content",
             "content": {
               "application/json": {
                 "schema": {
@@ -1591,11 +1931,146 @@
             }
           },
           "500": {
-            "description": "Error response",
+            "description": "Internal Server Error",
             "content": {
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "provider",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Provider"
+            }
+          }
+        ]
+      }
+    },
+    "/api/v1/active-run": {
+      "get": {
+        "summary": "Active Run",
+        "operationId": "active_run_api_v1_active_run_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/ActiveRunInfo"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ],
+                  "title": "Response Active Run Api V1 Active Run Get"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/active-run/stop": {
+      "post": {
+        "summary": "Stop Active Run",
+        "operationId": "stop_active_run_api_v1_active_run_stop_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StopActiveRunRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ActiveRunInfo"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
                 }
               }
             }
@@ -1717,6 +2192,62 @@
             "type": "integer",
             "title": "Max File Chars",
             "default": 50000
+          },
+          "team_workflows_enabled": {
+            "type": "boolean",
+            "const": true,
+            "title": "Team Workflows Enabled",
+            "default": true
+          },
+          "team_roles": {
+            "items": {
+              "type": "string",
+              "enum": [
+                "manager",
+                "writer",
+                "coder",
+                "reviewer"
+              ]
+            },
+            "type": "array",
+            "title": "Team Roles",
+            "default": [
+              "manager",
+              "writer",
+              "coder",
+              "reviewer"
+            ]
+          },
+          "max_workflow_tasks": {
+            "type": "integer",
+            "title": "Max Workflow Tasks",
+            "default": 8
+          },
+          "parallel_workers": {
+            "type": "integer",
+            "const": 1,
+            "title": "Parallel Workers",
+            "default": 1
+          },
+          "max_task_calls": {
+            "type": "integer",
+            "title": "Max Task Calls",
+            "default": 8
+          },
+          "max_runtime_seconds": {
+            "type": "integer",
+            "title": "Max Runtime Seconds",
+            "default": 7200
+          },
+          "max_tokens_per_run": {
+            "type": "integer",
+            "title": "Max Tokens Per Run",
+            "default": 48000
+          },
+          "max_tokens_per_task": {
+            "type": "integer",
+            "title": "Max Tokens Per Task",
+            "default": 12000
           }
         },
         "additionalProperties": false,
@@ -1731,7 +2262,15 @@
           "shell_execution_enabled",
           "network_tools_enabled",
           "max_steps",
-          "max_file_chars"
+          "max_file_chars",
+          "team_workflows_enabled",
+          "team_roles",
+          "max_workflow_tasks",
+          "parallel_workers",
+          "max_task_calls",
+          "max_runtime_seconds",
+          "max_tokens_per_run",
+          "max_tokens_per_task"
         ],
         "title": "AgentCapabilities"
       },
@@ -1888,12 +2427,63 @@
           "actor": {
             "type": "string",
             "enum": [
+              "manager",
               "agent",
               "operator",
               "policy",
               "tool"
             ],
             "title": "Actor"
+          },
+          "task_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Task Id"
+          },
+          "agent_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Agent Name"
+          },
+          "agent_role": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "manager",
+                  "writer",
+                  "coder",
+                  "reviewer"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Agent Role"
+          },
+          "model_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Model Id"
           },
           "operation": {
             "type": "string",
@@ -1961,6 +2551,10 @@
           "sequence",
           "occurred_at",
           "actor",
+          "task_id",
+          "agent_name",
+          "agent_role",
+          "model_id",
           "operation",
           "target",
           "decision",
@@ -1998,6 +2592,571 @@
           "next_cursor"
         ],
         "title": "AgentEventsResponse"
+      },
+      "AgentHandoff": {
+        "properties": {
+          "updated_at": {
+            "type": "string",
+            "title": "Updated At"
+          },
+          "original_task_summary": {
+            "type": "string",
+            "title": "Original Task Summary",
+            "default": ""
+          },
+          "summary": {
+            "type": "string",
+            "title": "Summary"
+          },
+          "completed_task_ids": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Completed Task Ids"
+          },
+          "remaining_task_ids": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Remaining Task Ids"
+          },
+          "blocked_task_ids": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Blocked Task Ids"
+          },
+          "files_read": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Files Read"
+          },
+          "files_changed": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Files Changed"
+          },
+          "action_counts": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "type": "object",
+            "title": "Action Counts"
+          },
+          "actions": {
+            "items": {
+              "$ref": "#/components/schemas/AgentHandoffAction"
+            },
+            "type": "array",
+            "title": "Actions"
+          },
+          "tasks": {
+            "items": {
+              "$ref": "#/components/schemas/AgentHandoffTask"
+            },
+            "type": "array",
+            "title": "Tasks"
+          },
+          "role_model_ids": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "type": "object",
+            "title": "Role Model Ids"
+          },
+          "completion_check_results": {
+            "items": {
+              "$ref": "#/components/schemas/AgentCompletionCheckResult"
+            },
+            "type": "array",
+            "title": "Completion Check Results"
+          },
+          "model_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Model Id"
+          },
+          "model_calls_used": {
+            "type": "integer",
+            "title": "Model Calls Used"
+          },
+          "model_calls_remaining": {
+            "type": "integer",
+            "title": "Model Calls Remaining"
+          },
+          "max_tokens_per_run": {
+            "type": "integer",
+            "title": "Max Tokens Per Run",
+            "default": 48000
+          },
+          "max_tokens_per_task": {
+            "type": "integer",
+            "title": "Max Tokens Per Task",
+            "default": 12000
+          },
+          "reported_tokens_remaining": {
+            "type": "integer",
+            "title": "Reported Tokens Remaining",
+            "default": 0
+          },
+          "reserved_output_tokens": {
+            "type": "integer",
+            "title": "Reserved Output Tokens",
+            "default": 0
+          },
+          "deadline_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Deadline At"
+          },
+          "max_run_cost_usd": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Max Run Cost Usd"
+          },
+          "max_task_cost_usd": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Max Task Cost Usd"
+          },
+          "input_tokens": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Input Tokens"
+          },
+          "output_tokens": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Output Tokens"
+          },
+          "usage_reported_calls": {
+            "type": "integer",
+            "title": "Usage Reported Calls",
+            "default": 0
+          },
+          "estimated_cost_usd": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Estimated Cost Usd"
+          },
+          "estimated_carbon_g": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Estimated Carbon G"
+          },
+          "retry_count": {
+            "type": "integer",
+            "title": "Retry Count",
+            "default": 0
+          },
+          "manager_retry_count": {
+            "type": "integer",
+            "title": "Manager Retry Count",
+            "default": 0
+          },
+          "stop_reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Stop Reason"
+          },
+          "next_steps": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Next Steps"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "updated_at",
+          "original_task_summary",
+          "summary",
+          "completed_task_ids",
+          "remaining_task_ids",
+          "blocked_task_ids",
+          "files_read",
+          "files_changed",
+          "action_counts",
+          "actions",
+          "tasks",
+          "role_model_ids",
+          "completion_check_results",
+          "model_id",
+          "model_calls_used",
+          "model_calls_remaining",
+          "max_tokens_per_run",
+          "max_tokens_per_task",
+          "reported_tokens_remaining",
+          "reserved_output_tokens",
+          "deadline_at",
+          "max_run_cost_usd",
+          "max_task_cost_usd",
+          "input_tokens",
+          "output_tokens",
+          "usage_reported_calls",
+          "estimated_cost_usd",
+          "estimated_carbon_g",
+          "retry_count",
+          "manager_retry_count",
+          "stop_reason",
+          "next_steps"
+        ],
+        "title": "AgentHandoff"
+      },
+      "AgentHandoffAction": {
+        "properties": {
+          "sequence": {
+            "type": "integer",
+            "title": "Sequence"
+          },
+          "actor": {
+            "type": "string",
+            "enum": [
+              "manager",
+              "agent",
+              "operator",
+              "policy",
+              "tool"
+            ],
+            "title": "Actor"
+          },
+          "agent_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Agent Name"
+          },
+          "agent_role": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "manager",
+                  "writer",
+                  "coder",
+                  "reviewer"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Agent Role"
+          },
+          "model_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Model Id"
+          },
+          "operation": {
+            "type": "string",
+            "title": "Operation"
+          },
+          "target": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Target"
+          },
+          "decision": {
+            "type": "string",
+            "enum": [
+              "proposed",
+              "approved",
+              "denied",
+              "denied_out_of_scope",
+              "denied_duplicate",
+              "completed",
+              "failed",
+              "stopped"
+            ],
+            "title": "Decision"
+          },
+          "summary": {
+            "type": "string",
+            "title": "Summary"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "sequence",
+          "actor",
+          "agent_name",
+          "agent_role",
+          "model_id",
+          "operation",
+          "target",
+          "decision",
+          "summary"
+        ],
+        "title": "AgentHandoffAction"
+      },
+      "AgentHandoffTask": {
+        "properties": {
+          "task_id": {
+            "type": "string",
+            "title": "Task Id"
+          },
+          "agent_name": {
+            "type": "string",
+            "title": "Agent Name"
+          },
+          "role": {
+            "type": "string",
+            "enum": [
+              "writer",
+              "coder",
+              "reviewer"
+            ],
+            "title": "Role"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "instruction_summary": {
+            "type": "string",
+            "maxLength": 240,
+            "title": "Instruction Summary",
+            "default": ""
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "planned",
+              "queued",
+              "running",
+              "awaiting_approval",
+              "paused",
+              "completed",
+              "blocked",
+              "failed",
+              "cancelled"
+            ],
+            "title": "Status"
+          },
+          "model_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Model Id"
+          },
+          "read_paths": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Read Paths",
+            "default": []
+          },
+          "write_paths": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Write Paths",
+            "default": []
+          },
+          "depends_on": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Depends On"
+          },
+          "success_criteria": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Success Criteria"
+          },
+          "result_summary": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Result Summary"
+          },
+          "model_calls": {
+            "type": "integer",
+            "title": "Model Calls",
+            "default": 0
+          },
+          "max_model_calls": {
+            "type": "integer",
+            "title": "Max Model Calls",
+            "default": 0
+          },
+          "input_tokens": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Input Tokens"
+          },
+          "output_tokens": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Output Tokens"
+          },
+          "usage_reported_calls": {
+            "type": "integer",
+            "title": "Usage Reported Calls",
+            "default": 0
+          },
+          "estimated_cost_usd": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Estimated Cost Usd"
+          },
+          "retry_count": {
+            "type": "integer",
+            "title": "Retry Count",
+            "default": 0
+          },
+          "stop_reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Stop Reason"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "task_id",
+          "agent_name",
+          "role",
+          "title",
+          "instruction_summary",
+          "status",
+          "model_id",
+          "read_paths",
+          "write_paths",
+          "depends_on",
+          "success_criteria",
+          "result_summary",
+          "model_calls",
+          "max_model_calls",
+          "input_tokens",
+          "output_tokens",
+          "usage_reported_calls",
+          "estimated_cost_usd",
+          "retry_count",
+          "stop_reason"
+        ],
+        "title": "AgentHandoffTask"
       },
       "AgentPendingAction": {
         "properties": {
@@ -2059,6 +3218,44 @@
               }
             ],
             "title": "Base Sha256"
+          },
+          "task_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Task Id"
+          },
+          "agent_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Agent Name"
+          },
+          "agent_role": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "writer",
+                  "coder",
+                  "reviewer"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Agent Role"
           }
         },
         "additionalProperties": false,
@@ -2071,9 +3268,116 @@
           "summary",
           "content",
           "before_text",
-          "base_sha256"
+          "base_sha256",
+          "task_id",
+          "agent_name",
+          "agent_role"
         ],
         "title": "AgentPendingAction"
+      },
+      "AgentPlanApprovalRequest": {
+        "properties": {
+          "plan_hash": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Plan Hash"
+          },
+          "approved": {
+            "type": "boolean",
+            "title": "Approved"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "plan_hash",
+          "approved"
+        ],
+        "title": "AgentPlanApprovalRequest"
+      },
+      "AgentRoleModelAssignments": {
+        "additionalProperties": false,
+        "properties": {
+          "manager": {
+            "maxLength": 200,
+            "minLength": 1,
+            "pattern": "^(?:[a-z]+::)?[A-Za-z0-9][A-Za-z0-9._:/-]{0,199}$",
+            "title": "Manager",
+            "type": "string"
+          },
+          "writer": {
+            "maxLength": 200,
+            "minLength": 1,
+            "pattern": "^(?:[a-z]+::)?[A-Za-z0-9][A-Za-z0-9._:/-]{0,199}$",
+            "title": "Writer",
+            "type": "string"
+          },
+          "coder": {
+            "maxLength": 200,
+            "minLength": 1,
+            "pattern": "^(?:[a-z]+::)?[A-Za-z0-9][A-Za-z0-9._:/-]{0,199}$",
+            "title": "Coder",
+            "type": "string"
+          },
+          "reviewer": {
+            "maxLength": 200,
+            "minLength": 1,
+            "pattern": "^(?:[a-z]+::)?[A-Za-z0-9][A-Za-z0-9._:/-]{0,199}$",
+            "title": "Reviewer",
+            "type": "string"
+          }
+        },
+        "required": [
+          "manager",
+          "writer",
+          "coder",
+          "reviewer"
+        ],
+        "title": "AgentRoleModelAssignments",
+        "type": "object"
+      },
+      "AgentRoleModelSettings": {
+        "additionalProperties": false,
+        "properties": {
+          "available_models": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Available Models",
+            "type": "array"
+          },
+          "model_options": {
+            "items": {
+              "$ref": "#/components/schemas/ProviderModelOption"
+            },
+            "title": "Model Options",
+            "type": "array"
+          },
+          "active_models": {
+            "$ref": "#/components/schemas/AgentRoleModelAssignments"
+          },
+          "saved_models": {
+            "$ref": "#/components/schemas/AgentRoleModelAssignments"
+          },
+          "restart_required": {
+            "title": "Restart Required",
+            "type": "boolean"
+          },
+          "environment_override": {
+            "title": "Environment Override",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "available_models",
+          "model_options",
+          "active_models",
+          "saved_models",
+          "restart_required",
+          "environment_override"
+        ],
+        "title": "AgentRoleModelSettings",
+        "type": "object"
       },
       "AgentRun": {
         "properties": {
@@ -2097,6 +3401,7 @@
             "type": "string",
             "enum": [
               "planning",
+              "awaiting_plan_approval",
               "awaiting_approval",
               "paused",
               "completed",
@@ -2157,6 +3462,11 @@
           "repeated_failure_count": {
             "type": "integer",
             "title": "Repeated Failure Count",
+            "default": 0
+          },
+          "retry_count": {
+            "type": "integer",
+            "title": "Retry Count",
             "default": 0
           },
           "last_failure_fingerprint": {
@@ -2278,6 +3588,274 @@
               }
             ],
             "title": "Finished At"
+          },
+          "run_mode": {
+            "type": "string",
+            "enum": [
+              "single",
+              "team"
+            ],
+            "title": "Run Mode",
+            "default": "single"
+          },
+          "workflow_stage": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "planning",
+                  "plan_review",
+                  "executing",
+                  "reviewing",
+                  "completed",
+                  "failed"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Workflow Stage"
+          },
+          "max_tasks": {
+            "type": "integer",
+            "title": "Max Tasks",
+            "default": 0
+          },
+          "max_task_calls": {
+            "type": "integer",
+            "title": "Max Task Calls",
+            "default": 4
+          },
+          "max_runtime_seconds": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Max Runtime Seconds"
+          },
+          "max_tokens_per_run": {
+            "type": "integer",
+            "title": "Max Tokens Per Run",
+            "default": 48000
+          },
+          "max_tokens_per_task": {
+            "type": "integer",
+            "title": "Max Tokens Per Task",
+            "default": 12000
+          },
+          "reserved_output_tokens": {
+            "type": "integer",
+            "title": "Reserved Output Tokens",
+            "default": 0
+          },
+          "manager_reserved_output_tokens": {
+            "type": "integer",
+            "title": "Manager Reserved Output Tokens",
+            "default": 0
+          },
+          "workflow_deadline_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Workflow Deadline At"
+          },
+          "max_run_cost_usd": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Max Run Cost Usd"
+          },
+          "max_task_cost_usd": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Max Task Cost Usd"
+          },
+          "workflow_tasks": {
+            "items": {
+              "$ref": "#/components/schemas/AgentWorkflowTask"
+            },
+            "type": "array",
+            "title": "Workflow Tasks"
+          },
+          "role_model_ids": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "type": "object",
+            "title": "Role Model Ids"
+          },
+          "active_task_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Active Task Id"
+          },
+          "plan_hash": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Plan Hash"
+          },
+          "plan_approved": {
+            "type": "boolean",
+            "title": "Plan Approved",
+            "default": false
+          },
+          "manager_summary": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Manager Summary"
+          },
+          "manager_open_items": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Manager Open Items"
+          },
+          "manager_model_calls": {
+            "type": "integer",
+            "title": "Manager Model Calls",
+            "default": 0
+          },
+          "manager_input_tokens": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Manager Input Tokens"
+          },
+          "manager_output_tokens": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Manager Output Tokens"
+          },
+          "manager_usage_reported_calls": {
+            "type": "integer",
+            "title": "Manager Usage Reported Calls",
+            "default": 0
+          },
+          "manager_estimated_cost_usd": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Manager Estimated Cost Usd"
+          },
+          "manager_retry_count": {
+            "type": "integer",
+            "title": "Manager Retry Count",
+            "default": 0
+          },
+          "agent_model_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Agent Model Id"
+          },
+          "input_tokens": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Input Tokens"
+          },
+          "output_tokens": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Output Tokens"
+          },
+          "usage_reported_calls": {
+            "type": "integer",
+            "title": "Usage Reported Calls",
+            "default": 0
+          },
+          "estimated_cost_usd": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Estimated Cost Usd"
+          },
+          "handoff": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/AgentHandoff"
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         },
         "additionalProperties": false,
@@ -2296,6 +3874,7 @@
           "checkpoint_at",
           "model_calls",
           "repeated_failure_count",
+          "retry_count",
           "last_failure_fingerprint",
           "steps_completed",
           "pending_action",
@@ -2308,7 +3887,38 @@
           "stop_reason",
           "created_at",
           "started_at",
-          "finished_at"
+          "finished_at",
+          "run_mode",
+          "workflow_stage",
+          "max_tasks",
+          "max_task_calls",
+          "max_runtime_seconds",
+          "max_tokens_per_run",
+          "max_tokens_per_task",
+          "reserved_output_tokens",
+          "manager_reserved_output_tokens",
+          "workflow_deadline_at",
+          "max_run_cost_usd",
+          "max_task_cost_usd",
+          "workflow_tasks",
+          "role_model_ids",
+          "active_task_id",
+          "plan_hash",
+          "plan_approved",
+          "manager_summary",
+          "manager_open_items",
+          "manager_model_calls",
+          "manager_input_tokens",
+          "manager_output_tokens",
+          "manager_usage_reported_calls",
+          "manager_estimated_cost_usd",
+          "manager_retry_count",
+          "agent_model_id",
+          "input_tokens",
+          "output_tokens",
+          "usage_reported_calls",
+          "estimated_cost_usd",
+          "handoff"
         ],
         "title": "AgentRun"
       },
@@ -2373,6 +3983,306 @@
           "confirm_provider_submission"
         ],
         "title": "AgentStartRequest"
+      },
+      "AgentWorkflowStartRequest": {
+        "properties": {
+          "instruction": {
+            "type": "string",
+            "maxLength": 5000,
+            "minLength": 1,
+            "title": "Instruction"
+          },
+          "confirm_provider_submission": {
+            "type": "boolean",
+            "const": true,
+            "title": "Confirm Provider Submission"
+          },
+          "read_paths": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "maxItems": 20,
+            "title": "Read Paths"
+          },
+          "write_paths": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "maxItems": 20,
+            "title": "Write Paths"
+          },
+          "max_steps": {
+            "type": "integer",
+            "maximum": 20.0,
+            "minimum": 4.0,
+            "title": "Max Steps",
+            "default": 12
+          },
+          "max_tasks": {
+            "type": "integer",
+            "maximum": 8.0,
+            "minimum": 1.0,
+            "title": "Max Tasks",
+            "default": 5
+          },
+          "max_task_calls": {
+            "type": "integer",
+            "maximum": 8.0,
+            "minimum": 1.0,
+            "title": "Max Task Calls",
+            "default": 4
+          },
+          "max_runtime_seconds": {
+            "type": "integer",
+            "maximum": 7200.0,
+            "minimum": 60.0,
+            "title": "Max Runtime Seconds",
+            "default": 1800
+          },
+          "completion_checks": {
+            "items": {
+              "$ref": "#/components/schemas/AgentCompletionCheck-Input"
+            },
+            "type": "array",
+            "maxItems": 10,
+            "title": "Completion Checks"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "instruction",
+          "confirm_provider_submission"
+        ],
+        "title": "AgentWorkflowStartRequest"
+      },
+      "AgentWorkflowTask": {
+        "properties": {
+          "task_id": {
+            "type": "string",
+            "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_-]{0,39}$",
+            "title": "Task Id"
+          },
+          "agent_name": {
+            "type": "string",
+            "maxLength": 60,
+            "minLength": 1,
+            "title": "Agent Name"
+          },
+          "role": {
+            "type": "string",
+            "enum": [
+              "writer",
+              "coder",
+              "reviewer"
+            ],
+            "title": "Role"
+          },
+          "title": {
+            "type": "string",
+            "maxLength": 120,
+            "minLength": 1,
+            "title": "Title"
+          },
+          "instruction": {
+            "type": "string",
+            "maxLength": 2000,
+            "minLength": 1,
+            "title": "Instruction"
+          },
+          "read_paths": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "maxItems": 20,
+            "title": "Read Paths"
+          },
+          "write_paths": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "maxItems": 20,
+            "title": "Write Paths"
+          },
+          "depends_on": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "maxItems": 8,
+            "title": "Depends On"
+          },
+          "success_criteria": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "maxItems": 5,
+            "minItems": 1,
+            "title": "Success Criteria"
+          },
+          "model_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Model Id"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "planned",
+              "queued",
+              "running",
+              "awaiting_approval",
+              "paused",
+              "completed",
+              "blocked",
+              "failed",
+              "cancelled"
+            ],
+            "title": "Status",
+            "default": "planned"
+          },
+          "model_calls": {
+            "type": "integer",
+            "title": "Model Calls",
+            "default": 0
+          },
+          "max_model_calls": {
+            "type": "integer",
+            "title": "Max Model Calls",
+            "default": 4
+          },
+          "steps_completed": {
+            "type": "integer",
+            "title": "Steps Completed",
+            "default": 0
+          },
+          "input_tokens": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Input Tokens"
+          },
+          "output_tokens": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Output Tokens"
+          },
+          "usage_reported_calls": {
+            "type": "integer",
+            "title": "Usage Reported Calls",
+            "default": 0
+          },
+          "estimated_cost_usd": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Estimated Cost Usd"
+          },
+          "max_tokens": {
+            "type": "integer",
+            "title": "Max Tokens",
+            "default": 12000
+          },
+          "reserved_output_tokens": {
+            "type": "integer",
+            "title": "Reserved Output Tokens",
+            "default": 0
+          },
+          "retry_count": {
+            "type": "integer",
+            "title": "Retry Count",
+            "default": 0
+          },
+          "result_summary": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Result Summary"
+          },
+          "final_text": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Final Text"
+          },
+          "stop_reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Stop Reason"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "task_id",
+          "agent_name",
+          "role",
+          "title",
+          "instruction",
+          "read_paths",
+          "write_paths",
+          "depends_on",
+          "success_criteria",
+          "model_id",
+          "status",
+          "model_calls",
+          "max_model_calls",
+          "steps_completed",
+          "input_tokens",
+          "output_tokens",
+          "usage_reported_calls",
+          "estimated_cost_usd",
+          "max_tokens",
+          "reserved_output_tokens",
+          "retry_count",
+          "result_summary",
+          "final_text",
+          "stop_reason"
+        ],
+        "title": "AgentWorkflowTask"
       },
       "BenchmarkCase": {
         "properties": {
@@ -3320,6 +5230,13 @@
           },
           "energy_profile": {
             "$ref": "#/components/schemas/EnergyProfile"
+          },
+          "supported_models": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Supported Models"
           }
         },
         "additionalProperties": false,
@@ -3335,7 +5252,8 @@
           "task_profile_version",
           "supported_task_types",
           "models",
-          "energy_profile"
+          "energy_profile",
+          "supported_models"
         ],
         "title": "Capabilities"
       },
@@ -3374,6 +5292,12 @@
             "title": "Energy Pairs",
             "default": 0
           },
+          "measured_gpu_energy_pairs": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Measured Gpu Energy Pairs",
+            "default": 0
+          },
           "latency_pairs": {
             "type": "integer",
             "minimum": 0.0,
@@ -3381,6 +5305,9 @@
             "default": 0
           },
           "energy_wh": {
+            "$ref": "#/components/schemas/ComparisonMetric"
+          },
+          "measured_gpu_energy_wh": {
             "$ref": "#/components/schemas/ComparisonMetric"
           },
           "carbon_g": {
@@ -3395,8 +5322,10 @@
         "required": [
           "successful_pairs",
           "energy_pairs",
+          "measured_gpu_energy_pairs",
           "latency_pairs",
           "energy_wh",
+          "measured_gpu_energy_wh",
           "carbon_g",
           "latency_ms"
         ],
@@ -3514,6 +5443,32 @@
             "type": "boolean",
             "title": "Quality Fallback",
             "default": false
+          },
+          "small_model_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 200
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "large_model_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 200
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
           }
         },
         "additionalProperties": false,
@@ -3745,6 +5700,115 @@
             ],
             "title": "Estimated Carbon G"
           },
+          "measured_gpu_energy_wh": {
+            "anyOf": [
+              {
+                "type": "number",
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Measured Gpu Energy Wh"
+          },
+          "gpu_energy_measurement": {
+            "anyOf": [
+              {
+                "type": "string",
+                "const": "nvidia_smi_power_draw"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Gpu Energy Measurement"
+          },
+          "gpu_device_index": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Gpu Device Index"
+          },
+          "gpu_device_name": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 200
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Gpu Device Name"
+          },
+          "gpu_utilization_pct": {
+            "anyOf": [
+              {
+                "type": "number",
+                "maximum": 100.0,
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Gpu Utilization Pct"
+          },
+          "gpu_average_power_w": {
+            "anyOf": [
+              {
+                "type": "number",
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Gpu Average Power W"
+          },
+          "gpu_sample_count": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Gpu Sample Count"
+          },
+          "output_tokens_per_second": {
+            "anyOf": [
+              {
+                "type": "number",
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Output Tokens Per Second"
+          },
+          "output_speed_source": {
+            "anyOf": [
+              {
+                "type": "string",
+                "const": "ollama_eval_duration"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Output Speed Source"
+          },
           "error": {
             "anyOf": [
               {
@@ -3807,6 +5871,15 @@
           "cost_usd",
           "estimated_energy_wh",
           "estimated_carbon_g",
+          "measured_gpu_energy_wh",
+          "gpu_energy_measurement",
+          "gpu_device_index",
+          "gpu_device_name",
+          "gpu_utilization_pct",
+          "gpu_average_power_w",
+          "gpu_sample_count",
+          "output_tokens_per_second",
+          "output_speed_source",
           "error",
           "provider_finish_reason",
           "output_truncated",
@@ -3838,6 +5911,51 @@
         ],
         "title": "Health"
       },
+      "LocalProviderSettings": {
+        "additionalProperties": false,
+        "properties": {
+          "local_setup_available": {
+            "title": "Local Setup Available",
+            "type": "boolean"
+          },
+          "provider_key_configured": {
+            "title": "Provider Key Configured",
+            "type": "boolean"
+          },
+          "provider_key_saved_in_env": {
+            "title": "Provider Key Saved In Env",
+            "type": "boolean"
+          },
+          "restart_required": {
+            "title": "Restart Required",
+            "type": "boolean"
+          },
+          "environment_override": {
+            "title": "Environment Override",
+            "type": "boolean"
+          },
+          "providers": {
+            "additionalProperties": {
+              "additionalProperties": {
+                "type": "boolean"
+              },
+              "type": "object"
+            },
+            "title": "Providers",
+            "type": "object"
+          }
+        },
+        "required": [
+          "local_setup_available",
+          "provider_key_configured",
+          "provider_key_saved_in_env",
+          "restart_required",
+          "environment_override",
+          "providers"
+        ],
+        "title": "LocalProviderSettings",
+        "type": "object"
+      },
       "ModelInfo": {
         "properties": {
           "role": {
@@ -3867,6 +5985,24 @@
           "live_model_id"
         ],
         "title": "ModelInfo"
+      },
+      "ProviderKeyInput": {
+        "properties": {
+          "api_key": {
+            "type": "string",
+            "maxLength": 512,
+            "minLength": 1,
+            "format": "password",
+            "title": "Api Key",
+            "writeOnly": true
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "api_key"
+        ],
+        "title": "ProviderKeyInput"
       },
       "Result": {
         "properties": {
@@ -3984,6 +6120,115 @@
               }
             ],
             "title": "Estimated Carbon G"
+          },
+          "measured_gpu_energy_wh": {
+            "anyOf": [
+              {
+                "type": "number",
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Measured Gpu Energy Wh"
+          },
+          "gpu_energy_measurement": {
+            "anyOf": [
+              {
+                "type": "string",
+                "const": "nvidia_smi_power_draw"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Gpu Energy Measurement"
+          },
+          "gpu_device_index": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Gpu Device Index"
+          },
+          "gpu_device_name": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 200
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Gpu Device Name"
+          },
+          "gpu_utilization_pct": {
+            "anyOf": [
+              {
+                "type": "number",
+                "maximum": 100.0,
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Gpu Utilization Pct"
+          },
+          "gpu_average_power_w": {
+            "anyOf": [
+              {
+                "type": "number",
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Gpu Average Power W"
+          },
+          "gpu_sample_count": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Gpu Sample Count"
+          },
+          "output_tokens_per_second": {
+            "anyOf": [
+              {
+                "type": "number",
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Output Tokens Per Second"
+          },
+          "output_speed_source": {
+            "anyOf": [
+              {
+                "type": "string",
+                "const": "ollama_eval_duration"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Output Speed Source"
           },
           "error": {
             "anyOf": [
@@ -4116,6 +6361,15 @@
           "output_tokens",
           "estimated_energy_wh",
           "estimated_carbon_g",
+          "measured_gpu_energy_wh",
+          "gpu_energy_measurement",
+          "gpu_device_index",
+          "gpu_device_name",
+          "gpu_utilization_pct",
+          "gpu_average_power_w",
+          "gpu_sample_count",
+          "output_tokens_per_second",
+          "output_speed_source",
           "error",
           "provider_finish_reason",
           "output_truncated",
@@ -4145,7 +6399,8 @@
               "running",
               "completed",
               "partial",
-              "failed"
+              "failed",
+              "cancelled"
             ],
             "title": "Status"
           },
@@ -4179,6 +6434,28 @@
             "type": "boolean",
             "title": "Quality Fallback",
             "default": false
+          },
+          "small_model_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Small Model Id"
+          },
+          "large_model_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Large Model Id"
           },
           "energy_estimation_profile": {
             "type": "string",
@@ -4287,6 +6564,8 @@
           "policy_version",
           "task_profile_version",
           "quality_fallback",
+          "small_model_id",
+          "large_model_id",
           "energy_estimation_profile",
           "carbon_intensity_g_per_kwh",
           "tasks",
@@ -4923,57 +7202,87 @@
         ],
         "title": "TaskConstraints"
       },
-      "LocalProviderSettings": {
+      "ProviderModelOption": {
         "additionalProperties": false,
         "properties": {
-          "local_setup_available": {
-            "title": "Local Setup Available",
-            "type": "boolean"
+          "id": {
+            "title": "Id",
+            "type": "string"
           },
-          "provider_key_configured": {
-            "title": "Provider Key Configured",
-            "type": "boolean"
+          "provider": {
+            "title": "Provider",
+            "type": "string"
           },
-          "provider_key_saved_in_env": {
-            "title": "Provider Key Saved In Env",
-            "type": "boolean"
+          "provider_label": {
+            "title": "Provider Label",
+            "type": "string"
           },
-          "restart_required": {
-            "title": "Restart Required",
-            "type": "boolean"
+          "label": {
+            "title": "Label",
+            "type": "string"
           },
-          "environment_override": {
-            "title": "Environment Override",
+          "local": {
+            "title": "Local",
             "type": "boolean"
           }
         },
         "required": [
-          "local_setup_available",
-          "provider_key_configured",
-          "provider_key_saved_in_env",
-          "restart_required",
-          "environment_override"
+          "id",
+          "provider",
+          "provider_label",
+          "label",
+          "local"
         ],
-        "title": "LocalProviderSettings",
+        "title": "ProviderModelOption",
         "type": "object"
       },
-      "ProviderKeyInput": {
-        "additionalProperties": false,
+      "ActiveRunInfo": {
         "properties": {
-          "api_key": {
-            "format": "password",
-            "maxLength": 512,
-            "minLength": 1,
-            "title": "Api Key",
+          "id": {
             "type": "string",
-            "writeOnly": true
+            "title": "Id"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "comparison",
+              "benchmark",
+              "agent"
+            ],
+            "title": "Kind"
+          },
+          "status": {
+            "type": "string",
+            "title": "Status"
           }
         },
+        "additionalProperties": false,
+        "type": "object",
         "required": [
-          "api_key"
+          "id",
+          "kind",
+          "status"
         ],
-        "title": "ProviderKeyInput",
-        "type": "object"
+        "title": "ActiveRunInfo"
+      },
+      "StopActiveRunRequest": {
+        "properties": {
+          "run_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Run Id"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "StopActiveRunRequest"
       }
     }
   }
