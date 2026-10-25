@@ -22,6 +22,7 @@ class Settings:
     frontend_dist: Path = ROOT / 'frontend/dist'
     agent_workspace_root: Path | None = None
     agent_enabled: bool = False
+    agent_max_steps: int = 100
     small_model_id: str = 'openai/gpt-oss-20b'
     large_model_id: str = 'openai/gpt-oss-120b'
     benchmark_max_cases: int = 10
@@ -48,6 +49,8 @@ class Settings:
             raise ValueError('BENCHMARK_INFERENCE_MODE must be simulated or groq.')
         if type(self.max_completion_tokens) is not int or not 1 <= self.max_completion_tokens <= 65536:
             raise ValueError('INFERENCE_MAX_COMPLETION_TOKENS must be an integer from 1 to 65536.')
+        if type(self.agent_max_steps) is not int or not 12 <= self.agent_max_steps <= 1000:
+            raise ValueError("AGENT_MAX_STEPS must be between 12 and 1000.")
         limits = (self.benchmark_max_cases, self.max_requests_per_run, self.max_requests_per_minute,
                   self.max_run_cost_usd, self.max_daily_cost_usd, self.benchmark_runs_per_minute,
                   self.request_timeout_seconds)
@@ -90,6 +93,7 @@ class Settings:
             return cls(database_path=Path(value('DATABASE_PATH', str(cls.database_path))),
                        agent_workspace_root=Path(value('AGENT_WORKSPACE_ROOT', '')) if value('AGENT_WORKSPACE_ROOT', '') else None,
                        agent_enabled=value('AGENT_ENABLED', 'false').lower() == 'true',
+                       agent_max_steps=int(value('AGENT_MAX_STEPS', 100)),
                        small_model_id=value('GROQ_MODEL_SMALL', value('SMALL_MODEL_ID', cls.small_model_id)) or cls.small_model_id,
                        large_model_id=value('GROQ_MODEL_LARGE', value('LARGE_MODEL_ID', cls.large_model_id)) or cls.large_model_id,
                        api_key=value('GROQ_API_KEY', value('INFERENCE_API_KEY', '')) or '',

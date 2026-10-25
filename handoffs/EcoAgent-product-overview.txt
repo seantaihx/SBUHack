@@ -1,0 +1,352 @@
+ECOAGENT — PRODUCT PURPOSE, FEATURES, AND ROADMAP
+Product brief • October 24, 2026
+
+STATUS OF THIS DOCUMENT
+This document explains the agreed product and the expanded direction discussed
+by the team. It distinguishes previously implemented behavior from planned work.
+It is not evidence that every planned feature has shipped. Check current code,
+shared contracts, and milestone handoffs before making implementation claims.
+
+1. PURPOSE
+
+EcoAgent helps developers and teams investigate when a smaller AI model is
+sufficient for a task and when a larger model should be retained.
+
+Users run the same workload under two policies, compare the answers, and examine
+latency, token usage, and available cost estimates. The app also demonstrates
+energy and carbon calculations using disclosed illustrative assumptions.
+
+The central question is:
+“Can we use smaller models for suitable tasks while preserving answer quality,
+and what happens to cost, latency, and estimated environmental impact?”
+
+EcoAgent does not assume that smaller is always better. A useful comparison may
+show lower estimated cost but worse latency, or an incorrect smaller-model answer.
+Those tradeoffs are results to report, not problems to conceal.
+
+2. WHO IT IS FOR
+
+- Developers evaluating model-selection rules for their application.
+- Small teams comparing repeatable AI workloads before choosing a model policy.
+- Hackathon judges and learners exploring the relationship between routing,
+  answer quality, usage, and modeled environmental impact.
+
+The current application is a local, single-user prototype. It is not a production
+multi-tenant platform, autonomous research assistant, or electricity meter.
+
+3. CURRENT CORE WORKFLOW
+
+1. Choose Demo or Live comparison mode.
+2. Select supplied sample tasks or enter text-based live tasks.
+3. Choose the declared task type: classify, extract, or summarize.
+4. Start the comparison.
+5. Watch baseline and optimized attempts complete.
+6. Inspect both outputs and their selected models/routing reasons.
+7. Review correctness against the supplied text or an expected answer.
+8. Compare timing, usage, and available estimates.
+9. Reopen persisted results after refresh or restart.
+
+A run supports up to ten comparison tasks. Each task has a baseline attempt and
+an optimized attempt. Attempts execute serially in the existing implementation.
+Only one comparison or benchmark run may be active at a time.
+
+4. CURRENT ROUTING POLICY
+
+Baseline:
+- Always chooses the configured large model.
+
+Optimized policy, task-routing-v1:
+- classify -> configured small model
+- extract -> configured small model
+- summarize -> configured large model
+
+The task type is supplied by the user or dataset. The application does not
+currently infer task difficulty automatically. “Optimized” names a routing policy;
+it does not guarantee a better answer, faster response, or lower cost.
+
+Both policies use the same task prompt and generation settings. Summary tasks
+use the same model under both policies, so timing can vary without any routing
+change. Provider behavior can also vary across repeated requests.
+
+Configured Groq model defaults:
+- Small: openai/gpt-oss-20b
+- Large: openai/gpt-oss-120b
+
+5. TASK TYPES AND PRACTICAL USES
+
+CLASSIFY
+Assign a label using categories/rules supplied in the prompt.
+Examples: billing versus technical support, sentiment, routine versus urgent.
+Check that the output follows the allowed labels and the stated decision rules.
+
+EXTRACT
+Return particular facts or fields from supplied text.
+Examples: invoice number and amount, a value from a table, contact information.
+Missing information should remain missing/null rather than be invented.
+Extraction from supplied text is different from finding information on the web.
+
+SUMMARIZE
+Condense supplied text while retaining required facts and constraints.
+Examples: meeting decisions, service incidents, project updates.
+Check factual consistency, omitted important facts, length, and requested format.
+
+6. DEMO, LIVE, AND FRONTEND MOCKS
+
+These are separate concepts:
+
+Frontend mock transport:
+The browser uses fixtures instead of calling the backend. This supports isolated
+UI development. It does not prove backend integration or provider connectivity.
+
+Backend Demo/simulated inference:
+The browser can call the real backend, which returns deterministic simulated
+outputs, latency, and usage. This verifies routing, persistence, arithmetic,
+progress, and presentation without credentials or billable inference.
+
+Live inference:
+The backend sends prompts to a configured compatible provider. The current Groq
+adapter records HTTP-operation timing and provider-reported usage where supplied.
+It surfaces provider failures and does not silently replace them with demo answers.
+
+Configuration readiness alone does not prove that a key, model, network, or
+provider quota works. A completed real request is stronger evidence.
+
+7. BENCHMARK EXPERIENCE
+
+The starter-v1 dataset contains five authored cases with expected answers and
+checks, including classification, extraction, arithmetic, summarization/reasoning
+coverage as defined by the dataset.
+
+The benchmark flow offers dataset selection, baseline/candidate configuration,
+progress, case results, and history. Evaluation uses defined checks such as exact
+matches, structured values, or lexical required facts. It is not a general semantic
+truth judge.
+
+In simulated benchmarks, answers are derived from authored expected answers.
+A simulated pass rate verifies the software flow, not independent model quality.
+
+In live benchmarks, distinguish:
+- Request success: the provider returned a usable response.
+- Answer correctness: the response meets the task's evaluation criteria.
+- General capability: broader performance, which a tiny dataset cannot establish.
+
+8. METRICS AND HOW TO INTERPRET THEM
+
+LATENCY
+Live latency is elapsed time around each provider HTTP operation. It includes
+network/service effects and is not a direct measure of GPU compute time.
+Summed attempt latency is not necessarily total job wall-clock duration.
+A single run does not establish a stable speed advantage.
+
+TOKENS
+Live token counts come from provider usage fields. Missing usage remains null.
+The backend must not estimate missing usage from string length or display it as 0.
+
+COST
+Where calculated, cost is a token-priced estimate under documented rates, not a
+provider invoice. Availability depends on model pricing and usage information.
+Do not equate token reduction, cost reduction, and energy reduction.
+
+ENERGY
+The illustrative-v1 profile uses hypothetical coefficients:
+- Small input: 0.00002 Wh/token
+- Small output: 0.00008 Wh/token
+- Large input: 0.00010 Wh/token
+- Large output: 0.00040 Wh/token
+
+Estimated energy (Wh) = input tokens × input coefficient
+                       + output tokens × output coefficient.
+
+These coefficients are not measured Groq hardware consumption. They omit effects
+such as batching, idle power, cooling, and network overhead. They cannot establish
+actual environmental savings.
+
+CARBON
+Scenario carbon intensity defaults to 400 gCO2e/kWh and is adjustable from 0–2000.
+It is a user-selected assumption, not live grid data or the provider's actual mix.
+
+Estimated carbon (gCO2e) = estimated energy (Wh) / 1000
+                          × scenario intensity (gCO2e/kWh).
+
+Changing intensity changes carbon estimates, not model answers or energy estimates.
+
+COMPARISON
+Only eligible paired results enter the relevant comparison totals. Failed/missing
+values must not become zero. Negative savings represent an increase and should
+remain visible. At zero intensity, carbon is zero but percentage savings is
+undefined and should remain unavailable.
+
+9. EVIDENCE FROM THE TEAM'S LIVE TEST
+
+Sean supplied screenshots of a completed nine-task Live/Observed run, with run ID
+prefix e8943656 and 18 successful attempts. Displayed values were:
+
+                         Baseline       Optimized
+Illustrative energy      0.560200 Wh    0.353800 Wh
+Illustrative carbon      0.224080 g     0.141520 g
+Total observed latency   about 4852 ms  about 5142 ms
+
+That is approximately 36.8% lower modeled energy/carbon and 6% higher latency.
+Sean reported all answers correct after manual review. The screenshots visibly
+support three correct extraction answers; they do not independently document
+correctness for every other answer.
+
+These are user-supplied run observations, not a broad performance study. Use the
+persisted snapshot for exact values and a saved evaluation report for provenance.
+Do not present them as universal savings or measured emissions reductions.
+
+10. EXPANDED PRODUCT GOAL
+
+The expanded workflow is:
+
+Paste text / upload PDF or CSV / fetch a public page
+  -> preview extracted source content
+  -> run both policies on identical source material
+  -> inspect answers and supporting evidence
+  -> record human review
+  -> export results.
+
+The following capabilities are planned or assigned for implementation. Their
+completion must be verified against current branch handoffs before demonstration.
+
+11. RESULTS EXPORT
+
+JSON:
+Preserve the run snapshot, provenance, source metadata, and separately identified
+manual-review annotations. Include an export format version and timestamp.
+
+CSV:
+Provide a documented row structure for task/attempt metrics and outputs. Handle
+quotes, commas, Unicode, and multiline text correctly. Preserve null semantics
+and protect spreadsheet users from formula injection in untrusted cells.
+
+PDF:
+Create a readable report with workload, models, routing, outputs, review status,
+metrics, sources, and limitations. Long content must wrap and paginate cleanly.
+A browser print workflow must be described honestly if it is an interim option
+rather than direct PDF generation.
+
+Exported documents can contain user-supplied information. Users must understand
+what is included. Credentials and environment values must never be exported.
+
+12. DOCUMENT IMPORT
+
+PDF input:
+Start with PDFs containing selectable text. Show extracted text and page references
+before inference. Scanned/image-only, encrypted, malformed, or oversized files
+need clear errors/limitations. OCR is separate future scope unless explicitly added.
+
+CSV input:
+Preserve column headers, rows, quoted fields, and missing values. Preview the table
+and define encoding/delimiter support. Give extracted answers row/column references.
+
+Both:
+Apply explicit file and extracted-content limits, processing timeouts, and retention
+rules. Do not silently truncate source material. Do not execute embedded content.
+Show the user what will be sent to the inference provider before submission.
+
+13. WEBSITE FETCHING
+
+Planned first step: retrieve a directly supplied public HTTP(S) page, extract its
+readable text/tables, and display a preview with URL and retrieval timestamp.
+
+This is not the same as unrestricted web research. A homepage URL does not locate
+a specific historical table. JavaScript-rendered pages, authentication, whole-site
+crawling, and external search are separate capabilities.
+
+Retrieval requires server-side protections against private-network access,
+loopback/link-local/metadata targets, redirect escapes, DNS rebinding, excessive
+responses, and timeouts. Provider secrets must never be forwarded to source sites.
+
+Fetch failure must produce an error, not an answer implying the page was read.
+
+14. SOURCE-GROUNDED ANSWERS
+
+Both policies must receive identical extracted source content for a fair comparison.
+Source text is untrusted data and must not override system instructions.
+
+Answers should reference supporting pages, rows, columns, or excerpts. An absent
+fact should produce a defined “not found in supplied content” outcome.
+Check that supporting excerpts/references exist; a model-generated citation alone
+does not prove correctness.
+
+Keep retrieval/parsing time separate from inference latency. Preserve enough
+source evidence to explain old results after a webpage changes, under an explicit
+privacy and retention policy.
+
+Example:
+If the supplied table contains 2015 refinery utilization of 91.0%, return 91.0
+with the supporting row. If 2015 is absent, do not invent a value. If only the
+homepage was fetched, do not claim the historical table was retrieved.
+
+15. ARCHITECTURE AND SECURITY
+
+Existing architecture:
+React/TypeScript/Vite browser
+  -> same-origin FastAPI/Pydantic API
+  -> run service and fixed routing policy
+  -> deterministic or live provider adapter
+  -> metric calculations and SQLite snapshots
+  -> browser polling/results.
+
+The backend owns calculations, routing, status, and persistence. One worker and an
+atomic active-run gate prevent overlapping execution. Interrupted jobs are marked
+failed with preserved completed results; they do not automatically resume.
+
+The root .env is the supported local secret file. Keep it ignored and untracked.
+Frontend VITE_* variables must never contain provider secrets. Deployed secrets
+belong in an appropriate server-side secret configuration.
+
+The service has no production multi-user authentication. Public live deployment
+requires a separate security and abuse-control review.
+
+16. TEAM RESPONSIBILITIES
+
+Sean: backend behavior, storage, ingestion/retrieval services, tests, environment
+configuration, and coordination of API contracts/examples.
+
+Muffin: frontend controls, previews, answer review, exports, accessibility, UI tests,
+and frontend documentation.
+
+Both: agree on source/import contracts, inspect integrated behavior, review PRs,
+and prepare truthful demonstration/submission materials.
+
+Work on owned branches; preserve local work. Merge reviewed changes through main.
+Document dependencies so one teammate's usage-limit pause does not unnecessarily
+block independent work.
+
+17. ACCEPTANCE CRITERIA FOR THE EXPANDED PRODUCT
+
+- Existing text-only Demo and Live comparisons continue working.
+- Frontend fixtures cannot masquerade as backend/provider success.
+- Exports reopen correctly and retain provenance/null values.
+- PDF/CSV inputs produce accurate, inspectable extracted content.
+- Unsupported inputs and failed retrieval produce clear errors.
+- Public-page retrieval cannot access restricted internal destinations.
+- Both policies use the same source snapshot.
+- Answers expose valid source references or a not-found outcome.
+- Human review is visibly separate from provider success and automated checks.
+- Refresh/history preserve relevant results and source context.
+- Keyboard use, narrow layouts, long outputs, and failure states remain usable.
+- Tests and real integration checks are documented, including anything untested.
+
+18. ROADMAP AND COMPLETION DEFINITION
+
+First: finish reliable result exports and truthful UI wording.
+Second: agree on ingestion contracts and implement PDF/CSV import with previews.
+Third: add safe direct-page retrieval and source references.
+Fourth: test the full source-to-answer-to-export flow with positive and negative cases.
+
+Broader search, OCR, autonomous agents, additional providers, calibrated electrical
+telemetry, and production hosting remain separate decisions.
+
+The expanded product is complete only when a user can bring supported source data,
+inspect what was read, compare the two policies, judge the answers, and export a
+reproducible report with honest provenance and clear limitations.
+
+SHORT PRODUCT DESCRIPTION
+EcoAgent is a model-routing comparison tool that helps teams evaluate whether
+smaller models can handle suitable tasks while preserving answer quality. It
+compares outputs, observed timing, usage, and available cost estimates, with
+explicitly illustrative energy/carbon calculations. Its expanded direction adds
+document inputs, public-page retrieval, source evidence, and portable reports.

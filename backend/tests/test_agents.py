@@ -62,7 +62,7 @@ def test_agent_requires_explicit_scope_and_provider_confirmation(tmp_path):
 def test_agent_actions_require_exact_approval_and_log_human_readable_steps(tmp_path):
     client, settings = agent_client(tmp_path)
     target = settings.agent_workspace_root / 'note.txt'
-    target.write_text('before\n', encoding='utf-8')
+    target.write_bytes(b'before\r\n')
     responses = [propose('read_file', 'note.txt'), propose('write_file', 'note.txt', 'after\n'),
                  propose('finish', final_text='Updated note.')]
     with client:
@@ -95,7 +95,11 @@ def test_agent_actions_require_exact_approval_and_log_human_readable_steps(tmp_p
         assert 'SHA-256:' in run['events'][-1]['details']
 
         assert client.post(f'/api/v1/agent-runs/{run_id}/continue').status_code == 200
-        run = wait_for(client, run_id, 'completed')
+        run = wait_for(client, run_id, 'paused')
+        assert run['stop_reason'] == 'COMPLETION_REVIEW_REQUIRED'
+        reviewed = client.post(f'/api/v1/agent-runs/{run_id}/review', json={'completed_items': [], 'accept_completion': True, 'note': 'Verified the file change'})
+        assert reviewed.status_code == 200
+        run = reviewed.json()
         assert run['final_text'] == 'Updated note.'
         page = client.get(f'/api/v1/agent-runs/{run_id}/events?limit=3')
         assert page.status_code == 200
@@ -144,7 +148,7 @@ def test_agent_duplicate_operations_pause_without_second_execution(tmp_path):
         assert run['steps_completed'] == 1
 
 
-def test_agent_can_finish_cleanly_after_reaching_model_call_limit(tmp_path):
+def test_agent_pauses_without_claiming_completion_at_call_limit(tmp_path):
     client, settings = agent_client(tmp_path)
     (settings.agent_workspace_root / 'allowed.txt').write_text('safe', encoding='utf-8')
     with client:
@@ -160,7 +164,8 @@ def test_agent_can_finish_cleanly_after_reaching_model_call_limit(tmp_path):
         assert run['phase'] == 'paused'
         finished = client.post(f"/api/v1/agent-runs/{run['run_id']}/continue")
         assert finished.status_code == 200
-        assert finished.json()['status'] == 'completed'
+        assert finished.json()['status'] == 'running'
+        assert finished.json()['phase'] == 'paused'
         assert finished.json()['stop_reason'] == 'STEP_LIMIT_REACHED'
 
 

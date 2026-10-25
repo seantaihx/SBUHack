@@ -2,7 +2,7 @@ from contextlib import asynccontextmanager
 import asyncio
 from uuid import UUID
 
-from fastapi import FastAPI, File, Request, Response, UploadFile
+from fastapi import FastAPI, Body, File, Request, Response, UploadFile
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse, FileResponse
 from starlette.exceptions import HTTPException
@@ -17,7 +17,7 @@ from .benchmarks.service import BenchmarkService
 from .benchmarks.routes import router as benchmark_router
 from .sources import SourceFailure, parse_csv, parse_pdf, parse_text, parse_webpage
 from .schemas import CreateTextSource, CreateWebpageSource, SourceResponse, SourceSnapshot
-from .agent_schemas import AgentApprovalRequest, AgentCapabilities, AgentEventsResponse, AgentRun, AgentStartRequest
+from .agent_schemas import AgentApprovalRequest, AgentCapabilities, AgentEventsResponse, AgentRun, AgentStartRequest, AgentContinueRequest, AgentExtendRequest, AgentReviewRequest
 from .agents import AgentService, local_agent_request
 
 def error_response(status: int, error: ErrorInfo) -> JSONResponse:
@@ -85,7 +85,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         reason = service.disabled_reason if local else 'Workspace agent requests are restricted to a loopback browser/API connection.'
         root = settings.agent_workspace_root if local and service.disabled_reason is None else None
         return AgentCapabilities(enabled=reason is None, disabled_reason=reason,
-                                 workspace_name=root.resolve().name if root else None)
+                                 workspace_name=root.resolve().name if root else None, max_steps=settings.agent_max_steps)
 
     def require_local_agent(request: Request):
         if not local_agent_request(request):
@@ -134,9 +134,19 @@ def create_app(settings: Settings | None = None) -> FastAPI:
 
     @app.post('/api/v1/agent-runs/{run_id}/continue', response_model=AgentRun,
               responses={code: {'model': ErrorEnvelope} for code in (403, 404, 409, 422, 500)})
-    async def continue_agent_run(run_id: UUID, request: Request):
+    async def continue_agent_run(run_id: UUID, request: Request, body: AgentContinueRequest | None = Body(default=None)):
         require_local_agent(request)
-        return request.app.state.agents.continue_run(str(run_id))
+        return request.app.state.agents.continue_run(str(run_id), body.guidance if body else "")
+
+    @app.post('/api/v1/agent-runs/{run_id}/extend', response_model=AgentRun)
+    async def extend_agent_run(run_id: UUID, body: AgentExtendRequest, request: Request):
+        require_local_agent(request)
+        return request.app.state.agents.extend(str(run_id), body.additional_steps, body.reason)
+
+    @app.post('/api/v1/agent-runs/{run_id}/review', response_model=AgentRun)
+    async def review_agent_run(run_id: UUID, body: AgentReviewRequest, request: Request):
+        require_local_agent(request)
+        return request.app.state.agents.review(str(run_id), body.completed_items, body.accept_completion, body.note)
 
     @app.post('/api/v1/agent-runs/{run_id}/stop', response_model=AgentRun,
               responses={code: {'model': ErrorEnvelope} for code in (403, 404, 409, 422, 500)})

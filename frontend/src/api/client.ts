@@ -79,7 +79,9 @@ export const agentApi = {
       method: 'POST', body: JSON.stringify({ action_id: actionId, action_hash: actionHash, approved }),
     });
   },
-  continue: (id: string) => { requireAgentApi(); return request<AgentRun>(`/agent-runs/${encodeURIComponent(id)}/continue`, { method: 'POST' }); },
+  continue: (id: string, guidance = '') => { requireAgentApi(); return request<AgentRun>(`/agent-runs/${encodeURIComponent(id)}/continue`, { method: 'POST', body: JSON.stringify({ guidance }) }); },
+  extend: (id: string, additional_steps: number, reason: string) => { requireAgentApi(); return request<AgentRun>(`/agent-runs/${encodeURIComponent(id)}/extend`, { method: 'POST', body: JSON.stringify({ additional_steps, reason }) }); },
+  review: (id: string, completed_items: number[], accept_completion: boolean, note: string) => { requireAgentApi(); return request<AgentRun>(`/agent-runs/${encodeURIComponent(id)}/review`, { method: 'POST', body: JSON.stringify({ completed_items, accept_completion, note }) }); },
   stop: (id: string) => { requireAgentApi(); return request<AgentRun>(`/agent-runs/${encodeURIComponent(id)}/stop`, { method: 'POST' }); },
 };
 

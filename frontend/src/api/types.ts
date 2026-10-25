@@ -65,11 +65,11 @@ export type AgentCapabilities = {
   enabled: boolean; disabled_reason: string | null; workspace_name: string | null;
   task_types: ('write' | 'code')[]; operations: ('read_file' | 'write_file')[];
   approval_required_for_each_operation: true; shell_execution_enabled: false; network_tools_enabled: false;
-  max_steps: number; max_file_chars: number;
+  max_steps: number; max_file_chars: number; default_steps: number; default_review_interval: number;
 };
 export type AgentPendingAction = {
   action_id: string; action_hash: string; operation: 'read_file' | 'write_file'; path: string;
-  summary: string; content: string | null; before_text: string | null; base_sha256: string | null;
+  summary: string; content: string | null; before_text: string | null; base_sha256: string | null; diff: string | null;
 };
 export type AgentEvent = {
   sequence: number; occurred_at: string; actor: 'agent' | 'operator' | 'policy' | 'tool';
@@ -82,12 +82,17 @@ export type AgentRun = {
   phase: 'planning' | 'awaiting_approval' | 'paused' | 'completed' | 'failed';
   task_type: 'write' | 'code'; workspace_name: string; instruction: string;
   read_paths: string[]; write_paths: string[]; max_steps: number; model_calls: number; steps_completed: number;
+  review_interval: number; max_elapsed_seconds: number; review_required: boolean; completion_reviewed: boolean;
+  checklist: string[]; completed_items: number[];
+  checkpoints: { sequence: number; created_at: string; model_calls: number; assessment: 'observed_progress' | 'stalled' | 'uncertain'; summary: string }[];
+  revisions: { path: string; created_at: string; before_text: string | null; after_text: string }[];
+  input_tokens: number | null; output_tokens: number | null; estimated_cost_usd: number | null; provider_latency_ms: number | null;
   pending_action: AgentPendingAction | null; events: AgentEvent[]; final_text: string | null;
   stop_reason: string | null; created_at: string; started_at: string | null; finished_at: string | null;
 };
 export type AgentStartRequest = {
   task_type: 'write' | 'code'; instruction: string; confirm_provider_submission: true;
-  read_paths: string[]; write_paths: string[]; max_steps: number;
+  read_paths: string[]; write_paths: string[]; max_steps: number; review_interval: number; max_elapsed_seconds: number; checklist: string[];
 };
 export type AgentEventsResponse = { events: AgentEvent[]; next_cursor: string | null };
 

@@ -159,9 +159,13 @@ class Store:
                 if kind == 'agent':
                     from .agent_schemas import AgentEvent, AgentRun
                     agent = AgentRun.model_validate_json(snapshot)
+                    if agent.phase == 'planning' and agent.model_calls:
+                        agent.input_tokens = agent.output_tokens = agent.estimated_cost_usd = agent.provider_latency_ms = None
                     agent.status = 'running'
                     agent.phase = 'paused'
-                    agent.stop_reason = 'APPLICATION_RESTARTED_REVIEW_REQUIRED'
+                    agent.pending_action = None
+                    if agent.stop_reason not in ('COMPLETION_REVIEW_REQUIRED', 'STEP_LIMIT_REACHED', 'TIME_LIMIT_REACHED'):
+                        agent.stop_reason = 'APPLICATION_RESTARTED_REVIEW_REQUIRED'
                     agent.events.append(AgentEvent(sequence=len(agent.events) + 1, occurred_at=now(), actor='policy',
                                                    operation='pause', target=None, decision='stopped',
                                                    summary='Application restarted; no action resumed automatically.'))
