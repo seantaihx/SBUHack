@@ -281,12 +281,12 @@ function App() {
   const statusLabel = run ? ({ queued: 'Queued', running: 'In progress', completed: 'Completed', partial: 'Partial results', failed: 'Failed', cancelled: 'Stopped' } as const)[run.status] : '';
 
   return <div className="app-shell"><a className="skip-link" href="#main-content">Skip to main content</a>
-    <header className="topbar"><a className="brand" href="#top" aria-label="EcoAgent home" onClick={() => setPage('compare')}><span className="brand-mark"><PixelBrandIcon /></span><span>ecoagent<span className="brand-period">.</span></span></a><nav className="main-nav" aria-label="Main navigation"><button type="button" aria-current={page === 'compare' ? 'page' : undefined} onClick={() => setPage('compare')}>Compare</button><button type="button" aria-current={page === 'benchmarks' ? 'page' : undefined} onClick={() => setPage('benchmarks')}>Benchmarks</button><button type="button" aria-current={page === 'agent' ? 'page' : undefined} onClick={() => setPage('agent')}>Workspace agent</button></nav><div className="topbar-right"><span className="topbar-note"><span className={`live-dot ${!api.isMock && !capabilities ? 'offline-dot' : ''}`} />{api.isMock ? 'FIXTURE MOCK' : loading ? 'CONNECTING' : capabilities ? 'API READY' : 'API UNAVAILABLE'}</span><span className="topbar-divider" /><span className="version">API&nbsp; / &nbsp;{capabilities?.api_version ?? 'v1'}</span><button className="provider-settings-trigger" type="button" onClick={() => setProviderSettingsOpen(true)}>Provider settings</button></div></header>
+    <header className="topbar"><a className="brand" href="#top" aria-label="EcoAgent home" onClick={() => setPage('compare')}><span className="brand-mark"><EcoAgentMark /></span><span>ecoagent<span className="brand-period">.</span></span></a><nav className="main-nav" aria-label="Main navigation"><button type="button" aria-current={page === 'compare' ? 'page' : undefined} onClick={() => setPage('compare')}>Compare</button><button type="button" aria-current={page === 'benchmarks' ? 'page' : undefined} onClick={() => setPage('benchmarks')}>Benchmarks</button><button type="button" aria-current={page === 'agent' ? 'page' : undefined} onClick={() => setPage('agent')}>Workspace agent</button></nav><div className="topbar-right"><span className="topbar-note"><span className={`live-dot ${!api.isMock && !capabilities ? 'offline-dot' : ''}`} />{api.isMock ? 'FIXTURE MOCK' : loading ? 'CONNECTING' : capabilities ? 'API READY' : 'API UNAVAILABLE'}</span><span className="topbar-divider" /><span className="version">API&nbsp; / &nbsp;{capabilities?.api_version ?? 'v1'}</span><button className="provider-settings-trigger" type="button" onClick={() => setProviderSettingsOpen(true)}>Provider settings</button></div></header>
     <ProviderKeySettings open={providerSettingsOpen} onClose={() => setProviderSettingsOpen(false)} onSaved={refreshCapabilities} />
     {api.isMock && <div className="mock-banner" role="status"><span className="mock-banner-dot" /> FRONTEND MOCK ACTIVE <span>Static contract fixtures · no backend requests</span></div>}
     <main id="main-content">
     <div className="content" id="top" hidden={page !== 'compare'}>
-      <section className="hero"><div className="hero-copy"><div className="eyebrow"><span className="eyebrow-line" /> INTELLIGENT ROUTING, MADE VISIBLE</div><h1>Better inference.<br /><span>Less overhead.</span></h1><p className="hero-description">Compare how a task-routing policy changes model choice, response, latency and illustrative energy estimates.</p></div><PixelFieldStation /></section>
+      <section className="hero"><div className="hero-copy"><div className="eyebrow"><span className="eyebrow-line" /> INTELLIGENT ROUTING, MADE VISIBLE</div><h1>Better inference.<br /><span>Less overhead.</span></h1><p className="hero-description">Compare how a task-routing policy changes model choice, response, latency and illustrative energy estimates.</p></div><RoutePolicyGraphic /></section>
 
       <section className="control-panel panel" aria-labelledby="controls-title">
         <div className="panel-heading"><div><div className="section-kicker">01 / CONFIGURE</div><h2 id="controls-title">Set up a comparison</h2></div><span className="policy-chip"><span className="tiny-dot" /> {capabilities?.policy_version ?? 'Policy unavailable'}</span></div>
@@ -400,36 +400,17 @@ function RouteTrace({ policy, result }: { policy: string; result: Run['results']
   </div>;
 }
 
-function PixelFieldStation() {
-  return <div className="pixel-world" aria-hidden="true">
-    <svg viewBox="0 0 320 184" shapeRendering="crispEdges" focusable="false">
-      <rect width="320" height="184" fill="#f5f1e4" />
-      <path d="M0 0h320v78H0z" fill="#f5f1e4" />
-      <path d="M0 18h22v6H0zm31 12h12v6H31zm267-13h22v6h-22zm-22 19h11v6h-11z" fill="#f5f1e4" opacity=".75" />
-      <g className="pixel-cloud-far"><path d="M31 42h14v-6h24v6h8v12H31z" fill="#f5f1e4"/></g><g className="pixel-cloud-near"><path d="M216 30h10v-6h24v6h12v12h-46z" fill="#f5f1e4"/></g>
-      <path d="M0 95h28V83h18V71h12V65h16v12h12v12h20v12H0zm198-10h24V73h12V61h17v10h13v12h18v12h38v15H198z" fill="#81986e" />
-      <path d="M0 111h24v-8h20V92h15v8h15v12h24v11H0zm231-6h19v-9h17v8h18v10h35v15H231z" fill="#3e7150" />
-      <path d="M0 127h320v57H0z" fill="#d5c79d" />
-      <path d="M0 137h31v6H0zm49 18h18v6H49zm221-16h28v6h-28zm-45 27h17v6h-17z" fill="#d5c79d" />
-      <path d="M92 184v-20h14v-12h15v-13h22v-13h29v13h19v13h15v12h15v20z" fill="#d5c79d" />
-      <path d="M108 126v-26h12V86h8V74h44v12h10v14h12v26z" fill="#f5f1e4" stroke="#294735" strokeWidth="4" />
-      <path d="M120 89h10V77h38v12h10v9h10v24h-68z" fill="#d5c79d" />
-      <path d="M132 104h11v11h-11zm22 0h11v11h-11z" fill="#c77a32" className="station-window" />
-      <path d="M125 124h50v5h-50z" fill="#294735" />
-      <path d="M128 74h31V61h8V47h8V35h5v39h-6V48h-4v26h-5V66h-8v8z" fill="#294735" />
-      <path d="M161 38h5v5h-5zm9 8h5v5h-5z" fill="#c77a32" />
-      <path d="M70 116h27v-5h12v17H70z" fill="#294735" />
-      <path d="M74 111h20v-6h7v6h7v5H74z" fill="#3e7150" />
-      <path d="M77 112h16v-4h-7v-5h-5v5h-4zm0-13h5v4h-5zm16 5h4v4h-4z" fill="#294735" />
-      <path d="M13 127h6v-7h6v7h6v5H13zm269 8h5v-9h5v9h7v5h-17zM44 172h5v-9h5v9h7v5H44zm215-22h5v-8h5v8h7v5h-17z" fill="#294735" className="pixel-grass" />
-      <path d="M28 116h7v5h-7zm244 13h7v5h-7zM59 145h7v5h-7zm176 24h7v5h-7z" fill="#c77a32" />
-    </svg>
-    <div className="pixel-world-caption"><span>FIELD STATION</span><span>MODEL ROUTING LAB</span></div>
-  </div>;
+function EcoAgentMark() {
+  return <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M19.5 4.5c-7.6.1-12.8 2.7-13.7 8.1-.6 3.6 1.6 6.2 4.8 6.2 5.6 0 8.9-6.2 8.9-14.3Z" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round"/><path d="M5 20c2.7-4.3 5.7-6.8 10.8-9.2" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/><path d="m10.2 15.9 4.1.2" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round"/></svg>;
 }
 
-function PixelBrandIcon() {
-  return <svg viewBox="0 0 16 16" shapeRendering="crispEdges" aria-hidden="true"><rect x="8" y="1" width="5" height="3" fill="currentColor"/><rect x="5" y="4" width="7" height="3" fill="currentColor"/><rect x="3" y="7" width="7" height="3" fill="currentColor"/><rect x="5" y="10" width="5" height="3" fill="currentColor"/><rect x="8" y="13" width="3" height="2" fill="currentColor"/><rect x="11" y="4" width="2" height="2" fill="#bd7a2d"/></svg>;
+function RoutePolicyGraphic() {
+  return <div className="policy-graphic" role="img" aria-label="Policy overview. The baseline sends every task to the large model. EcoAgent sends the task to its backend, which selects a model and returns the routing reason.">
+    <div className="policy-graphic-heading"><span>POLICY OVERVIEW</span><span className="policy-live-indicator"><i /> BACKEND DECIDES</span></div>
+    <div className="policy-flow-row baseline-flow"><span className="flow-policy-label">BASELINE</span><span className="flow-task-node">Every task</span><span className="flow-connector" aria-hidden="true" /><span className="flow-model-node large-model"><span className="model-node-icon" aria-hidden="true">L</span><span><strong>Large model</strong><small>Fixed destination</small></span></span></div>
+    <div className="policy-flow-row optimized-flow"><span className="flow-policy-label">OPTIMIZED</span><span className="flow-task-node">Task type</span><span className="flow-connector branching-connector" aria-hidden="true"><i /><i /></span><span className="flow-model-stack"><span className="flow-model-node small-model"><span className="model-node-icon" aria-hidden="true">S</span><span><strong>Small model</strong><small>Backend selected</small></span></span><span className="flow-model-node large-model"><span className="model-node-icon" aria-hidden="true">L</span><span><strong>Large model</strong><small>Backend selected</small></span></span></span></div>
+    <p className="policy-graphic-footnote">Actual model and routing reason appear in each run result.</p>
+  </div>;
 }
 
 function MetricCard({ title, unit, values, count, cohort, format, icon, tint, changeType = 'savings' }: { title: string; unit: string; values: { baseline: number | null; optimized: number | null; saved: number | null; savings_pct: number | null }; count: number; cohort: string; format: (value: number | null) => string; icon: React.ReactNode; tint: string; changeType?: 'savings' | 'latency' }) {
