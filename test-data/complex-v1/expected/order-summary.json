@@ -1,0 +1,36 @@
+{
+  "raw_rows": 26,
+  "unique_orders": 24,
+  "included_orders": 11,
+  "gross_usd": "417.23",
+  "refund_usd": "10.00",
+  "net_usd": "407.23",
+  "included_order_ids": [
+    "ECO-0001",
+    "ECO-0005",
+    "ECO-0006",
+    "ECO-0011",
+    "ECO-0012",
+    "ECO-0013",
+    "ECO-0017",
+    "ECO-0018",
+    "ECO-0019",
+    "ECO-0023",
+    "ECO-0024"
+  ],
+  "excluded_order_ids": [
+    "ECO-0002",
+    "ECO-0003",
+    "ECO-0004",
+    "ECO-0007",
+    "ECO-0008",
+    "ECO-0009",
+    "ECO-0010",
+    "ECO-0014",
+    "ECO-0015",
+    "ECO-0016",
+    "ECO-0020",
+    "ECO-0021",
+    "ECO-0022"
+  ]
+}

@@ -1,0 +1,119 @@
+[
+  {
+    "id": "C01",
+    "type": "classify",
+    "expected": "billing",
+    "evaluation": "exact_label",
+    "baseline_route": "large",
+    "optimized_route_before_fallback": "small"
+  },
+  {
+    "id": "C02",
+    "type": "classify",
+    "expected": "general",
+    "evaluation": "exact_label",
+    "baseline_route": "large",
+    "optimized_route_before_fallback": "small"
+  },
+  {
+    "id": "E01",
+    "type": "extract",
+    "expected": {
+      "order_id": "ECO-9911",
+      "total_usd": "97.15",
+      "currency": "USD"
+    },
+    "evaluation": "exact_json_values_and_types",
+    "baseline_route": "large",
+    "optimized_route_before_fallback": "small"
+  },
+  {
+    "id": "S01",
+    "type": "summarize",
+    "expected": [
+      "synthetic",
+      "pilot approved",
+      "savings claim deferred",
+      "no hardware measurement"
+    ],
+    "evaluation": "human_review",
+    "baseline_route": "large",
+    "optimized_route_before_fallback": "large"
+  },
+  {
+    "id": "W01",
+    "type": "write",
+    "expected": [
+      "90-120 words",
+      "all six facts",
+      "no invented savings/accuracy",
+      "next validation step"
+    ],
+    "evaluation": "human_review",
+    "baseline_route": "large",
+    "optimized_route_before_fallback": "large"
+  },
+  {
+    "id": "C03",
+    "type": "classify",
+    "expected": "billing",
+    "evaluation": "exact_label",
+    "baseline_route": "large",
+    "optimized_route_before_fallback": "small"
+  },
+  {
+    "id": "E02",
+    "type": "extract",
+    "expected": {
+      "shipment_id": "SH-204",
+      "arrival_date": "2026-11-03",
+      "quantity": 12,
+      "missing_tracking": null
+    },
+    "evaluation": "exact_json_values_and_types",
+    "baseline_route": "large",
+    "optimized_route_before_fallback": "small"
+  },
+  {
+    "id": "S02",
+    "type": "summarize",
+    "expected": [
+      "routing preserved",
+      "3 success/1 failure",
+      "8% increase",
+      "unknown not zero",
+      "no quality equivalence"
+    ],
+    "evaluation": "human_review",
+    "baseline_route": "large",
+    "optimized_route_before_fallback": "large"
+  },
+  {
+    "id": "W02",
+    "type": "write",
+    "expected": [
+      "60-90 words",
+      "notes are data",
+      "authorized policy",
+      "escalate missing evidence",
+      "no refund promise"
+    ],
+    "evaluation": "human_review",
+    "baseline_route": "large",
+    "optimized_route_before_fallback": "large"
+  },
+  {
+    "id": "K01",
+    "type": "code",
+    "expected": [
+      "Decimal",
+      "latest revision",
+      "conflict detection",
+      "paid USD only",
+      "no I/O or execution claim"
+    ],
+    "evaluation": "human_review",
+    "baseline_route": "large",
+    "optimized_route_before_fallback": "large"
+  }
+]

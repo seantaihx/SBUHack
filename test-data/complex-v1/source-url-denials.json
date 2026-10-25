@@ -1,0 +1,26 @@
+[
+  {
+    "url": "http://127.0.0.1/private",
+    "expected_code": "SOURCE_DESTINATION_BLOCKED"
+  },
+  {
+    "url": "http://[::1]/private",
+    "expected_code": "SOURCE_DESTINATION_BLOCKED"
+  },
+  {
+    "url": "http://10.0.0.1/internal",
+    "expected_code": "SOURCE_DESTINATION_BLOCKED"
+  },
+  {
+    "url": "http://169.254.169.254/latest/meta-data/",
+    "expected_code": "SOURCE_DESTINATION_BLOCKED"
+  },
+  {
+    "url": "file:///etc/passwd",
+    "expected_code": "SOURCE_URL_INVALID"
+  },
+  {
+    "url": "https://example.org:444/report",
+    "expected_code": "SOURCE_URL_INVALID"
+  }
+]
